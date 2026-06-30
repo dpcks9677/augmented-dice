@@ -1,0 +1,4 @@
+{
+  "name": "augmented-dice-server",
+  "main": "src/server.js"
+}

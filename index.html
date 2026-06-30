@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>증강 다이스 (Augmented Dice)</title>
+    <!-- 폰트 프리커넥트 및 로드 (병목 해소용) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <!-- App Shell: 16:9 컨테이너 -->
+    <main id="app-container">
+      
+      <!-- 플레이어블 섹션 (좌측 60%) -->
+      <section id="playable-section">
+        <div class="controls-area">
+          <span id="game-status">상대 대기 중...</span>
+          <span id="rolls-left">남은 굴림: 3</span>
+        </div>
+        
+        <!-- 버건디 패브릭 질감 보드. 3D 주사위 렌더링 컨테이너 -->
+        <div id="dice-board-area" class="board-area">
+          <div class="keep-zone-mat"></div>
+          <!-- 3D 캔버스가 이 안에 삽입됨 -->
+        </div>
+        
+        <button id="btn-roll" class="neo-btn" disabled>굴리기 (Roll)</button>
+      </section>
+
+      <!-- 족보(점수판) 섹션 (우측 40%) -->
+      <section id="scorecard-section">
+        <table id="score-table" class="neo-table">
+          <thead>
+            <tr>
+              <th class="col-cat">Categories</th>
+              <th id="p1-name" class="col-player">P1</th>
+              <th id="p2-name" class="col-player">P2</th>
+              <th class="col-cat">Categories</th>
+            </tr>
+          </thead>
+          <tbody id="score-tbody">
+            <!-- 자바스크립트에서 렌더링 -->
+          </tbody>
+        </table>
+      </section>
+      
+    </main>
+
+    <!-- 로비 / 매치메이킹 오버레이 -->
+    <div id="lobby-overlay" class="overlay">
+      <div class="lobby-card neo-card">
+        <h1>증강 다이스</h1>
+        <div id="user-info">
+          접속 닉네임: <strong id="my-nickname"></strong>
+        </div>
+        
+        <div id="lobby-actions">
+          <button id="btn-hotseat" class="neo-btn">로컬 핫시트 (2P)</button>
+          <button id="btn-singleplayer" class="neo-btn" disabled>싱글플레이 (AI)</button>
+          <button id="btn-multiplayer" class="neo-btn">멀티플레이</button>
+        </div>
+
+        <!-- 멀티플레이 방 선택 UI (초기 숨김) -->
+        <div id="multiplayer-actions" class="hidden">
+          <button id="btn-create-room" class="neo-btn">방 만들기 (Create)</button>
+          <div class="join-room-box">
+            <input type="text" id="input-room-code" class="neo-input" placeholder="코드 (4자리)" maxlength="4" />
+            <button id="btn-join-room" class="neo-btn">입장 (Join)</button>
+          </div>
+          <button id="btn-back-to-lobby" class="neo-btn sm">뒤로</button>
+        </div>
+        
+        <!-- 대기실 UI (초기 숨김) -->
+        <div id="waiting-room" class="hidden">
+          <h2>방 코드: <span id="current-room-code"></span></h2>
+          <div class="players-list">
+            <div id="slot-p1" class="player-slot">P1: <span class="name">대기 중...</span> <span class="status"></span></div>
+            <div id="slot-p2" class="player-slot">P2: <span class="name">비어있음</span> <span class="status"></span></div>
+          </div>
+          <div class="room-controls">
+            <button id="btn-ready" class="neo-btn">준비 (Ready)</button>
+            <button id="btn-start" class="neo-btn" disabled>시작 (Start)</button>
+          </div>
+          <div id="countdown" class="countdown-text hidden">3</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 게임 종료 모달 -->
+    <div id="endgame-modal" class="overlay hidden">
+      <div class="lobby-card neo-card" style="text-align: center;">
+        <h1 id="endgame-title">게임 종료!</h1>
+        <div class="score-summary" style="margin: 20px 0; font-size: 1.4rem; line-height: 1.8;">
+          <p>P1 점수: <strong id="endgame-p1-score">0</strong></p>
+          <p>P2 점수: <strong id="endgame-p2-score">0</strong></p>
+        </div>
+        <h2 id="endgame-winner" style="color: #f1c40f; margin-bottom: 30px; font-size: 2rem;">P1 승리!</h2>
+        <button id="btn-return-lobby" class="neo-btn">로비로 돌아가기</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
