@@ -1,13 +1,16 @@
 /* src/style.css */
 
 :root {
-  --bg-color: #f0f0f0;
-  --text-color: #111;
-  --border-color: #111;
-  --board-color: #6a1a2f; /* Burgundy */
-  --board-border: #4a1020;
-  --accent-color: #fff;
-  --border-width: 4px;
+  --bg-color: #f5f5f5; /* very light gray */
+  --text-color: #111111; /* dark almost black */
+  --border-color: #e5e5e5; /* light gray border */
+  --accent-color: #ffffff; /* pure white for cards */
+  --primary-color: #1a1a1a; /* almost black for buttons */
+  --border-width: 1px;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --radius: 12px;
 }
 
 * {
@@ -17,7 +20,7 @@
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Exo 2', sans-serif;
   background-color: var(--bg-color);
   color: var(--text-color);
   display: flex;
@@ -27,139 +30,215 @@ body {
   overflow: hidden;
 }
 
-/* 16:9 컨테이너 */
+/* 18:9 와이드 컨테이너 */
 #app-container {
-  width: 95vw;
-  height: calc(95vw * (9/16));
+  width: 98vw;
+  height: calc(98vw * (9/18));
   max-height: 95vh;
-  max-width: calc(95vh * (16/9));
+  max-width: calc(95vh * (18/9));
   background-color: var(--accent-color);
   border: var(--border-width) solid var(--border-color);
-  box-shadow: 12px 12px 0px var(--border-color);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius);
   display: flex;
   position: relative;
   overflow: hidden;
 }
 
-/* 좌측 60% 플레이어블 섹션 */
-#playable-section {
-  width: 60%;
+/* 좌측 증강 섹션 (가변 폭) */
+#augment-section {
+  flex: 1;
   border-right: var(--border-width) solid var(--border-color);
   display: flex;
   flex-direction: column;
-  padding: 20px;
-  background-image: radial-gradient(#e0e0e0 1px, transparent 0);
-  background-size: 20px 20px;
+  padding: 24px;
+  background-color: var(--accent-color);
+}
+
+#augment-section h2 {
+  font-size: 1.4rem;
+  margin-bottom: 20px;
+  text-align: center;
+  color: var(--text-color);
+}
+
+.augment-placeholder {
+  color: #888;
+  font-style: italic;
+  text-align: center;
+  margin-top: 20px;
+}
+
+/* 중앙 플레이어블 섹션 (컨텐츠 크기에 맞춤) */
+#playable-section {
+  flex: 0 0 auto; /* 내용물 너비만큼 차지 */
+  border-right: var(--border-width) solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  background-color: #fafafa;
 }
 
 .controls-area {
   display: flex;
   justify-content: space-between;
-  font-weight: bold;
-  font-size: 1.2rem;
+  align-items: center;
+  font-weight: 600;
+  font-size: 1.1rem;
   margin-bottom: 20px;
   background: var(--accent-color);
   border: var(--border-width) solid var(--border-color);
-  padding: 10px 20px;
-  box-shadow: 4px 4px 0px var(--border-color);
+  border-radius: 8px;
+  padding: 12px 20px;
+  box-shadow: var(--shadow-sm);
 }
 
-
-/* 버건디 보드 */
-.board-area {
+/* 주사위 컨테이너 (킵 존 + 버건디 보드) */
+.dice-container {
   flex-grow: 1;
-  background-color: var(--board-color);
-  border: var(--border-width) solid var(--board-border);
-  box-shadow: inset 0 0 50px rgba(0,0,0,0.5), 6px 6px 0px var(--border-color);
-  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
   position: relative;
   margin-bottom: 20px;
-  /* 패브릭 질감 효과 (임시) */
+  align-items: center; /* 가로 중앙 정렬 */
+}
+
+/* 카지노 테이블 프레임 (외곽 84px 두께) */
+.table-frame {
+  width: 100%;
+  height: 100%;
+  background-color: #1a1a1a;
+  border: 4px solid #000;
+  border-radius: 12px;
+  box-shadow: inset 0 10px 30px rgba(0,0,0,0.9);
+  background-image: 
+    linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.03) 75%, rgba(255,255,255,0.03)), 
+    linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.03) 75%, rgba(255,255,255,0.03));
+  background-size: 10px 10px;
+  background-position: 0 0, 5px 5px;
+  z-index: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+/* 버건디 매트 (중앙, 정사각형 유지) */
+.burgundy-mat {
+  flex-grow: 1; 
+  aspect-ratio: 1 / 1; 
+  background-color: #6a1a2f; /* Burgundy */
+  border: 4px solid #4a1020;
+  border-radius: 8px; /* 안쪽 모서리 */
+  box-shadow: inset 0 40px 120px rgba(0,0,0,0.95);
   background-image: 
     linear-gradient(45deg, rgba(255,255,255,0.05) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.05) 75%, rgba(255,255,255,0.05)), 
     linear-gradient(45deg, rgba(255,255,255,0.05) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.05) 75%, rgba(255,255,255,0.05));
   background-size: 10px 10px;
-  background-size: 10px 10px;
   background-position: 0 0, 5px 5px;
-  overflow: hidden;
+  z-index: 0;
 }
 
-
+/* 3D 캔버스는 전체 컨테이너를 덮음 */
 #dice-board-area canvas {
-  width: calc(100% - 40px) !important;
-  height: calc(100% - 40px) !important;
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  z-index: 1;
-}
-
-/* 킵 존 매트 (우측 25% 블랙 패브릭) */
-.keep-zone-mat {
+  width: 100% !important;
+  height: 100% !important;
   position: absolute;
   top: 0;
-  right: 0;
-  bottom: 0;
-  width: 25%;
-  background-color: #1a1a1a;
-  border-left: 6px solid #000;
-  box-shadow: inset 10px 0 30px rgba(0,0,0,0.9);
-  /* 고급 블랙 패브릭(펠트) 질감 처리 */
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.3'/%3E%3C/svg%3E");
-  z-index: 0;
-  pointer-events: none;
+  left: 0;
+  z-index: 1;
+  pointer-events: none; /* 클릭 이벤트 통과 (필요 시 수정) */
 }
 
-/* 우측 40% 족보 섹션 */
+/* 우측 35% 족보 섹션 */
 #scorecard-section {
-  width: 40%;
-  padding: 20px;
+  width: 35%;
+  padding: 24px;
   overflow-y: auto;
   background-color: var(--accent-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .neo-table {
-  width: 100%;
+  width: 90%;
+  margin-top: auto;
+  margin-bottom: auto;
   border-collapse: collapse;
-  border: var(--border-width) solid var(--border-color);
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
 
 .neo-table th, .neo-table td {
-  border: 2px solid var(--border-color);
-  padding: 8px 4px;
+  border-bottom: var(--border-width) solid var(--border-color);
+  padding: 12px 8px;
   text-align: center;
-  font-weight: bold;
 }
 
 .neo-table th {
-  background-color: #ddd;
+  font-weight: 600;
+  color: #333333;
+  background-color: #f9f9f9;
+}
+
+/* 플레이어 1, 2 분리선 */
+.neo-table th:nth-child(2),
+.neo-table td:nth-child(2) {
+  border-right: 2px solid #cccccc;
 }
 
 .col-cat {
   width: 30%;
-  background-color: #eee;
   text-align: left !important;
-  padding-left: 8px !important;
+  padding-left: 12px !important;
+  font-weight: 500;
+  color: #333333;
+}
+
+.highlight-dark,
+.highlight-dark th,
+.highlight-dark td {
+  background-color: #333333 !important;
+  color: #ffffff !important;
 }
 
 .col-player {
   width: 20%;
+  text-align: center;
+}
+
+.profile-pic {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto;
+  background-color: #f0f0f0;
+  border: 2px solid #000;
+  border-radius: 12px;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
 .score-cell {
-  cursor: pointer;
-  transition: background-color 0.2s;
+  cursor: default;
+  transition: all 0.2s ease;
+  border-radius: 4px;
 }
-.score-cell:hover {
-  background-color: #ffff99;
+.score-cell.suggested {
+  cursor: pointer;
+}
+.score-cell.suggested:hover {
+  background-color: #f0f0f0;
 }
 .score-cell.filled {
   cursor: default;
-  background-color: #ddd;
+  font-weight: bold;
+  color: var(--primary-color);
 }
 .score-cell.suggested {
-  color: #aaa;
+  color: #999999;
   font-style: italic;
 }
 
@@ -175,22 +254,26 @@ body {
   width: 50px;
   height: 50px;
   background-color: white;
-  border: 3px solid var(--border-color);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   display: flex;
   justify-content: center;
   align-items: center;
   font-size: 1.5rem;
-  font-weight: 900;
+  font-weight: 700;
+  color: var(--text-color);
   cursor: pointer;
-  box-shadow: 2px 2px 0px var(--border-color);
-  transition: transform 0.1s;
+  box-shadow: var(--shadow-md);
+  transition: all 0.2s ease;
 }
 .die-icon:hover {
   transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 .die-icon.kept {
-  background-color: #ffd700;
+  border-color: #333333;
+  background-color: #f0f0f0;
+  color: #111111;
 }
 
 /* 플레이어 턴 강조 */
@@ -199,39 +282,41 @@ body {
   transition: background-color 0.3s;
 }
 .col-player.active-turn {
-  background-color: #ffcccc;
-  box-shadow: inset 0 0 10px rgba(255,0,0,0.2);
+  background-color: #f5f5f5;
+  color: #111111;
+  border-radius: 6px;
 }
 
-/* 공통 네오 브루탈리즘 버튼 */
+/* 플랫 디자인 버튼 (흑백) */
 .neo-btn {
-  background-color: var(--accent-color);
-  border: var(--border-width) solid var(--border-color);
-  padding: 10px 20px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
   font-family: inherit;
-  font-weight: 900;
-  font-size: 1.1rem;
+  font-weight: 600;
+  font-size: 1rem;
   cursor: pointer;
-  box-shadow: 4px 4px 0px var(--border-color);
-  transition: all 0.1s ease;
-  text-transform: uppercase;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
 }
 .neo-btn:hover:not(:disabled) {
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0px var(--border-color);
+  background-color: #333333;
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 .neo-btn:active:not(:disabled) {
-  transform: translate(2px, 2px);
-  box-shadow: 2px 2px 0px var(--border-color);
+  transform: translateY(0);
 }
 .neo-btn:disabled {
-  background-color: #ccc;
+  background-color: #e0e0e0;
+  color: #999999;
   cursor: not-allowed;
   box-shadow: none;
-  transform: translate(4px, 4px);
 }
 .neo-btn.sm {
-  padding: 5px 10px;
+  padding: 8px 16px;
   font-size: 0.9rem;
 }
 
@@ -239,7 +324,7 @@ body {
 .overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background-color: rgba(0,0,0,0.8);
+  background-color: rgba(0, 0, 0, 0.8);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -252,24 +337,28 @@ body {
 .neo-card {
   background-color: var(--accent-color);
   border: var(--border-width) solid var(--border-color);
-  box-shadow: 12px 12px 0px var(--border-color);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
   padding: 40px;
   text-align: center;
-  min-width: 400px;
+  min-width: 420px;
 }
 
 .neo-card h1 {
-  font-size: 2.5rem;
-  margin-bottom: 20px;
-  text-transform: uppercase;
+  font-size: 2.2rem;
+  margin-bottom: 24px;
+  font-weight: 700;
+  color: var(--text-color);
 }
 
 #user-info {
   margin-bottom: 30px;
-  font-size: 1.2rem;
-  background: #eee;
-  padding: 10px;
-  border: 2px solid var(--border-color);
+  font-size: 1.1rem;
+  background: #f9f9f9;
+  padding: 12px;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: 8px;
+  color: #333333;
 }
 
 #lobby-actions, #multiplayer-actions, #waiting-room {
@@ -284,16 +373,18 @@ body {
 
 .neo-input {
   border: var(--border-width) solid var(--border-color);
-  padding: 10px;
-  font-size: 1.2rem;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 1.1rem;
   font-family: inherit;
-  font-weight: bold;
   text-align: center;
-  width: 150px;
+  width: 160px;
   outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .neo-input:focus {
-  background-color: #ffff99;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
 }
 
 .join-room-box {
@@ -303,16 +394,18 @@ body {
 }
 
 .player-slot {
-  font-size: 1.2rem;
-  font-weight: bold;
-  border: 2px solid var(--border-color);
-  padding: 10px;
-  margin-bottom: 10px;
+  font-size: 1.1rem;
+  font-weight: 500;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
   text-align: left;
   display: flex;
   justify-content: space-between;
+  background-color: #f9f9f9;
 }
-.status.ready { color: green; }
+.status.ready { color: #333333; font-weight: 700; }
 
 .room-controls {
   display: flex;
@@ -323,8 +416,74 @@ body {
 
 .countdown-text {
   font-size: 4rem;
-  font-weight: 900;
-  color: #ff0000;
-  margin-top: 20px;
-  text-shadow: 4px 4px 0px var(--border-color);
+  font-weight: 700;
+  color: var(--primary-color);
+  margin-top: 24px;
+}
+
+#btn-roll {
+  margin-bottom: 24px;
+}
+
+.border-none {
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: var(--border-width) solid var(--border-color) !important;
+  background-color: transparent !important;
+}
+
+/* 디버그 컨테이너 */
+.debug-panel {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  background-color: var(--accent-color);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  z-index: 9999;
+  width: 250px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  opacity: 0.8;
+}
+
+.debug-panel:hover {
+  opacity: 1;
+}
+
+.debug-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: var(--primary-color);
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.debug-header button {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: transform 0.2s;
+}
+
+.debug-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+}
+
+.debug-content.collapsed {
+  max-height: 0;
+  padding: 0 12px;
 }

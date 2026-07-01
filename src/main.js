@@ -31,6 +31,8 @@ const els = {
   gameStatus: document.getElementById('game-status'),
   p1Name: document.getElementById('p1-name'),
   p2Name: document.getElementById('p2-name'),
+  p1Profile: document.getElementById('p1-profile'),
+  p2Profile: document.getElementById('p2-profile'),
   
   endgameModal: document.getElementById('endgame-modal'),
   endgameP1Score: document.getElementById('endgame-p1-score'),
@@ -134,8 +136,8 @@ els.btnHotseat.addEventListener('click', () => {
   try {
     gameMode = 'hotseat';
     els.lobbyOverlay.classList.add('hidden');
-    els.p1Name.textContent = "Player 1";
-    els.p2Name.textContent = "Player 2";
+    els.p1Name.querySelector('.name-text').textContent = "Player 1";
+    els.p2Name.querySelector('.name-text').textContent = "Player 2";
     
     startHotseatGame();
   } catch (err) {
@@ -148,7 +150,7 @@ function startHotseatGame() {
   currentPlayer = 1;
   currentRound = 1;
   scores = { 1: {}, 2: {} };
-  renderScoreboard();
+  updateScoreboard();
   startTurn();
 }
 
@@ -162,6 +164,8 @@ function startTurn() {
   els.gameStatus.textContent = `P${currentPlayer}의 턴 (라운드 ${currentRound}/12)`;
   els.p1Name.classList.toggle('active-turn', currentPlayer === 1);
   els.p2Name.classList.toggle('active-turn', currentPlayer === 2);
+  els.p1Profile.classList.toggle('active-turn', currentPlayer === 1);
+  els.p2Profile.classList.toggle('active-turn', currentPlayer === 2);
   
   if (diceBoxReady) els.btnRoll.disabled = false;
 }
@@ -183,19 +187,24 @@ els.btnRoll.addEventListener('click', async () => {
   const diceToRoll = 5 - keptDice.length;
   
   // Custom Dice Engine Roll
+  diceEngine.cleanUpDeadDice(); // 이전 턴에서 폭발한 주사위 완벽 제거
   const results = await diceEngine.roll(diceToRoll);
   
   // Arrange them after a short delay
   setTimeout(() => {
-    diceEngine.arrangeDice();
+    // 리롤 시 모든 주사위를 버건디 매트(중앙)에 함께 정렬하기 위해 킵 상태 초기화
+    diceEngine.diceArray.forEach(die => die.isKept = false);
+    
+    // 로컬 상태 동기화
+    keptDice = [];
+    activeDice = diceEngine.diceArray.map(d => d.value).sort((a, b) => a - b);
+    
+    diceEngine.arrangeAll(true);
+    
+    previewScores(activeDice);
+    
     els.btnRoll.disabled = rollsLeft <= 0;
-    
-    // update activeDice array
-    activeDice = diceEngine.diceArray.filter(d => !d.isKept).map(d => d.value);
-    
-    const allDice = [...keptDice, ...activeDice];
-    previewScores(allDice);
-  }, 500);
+  }, 100); // 틱틱거림 방지를 위해 딜레이 대폭 축소
 });
 
 // 점수 미리보기
@@ -255,10 +264,14 @@ function lockScore(catId, score) {
   cell.classList.add('filled');
   cell.onclick = null; // 클릭 해제
   
-  diceEngine.clearAll(); // 남은 주사위 및 킵된 주사위 모두 3D 씬에서 제거
+  // 특수 족보 완성 확인 (Choice 포함)
+  const specialCats = ['choice', '4oak', 'fullhouse', 's-straight', 'l-straight', 'yacht'];
+  const isSpecial = specialCats.includes(catId) && score > 0;
+  
+  diceEngine.playClearAnimation(isSpecial); // 애니메이션 실행
   
   clearScorePreviews();
-  renderScoreboard();
+  updateScoreboard();
   
   // 턴 전환 로직
   if (currentPlayer === 1) {
@@ -313,7 +326,7 @@ els.btnReturnLobby.addEventListener('click', () => {
   els.btnSingleplayer.classList.remove('hidden');
   els.btnMultiplayer.classList.remove('hidden');
   
-  renderScoreboard();
+  updateScoreboard();
 });
 
 
@@ -336,33 +349,23 @@ const categories = [
   { id: 'yacht', name: 'Yacht' }
 ];
 
-function renderScoreboard() {
+function initScoreboard() {
   els.scoreTbody.innerHTML = '';
   categories.forEach(cat => {
     const tr = document.createElement('tr');
     if (cat.isDivider && cat.id === 'bonus') {
-      const p1Upper = getUpperSum(1);
-      const p2Upper = getUpperSum(2);
-      
-      const p1BonusText = p1Upper >= 63 ? `35 (${p1Upper}/63)` : `(${p1Upper}/63)`;
-      const p2BonusText = p2Upper >= 63 ? `35 (${p2Upper}/63)` : `(${p2Upper}/63)`;
-      
       tr.innerHTML = `
         <th class="col-cat">${cat.name}</th>
-        <td id="p1-${cat.id}" style="font-weight: bold; color: ${p1Upper >= 63 ? '#27ae60' : '#888'};">${p1BonusText}</td>
-        <td id="p2-${cat.id}" style="font-weight: bold; color: ${p2Upper >= 63 ? '#27ae60' : '#888'};">${p2BonusText}</td>
+        <td id="p1-${cat.id}" style="font-weight: bold; color: #888;">(0/63)</td>
+        <td id="p2-${cat.id}" style="font-weight: bold; color: #888;">(0/63)</td>
         <th class="col-cat">${cat.name}</th>
       `;
       tr.style.backgroundColor = '#ddd';
     } else {
-      const p1Score = scores[1][cat.id] !== undefined ? scores[1][cat.id] : '';
-      const p2Score = scores[2][cat.id] !== undefined ? scores[2][cat.id] : '';
-      const p1Class = scores[1][cat.id] !== undefined ? 'score-cell filled' : 'score-cell';
-      const p2Class = scores[2][cat.id] !== undefined ? 'score-cell filled' : 'score-cell';
       tr.innerHTML = `
         <th class="col-cat">${cat.name}</th>
-        <td class="${p1Class}" id="p1-${cat.id}">${p1Score}</td>
-        <td class="${p2Class}" id="p2-${cat.id}">${p2Score}</td>
+        <td class="score-cell" id="p1-${cat.id}"></td>
+        <td class="score-cell" id="p2-${cat.id}"></td>
         <th class="col-cat">${cat.name}</th>
       `;
     }
@@ -372,21 +375,64 @@ function renderScoreboard() {
   // -----------------------------------------------------
   // 총합(Total) 렌더링
   // -----------------------------------------------------
-  const p1Total = Object.values(scores[1]).reduce((sum, val) => sum + val, 0);
-  const p2Total = Object.values(scores[2]).reduce((sum, val) => sum + val, 0);
-  
   const totalTr = document.createElement('tr');
   totalTr.style.borderTop = '2px solid #222';
-  totalTr.style.backgroundColor = '#f1c40f'; // 하이라이트 색상 (노란색 톤)
+  totalTr.style.borderBottom = '2px solid #222';
   totalTr.innerHTML = `
-    <th class="col-cat" style="font-weight: bold; font-size: 1.1em; padding: 12px 0;">TOTAL</th>
-    <td class="score-cell filled" style="font-weight: bold; font-size: 1.1em; color: #222;">${p1Total}</td>
-    <td class="score-cell filled" style="font-weight: bold; font-size: 1.1em; color: #222;">${p2Total}</td>
-    <th class="col-cat" style="font-weight: bold; font-size: 1.1em; padding: 12px 0;">TOTAL</th>
+    <th class="col-cat highlight-dark" style="font-weight: bold; font-size: 1.1em; padding: 12px 0;">TOTAL</th>
+    <td id="p1-total" class="score-cell filled" style="font-weight: bold; font-size: 1.1em; color: #222; background-color: #ffffff; border-radius: 0;">0</td>
+    <td id="p2-total" class="score-cell filled" style="font-weight: bold; font-size: 1.1em; color: #222; background-color: #ffffff; border-radius: 0;">0</td>
+    <th class="col-cat highlight-dark" style="font-weight: bold; font-size: 1.1em; padding: 12px 0;">TOTAL</th>
   `;
   els.scoreTbody.appendChild(totalTr);
 }
-renderScoreboard();
+
+function updateScoreboard() {
+  categories.forEach(cat => {
+    if (cat.isDivider && cat.id === 'bonus') {
+      const p1Upper = getUpperSum(1);
+      const p2Upper = getUpperSum(2);
+      
+      const p1BonusText = p1Upper >= 63 ? `35 (${p1Upper}/63)` : `(${p1Upper}/63)`;
+      const p2BonusText = p2Upper >= 63 ? `35 (${p2Upper}/63)` : `(${p2Upper}/63)`;
+      
+      const cell1 = document.getElementById(`p1-${cat.id}`);
+      const cell2 = document.getElementById(`p2-${cat.id}`);
+      
+      if (cell1) {
+        cell1.textContent = p1BonusText;
+        cell1.style.color = p1Upper >= 63 ? '#27ae60' : '#888';
+      }
+      if (cell2) {
+        cell2.textContent = p2BonusText;
+        cell2.style.color = p2Upper >= 63 ? '#27ae60' : '#888';
+      }
+    } else {
+      [1, 2].forEach(p => {
+        const cell = document.getElementById(`p${p}-${cat.id}`);
+        if (cell) {
+          if (scores[p][cat.id] !== undefined) {
+            cell.textContent = scores[p][cat.id];
+            cell.className = 'score-cell filled';
+          } else if (!cell.classList.contains('suggested')) {
+            cell.textContent = '';
+            cell.className = 'score-cell';
+          }
+        }
+      });
+    }
+  });
+  
+  const p1Total = Object.values(scores[1]).reduce((sum, val) => sum + val, 0);
+  const p2Total = Object.values(scores[2]).reduce((sum, val) => sum + val, 0);
+  const p1TotalEl = document.getElementById('p1-total');
+  const p2TotalEl = document.getElementById('p2-total');
+  if (p1TotalEl) p1TotalEl.textContent = p1Total;
+  if (p2TotalEl) p2TotalEl.textContent = p2Total;
+}
+
+initScoreboard();
+updateScoreboard();
 
 // 3D 주사위 엔진 초기화
 let diceEngine;
@@ -405,9 +451,32 @@ setTimeout(() => {
   
   diceBoxReady = true;
   
+  // --- 디버그 모드 자동 시작 ---
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    console.log("Debug mode: Auto-starting hotseat game");
+    gameMode = 'hotseat';
+    els.lobbyOverlay.classList.add('hidden');
+    els.p1Name.querySelector('.name-text').textContent = "Player 1";
+    els.p2Name.querySelector('.name-text').textContent = "Player 2";
+    startHotseatGame();
+  }
+  
   if (gameMode !== 'none') {
     updateRollsUI();
   } else {
     els.btnRoll.disabled = false;
   }
 }, 100);
+
+// -----------------------------------------------------
+// 5. 디버그 도구
+// -----------------------------------------------------
+const btnDebugToggle = document.getElementById('btn-debug-toggle');
+const debugContent = document.getElementById('debug-content');
+
+if (btnDebugToggle && debugContent) {
+  btnDebugToggle.addEventListener('click', () => {
+    const isCollapsed = debugContent.classList.toggle('collapsed');
+    btnDebugToggle.textContent = isCollapsed ? '▲' : '▼';
+  });
+}

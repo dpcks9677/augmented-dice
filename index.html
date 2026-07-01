@@ -7,24 +7,35 @@
     <!-- 폰트 프리커넥트 및 로드 (병목 해소용) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <!-- App Shell: 16:9 컨테이너 -->
     <main id="app-container">
       
-      <!-- 플레이어블 섹션 (좌측 60%) -->
+      <!-- 증강 (Augment) 섹션 (좌측 20%) -->
+      <section id="augment-section">
+        <h2>Augments</h2>
+        <div id="augment-list">
+          <!-- 증강 카드들이 렌더링될 자리 -->
+          <div class="augment-placeholder">No active augments.</div>
+        </div>
+      </section>
+
+      <!-- 플레이어블 섹션 (중앙 45%) -->
       <section id="playable-section">
         <div class="controls-area">
           <span id="game-status">상대 대기 중...</span>
           <span id="rolls-left">남은 굴림: 3</span>
         </div>
         
-        <!-- 버건디 패브릭 질감 보드. 3D 주사위 렌더링 컨테이너 -->
-        <div id="dice-board-area" class="board-area">
-          <div class="keep-zone-mat"></div>
-          <!-- 3D 캔버스가 이 안에 삽입됨 -->
+        <!-- 주사위 게임 영역 (킵 존 + 버건디 매트) -->
+        <div id="dice-board-area" class="dice-container">
+          <div class="table-frame">
+            <div class="burgundy-mat"></div>
+          </div>
+          <!-- 3D 캔버스가 이 안에 삽입됨 (절대 위치로 전체 덮음) -->
         </div>
         
         <button id="btn-roll" class="neo-btn" disabled>굴리기 (Roll)</button>
@@ -32,15 +43,31 @@
 
       <!-- 족보(점수판) 섹션 (우측 40%) -->
       <section id="scorecard-section">
-        <table id="score-table" class="neo-table">
-          <thead>
-            <tr>
-              <th class="col-cat">Categories</th>
-              <th id="p1-name" class="col-player">P1</th>
-              <th id="p2-name" class="col-player">P2</th>
-              <th class="col-cat">Categories</th>
-            </tr>
-          </thead>
+          <table id="score-table" class="neo-table">
+            <thead>
+              <!-- Row 1: Profile Pictures -->
+              <tr>
+                <th class="col-cat border-none"></th>
+                <th id="p1-profile" class="col-player profile-row">
+                  <div class="profile-pic"></div>
+                </th>
+                <th id="p2-profile" class="col-player profile-row">
+                  <div class="profile-pic"></div>
+                </th>
+                <th class="col-cat border-none"></th>
+              </tr>
+              <!-- Row 2: Categories and Names -->
+              <tr>
+                <th class="col-cat highlight-dark">Categories</th>
+                <th id="p1-name" class="col-player">
+                  <div class="name-text">P1</div>
+                </th>
+                <th id="p2-name" class="col-player">
+                  <div class="name-text">P2</div>
+                </th>
+                <th class="col-cat highlight-dark">Categories</th>
+              </tr>
+            </thead>
           <tbody id="score-tbody">
             <!-- 자바스크립트에서 렌더링 -->
           </tbody>
@@ -100,6 +127,18 @@
         </div>
         <h2 id="endgame-winner" style="color: #f1c40f; margin-bottom: 30px; font-size: 2rem;">P1 승리!</h2>
         <button id="btn-return-lobby" class="neo-btn">로비로 돌아가기</button>
+      </div>
+    </div>
+
+    <!-- 디버그 컨테이너 -->
+    <div id="debug-container" class="debug-panel">
+      <div class="debug-header">
+        <span>Debug Tools</span>
+        <button id="btn-debug-toggle">▼</button>
+      </div>
+      <div id="debug-content" class="debug-content">
+        <!-- 디버그용 버튼들이 여기에 들어갈 예정 -->
+        <p style="font-size: 0.8rem; color: #888; text-align: center;">디버그 버튼 추가 예정</p>
       </div>
     </div>
 
