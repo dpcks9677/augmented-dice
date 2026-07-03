@@ -1,5 +1,5 @@
 import PartySocket from "partysocket";
-import { calculateScores } from "./scoreEngine.js";
+import { calculateScores, mutationDefinitions } from "./scoreEngine.js";
 import { DiceEngine } from "./DiceEngine.js";
 
 // DOM 요소 캐싱
@@ -70,6 +70,10 @@ let scores = {
   1: {}, // p1 scores
   2: {}  // p2 scores
 };
+let activeMutations = { 1: {}, 2: {} };
+let upperBonusThreshold = { 1: 63, 2: 63 };
+let playerYachtBank = { 1: 0, 2: 0 };
+let yachtBankLocked = { 1: false, 2: false };
 
 // 2. 메인 로비 흐름 제어
 els.btnMultiplayer.addEventListener('click', () => {
@@ -150,6 +154,10 @@ function startHotseatGame() {
   currentPlayer = 1;
   currentRound = 1;
   scores = { 1: {}, 2: {} };
+  activeMutations = { 1: {}, 2: {} };
+  upperBonusThreshold = { 1: 63, 2: 63 };
+  playerYachtBank = { 1: 0, 2: 0 };
+  yachtBankLocked = { 1: false, 2: false };
   updateScoreboard();
   startTurn();
 }
@@ -210,7 +218,7 @@ els.btnRoll.addEventListener('click', async () => {
 // 점수 미리보기
 function previewScores(diceArray) {
   if (diceArray.length !== 5) return;
-  const potentialScores = calculateScores(diceArray);
+  const potentialScores = calculateScores(diceArray, activeMutations[currentPlayer], { bank: playerYachtBank[currentPlayer] });
   
   categories.forEach(cat => {
     if (cat.isDivider) return;
@@ -220,7 +228,14 @@ function previewScores(diceArray) {
     // 이미 확정된 점수면 건너뜀
     if (scores[currentPlayer][cat.id] !== undefined) return;
     
-    cell.textContent = potentialScores[cat.id];
+    // 요트 뱅크: 미리보기 시에도 뱅크 이자 값을 함께 표시 (예: 0 (+4))
+    let scoreText = potentialScores[cat.id];
+    if (cat.id === 'yacht' && activeMutations[currentPlayer]['yacht'] === 'yacht-bank') {
+      scoreText = `${scoreText} (+${playerYachtBank[currentPlayer]})`;
+    }
+    
+    cell.textContent = scoreText;
+    cell.style.color = ''; // 인라인 색상 초기화 (suggested 클래스 적용을 위해)
     cell.classList.add('suggested');
     
     // 클릭 시 확정
@@ -234,17 +249,25 @@ function clearScorePreviews() {
     [1, 2].forEach(p => {
       const cell = document.getElementById(`p${p}-${cat.id}`);
       if (scores[p][cat.id] === undefined) {
-        cell.textContent = '';
+        cell.style.color = ''; // 인라인 색상 초기화
         cell.classList.remove('suggested');
         cell.onclick = null; // 이벤트 제거
       }
     });
   });
+  updateScoreboard(); // 여기서 빈 족보와 요트 뱅크 표시를 올바르게 다시 렌더링
 }
 
 function getUpperSum(player) {
   const upperCats = ['aces', 'deuces', 'threes', 'fours', 'fives', 'sixes'];
-  return upperCats.reduce((sum, catId) => sum + (scores[player][catId] || 0), 0);
+  return upperCats.reduce((sum, catId) => {
+    let score = scores[player][catId] || 0;
+    const mutId = activeMutations[player][catId];
+    if (mutId && mutationDefinitions[mutId].excludeFromUpper) {
+      score = 0; // 상단 보너스 합산 제외
+    }
+    return sum + score;
+  }, 0);
 }
 
 function lockScore(catId, score) {
@@ -252,9 +275,19 @@ function lockScore(catId, score) {
   
   scores[currentPlayer][catId] = score;
   
+  // 요트 뱅크 로직 처리 (자신이 0점 스크래치 치면 잠김)
+  if (catId === 'yacht' && activeMutations[currentPlayer]['yacht'] === 'yacht-bank' && score === 0) {
+    yachtBankLocked[currentPlayer] = true;
+  }
+  // 상대방이 요트 달성 시 잠김
+  if (catId === 'yacht' && score > 0) {
+    yachtBankLocked[1] = true;
+    yachtBankLocked[2] = true;
+  }
+  
   // 보너스(63점 이상 달성 시 35점 추가) 체크
   const upperSum = getUpperSum(currentPlayer);
-  if (upperSum >= 63) {
+  if (upperSum >= upperBonusThreshold[currentPlayer]) {
     scores[currentPlayer]['bonus'] = 35;
   }
   
@@ -269,6 +302,15 @@ function lockScore(catId, score) {
   const isSpecial = specialCats.includes(catId) && score > 0;
   
   diceEngine.playClearAnimation(isSpecial); // 애니메이션 실행
+  
+  // 라운드 종료(2P 턴 종료) 시 요트 뱅크 이자 적립
+  if (currentPlayer === 2) {
+    [1, 2].forEach(p => {
+      if (activeMutations[p]['yacht'] === 'yacht-bank' && !yachtBankLocked[p] && scores[p]['yacht'] === undefined) {
+        playerYachtBank[p] += 2;
+      }
+    });
+  }
   
   clearScorePreviews();
   updateScoreboard();
@@ -309,6 +351,10 @@ function endGame() {
 els.btnReturnLobby.addEventListener('click', () => {
   // 상태 초기화
   scores = { 1: {}, 2: {} };
+  activeMutations = { 1: {}, 2: {} };
+  upperBonusThreshold = { 1: 63, 2: 63 };
+  playerYachtBank = { 1: 0, 2: 0 };
+  yachtBankLocked = { 1: false, 2: false };
   currentRound = 1;
   currentPlayer = 1;
   gameMode = 'none';
@@ -334,19 +380,19 @@ els.btnReturnLobby.addEventListener('click', () => {
 // 4. 점수판 렌더링 & 주사위 초기화
 // -----------------------------------------------------
 const categories = [
-  { id: 'aces', name: 'Aces' },
-  { id: 'deuces', name: 'Deuces' },
-  { id: 'threes', name: 'Threes' },
-  { id: 'fours', name: 'Fours' },
-  { id: 'fives', name: 'Fives' },
-  { id: 'sixes', name: 'Sixes' },
-  { id: 'bonus', name: 'Bonus (+35)', isDivider: true },
-  { id: 'choice', name: 'Choice' },
-  { id: '4oak', name: '4 of a Kind' },
-  { id: 'fullhouse', name: 'Full House' },
-  { id: 's-straight', name: 'S. Straight' },
-  { id: 'l-straight', name: 'L. Straight' },
-  { id: 'yacht', name: 'Yacht' }
+  { id: 'aces', krName: '에이스', enName: 'Aces' },
+  { id: 'deuces', krName: '듀스', enName: 'Deuces' },
+  { id: 'threes', krName: '쓰리스', enName: 'Threes' },
+  { id: 'fours', krName: '포스', enName: 'Fours' },
+  { id: 'fives', krName: '파이브스', enName: 'Fives' },
+  { id: 'sixes', krName: '식스', enName: 'Sixes' },
+  { id: 'bonus', krName: '보너스 (+35)', enName: 'Bonus (+35)', isDivider: true },
+  { id: 'choice', krName: '초이스', enName: 'Choice' },
+  { id: '4oak', krName: '포카인드', enName: '4 of a Kind' },
+  { id: 'fullhouse', krName: '풀하우스', enName: 'Full House' },
+  { id: 's-straight', krName: '스몰 스트레이트', enName: 'S. Straight' },
+  { id: 'l-straight', krName: '라지 스트레이트', enName: 'L. Straight' },
+  { id: 'yacht', krName: '요트', enName: 'Yacht' }
 ];
 
 function initScoreboard() {
@@ -355,18 +401,18 @@ function initScoreboard() {
     const tr = document.createElement('tr');
     if (cat.isDivider && cat.id === 'bonus') {
       tr.innerHTML = `
-        <th class="col-cat">${cat.name}</th>
+        <th class="col-cat" id="cat-title-left-${cat.id}">${cat.enName}</th>
         <td id="p1-${cat.id}" style="font-weight: bold; color: #888;">(0/63)</td>
         <td id="p2-${cat.id}" style="font-weight: bold; color: #888;">(0/63)</td>
-        <th class="col-cat">${cat.name}</th>
+        <th class="col-cat" id="cat-title-right-${cat.id}">${cat.enName}</th>
       `;
       tr.style.backgroundColor = '#ddd';
     } else {
       tr.innerHTML = `
-        <th class="col-cat">${cat.name}</th>
+        <th class="col-cat" id="cat-title-left-${cat.id}">${cat.enName}</th>
         <td class="score-cell" id="p1-${cat.id}"></td>
         <td class="score-cell" id="p2-${cat.id}"></td>
-        <th class="col-cat">${cat.name}</th>
+        <th class="col-cat" id="cat-title-right-${cat.id}">${cat.enName}</th>
       `;
     }
     els.scoreTbody.appendChild(tr);
@@ -393,19 +439,19 @@ function updateScoreboard() {
       const p1Upper = getUpperSum(1);
       const p2Upper = getUpperSum(2);
       
-      const p1BonusText = p1Upper >= 63 ? `35 (${p1Upper}/63)` : `(${p1Upper}/63)`;
-      const p2BonusText = p2Upper >= 63 ? `35 (${p2Upper}/63)` : `(${p2Upper}/63)`;
+      const p1BonusText = p1Upper >= upperBonusThreshold[1] ? `35 (${p1Upper}/${upperBonusThreshold[1]})` : `(${p1Upper}/${upperBonusThreshold[1]})`;
+      const p2BonusText = p2Upper >= upperBonusThreshold[2] ? `35 (${p2Upper}/${upperBonusThreshold[2]})` : `(${p2Upper}/${upperBonusThreshold[2]})`;
       
       const cell1 = document.getElementById(`p1-${cat.id}`);
       const cell2 = document.getElementById(`p2-${cat.id}`);
       
       if (cell1) {
         cell1.textContent = p1BonusText;
-        cell1.style.color = p1Upper >= 63 ? '#27ae60' : '#888';
+        cell1.style.color = p1Upper >= upperBonusThreshold[1] ? '#27ae60' : '#888';
       }
       if (cell2) {
         cell2.textContent = p2BonusText;
-        cell2.style.color = p2Upper >= 63 ? '#27ae60' : '#888';
+        cell2.style.color = p2Upper >= upperBonusThreshold[2] ? '#27ae60' : '#888';
       }
     } else {
       [1, 2].forEach(p => {
@@ -414,17 +460,34 @@ function updateScoreboard() {
           if (scores[p][cat.id] !== undefined) {
             cell.textContent = scores[p][cat.id];
             cell.className = 'score-cell filled';
+            cell.style.color = ''; // 확정 시 CSS의 검은색 적용
           } else if (!cell.classList.contains('suggested')) {
-            cell.textContent = '';
-            cell.className = 'score-cell';
+            if (cat.id === 'yacht' && activeMutations[p]['yacht'] === 'yacht-bank') {
+              cell.textContent = playerYachtBank[p];
+              cell.style.color = '#888';
+              cell.className = 'score-cell';
+            } else {
+              cell.textContent = '';
+              cell.style.color = '';
+              cell.className = 'score-cell';
+            }
           }
         }
       });
     }
   });
   
-  const p1Total = Object.values(scores[1]).reduce((sum, val) => sum + val, 0);
-  const p2Total = Object.values(scores[2]).reduce((sum, val) => sum + val, 0);
+  let p1Total = Object.values(scores[1]).reduce((sum, val) => sum + val, 0);
+  let p2Total = Object.values(scores[2]).reduce((sum, val) => sum + val, 0);
+  
+  // 요트 뱅크 패시브 수입 계산
+  if (activeMutations[1]['yacht'] === 'yacht-bank' && scores[1]['yacht'] === undefined) {
+    p1Total += playerYachtBank[1];
+  }
+  if (activeMutations[2]['yacht'] === 'yacht-bank' && scores[2]['yacht'] === undefined) {
+    p2Total += playerYachtBank[2];
+  }
+
   const p1TotalEl = document.getElementById('p1-total');
   const p2TotalEl = document.getElementById('p2-total');
   if (p1TotalEl) p1TotalEl.textContent = p1Total;
@@ -480,3 +543,134 @@ if (btnDebugToggle && debugContent) {
     btnDebugToggle.textContent = isCollapsed ? '▲' : '▼';
   });
 }
+
+// 증강 적용 함수
+window.applyMutation = function(player, mutationId) {
+  const mut = mutationDefinitions[mutationId];
+  if (!mut) return;
+  
+  activeMutations[player][mut.target] = mutationId;
+  
+  // 더블 라지 스트레이트 등 특수 효과 즉시 적용
+  if (mutationId === 'double-large-straight') {
+    upperBonusThreshold[player] = 60;
+  }
+  
+  // 족보 제목 UI 변경 (선택된 플레이어 방향만)
+  const targetTh = document.getElementById(player === 1 ? `cat-title-left-${mut.target}` : `cat-title-right-${mut.target}`);
+  
+  if (targetTh) {
+    targetTh.textContent = mut.enName;
+    targetTh.style.backgroundColor = '#87CEEB'; // Sky Blue
+    targetTh.style.color = '#222';
+  }
+  
+  // 점수판 리렌더링 (보너스 등 업데이트)
+  updateScoreboard();
+  if (rollsLeft < 3) {
+    // 굴려진 주사위가 있으면 미리보기 갱신
+    previewScores(activeDice.length > 0 ? [...keptDice, ...activeDice] : []);
+  }
+};
+
+// 디버그 UI 생성
+const debugGroup = document.createElement('div');
+debugGroup.className = 'debug-group';
+debugGroup.innerHTML = `
+  <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start;">
+    <select id="debug-player-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; margin-left: 0;">
+      <option value="1">P1</option>
+      <option value="2">P2</option>
+    </select>
+    <select id="debug-mutation-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; max-width: 200px;">
+      ${Object.keys(mutationDefinitions).map(id => `<option value="${id}">${mutationDefinitions[id].name} (${mutationDefinitions[id].target})</option>`).join('')}
+    </select>
+    <button id="debug-mutation-apply" style="padding: 4px 12px; background: #0f4c81; color: #fff; border: none; cursor: pointer; white-space: nowrap;">적용</button>
+  </div>
+  
+  <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start; margin-top: 8px;">
+    <button id="debug-turn-prev" style="padding: 4px 8px; background: #555; color: #fff; border: none; cursor: pointer;">&lt; 턴</button>
+    <button id="debug-turn-next" style="padding: 4px 8px; background: #555; color: #fff; border: none; cursor: pointer;">턴 &gt;</button>
+    
+    <input type="text" id="debug-dice-input" placeholder="1,2,3,4,5 또는 합(5~30)" style="flex: 1; min-width: 80px; padding: 4px; background: #333; color: #fff; border: 1px solid #555;" />
+    <button id="debug-dice-apply" style="padding: 4px 12px; background: #0f4c81; color: #fff; border: none; cursor: pointer; white-space: nowrap;">주사위 조작</button>
+  </div>
+`;
+if (debugContent) debugContent.appendChild(debugGroup);
+
+document.getElementById('debug-mutation-apply')?.addEventListener('click', () => {
+  const selectMut = document.getElementById('debug-mutation-select');
+  const selectPlayer = document.getElementById('debug-player-select');
+  if (selectMut && selectMut.value && selectPlayer) {
+    applyMutation(Number(selectPlayer.value), selectMut.value);
+  }
+});
+
+document.getElementById('debug-turn-prev')?.addEventListener('click', () => {
+  if (currentPlayer === 2) {
+    currentPlayer = 1;
+  } else {
+    if (currentRound > 1) {
+      currentPlayer = 2;
+      currentRound--;
+    } else return; // 더 이상 돌아갈 수 없음
+  }
+  startTurn();
+});
+
+document.getElementById('debug-turn-next')?.addEventListener('click', () => {
+  if (currentPlayer === 1) {
+    currentPlayer = 2;
+  } else {
+    currentPlayer = 1;
+    currentRound++;
+  }
+  
+  if (currentRound > 12) {
+    endGame();
+  } else {
+    startTurn();
+  }
+});
+
+document.getElementById('debug-dice-apply')?.addEventListener('click', () => {
+  const input = document.getElementById('debug-dice-input').value.trim();
+  if (!input) return;
+  
+  let values = [];
+  if (input.includes(',') || input.includes(' ')) {
+    // 특정 주사위 값 지정 (예: 1, 2, 3, 4, 5)
+    values = input.split(/[, ]+/).map(Number).filter(n => !isNaN(n) && n >= 1 && n <= 6);
+  } else {
+    // 합계만 지정한 경우 (5~30)
+    const sum = Number(input);
+    if (!isNaN(sum) && sum >= 5 && sum <= 30) {
+      values = [1, 1, 1, 1, 1];
+      let diff = sum - 5;
+      for (let i = 0; i < 5 && diff > 0; i++) {
+        const add = Math.min(5, diff);
+        values[i] += add;
+        diff -= add;
+      }
+    }
+  }
+  
+  if (values.length === 5) {
+    // 디버그 조작 시 진행 중인 애니메이션이나 이전 상태를 무시하고 덮어씌움
+    diceEngine.forceValues(values);
+    
+    // 로컬 상태 동기화
+    keptDice = [];
+    activeDice = diceEngine.diceArray.map(d => d.value).sort((a, b) => a - b);
+    
+    // 남은 굴림 횟수가 남아있어야 기입 가능하므로, 굴림 횟수가 3번일 때만 1회 차감 처리하여 족보 클릭이 가능하도록 함
+    if (rollsLeft === 3) {
+      rollsLeft--;
+      updateRollsUI();
+    }
+    
+    previewScores(activeDice);
+  } else {
+    alert('올바른 주사위 값(1~6 사이 숫자 5개) 또는 합계(5~30)를 입력하세요.');
+  }
+});

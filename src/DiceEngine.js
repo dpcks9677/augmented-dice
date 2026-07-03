@@ -615,6 +615,28 @@ export class DiceEngine {
     });
   }
 
+  // 디버그용: 애니메이션 없이 즉각적으로 주사위 값을 강제 설정
+  forceValues(valuesArray) {
+    this.clearAll();
+    this.physicsActive = false;
+    this.isAnimating = false;
+    
+    const size = 1.26;
+    const geometry = this.diceGeometry;
+    
+    for (let i = 0; i < 5; i++) {
+      const mesh = new THREE.Mesh(geometry, this.diceMaterials);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.scene.add(mesh);
+      
+      this.diceArray.push({ mesh, body: null, value: valuesArray[i], isKept: false });
+    }
+    
+    this.arrangeAll(true);
+    return this.diceArray.map(d => d.value);
+  }
+
   calculateDieValue(quaternion) {
     // Transform the World UP vector into the die's Local coordinate space
     const worldUp = new THREE.Vector3(0, 1, 0);
