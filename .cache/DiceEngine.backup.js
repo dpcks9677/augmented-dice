@@ -1,9 +1,6 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { OctahedronGeometry } from 'three';
-import { getOctGeo, getSmoothBeveledOctGeo } from './geometryUtils.js';
-import { getMaterialForDie } from './diceMaterials.js';
 
 export class DiceEngine {
   constructor(containerSelector) {
@@ -17,7 +14,8 @@ export class DiceEngine {
     this.initThree();
     this.initCannon();
     this.initAudio();
-        
+    this.createDiceMaterials();
+    
     this.clock = new THREE.Clock();
     this.animate = this.animate.bind(this);
     
@@ -66,9 +64,6 @@ export class DiceEngine {
     clone.volume = volume;
     clone.play().catch(e => { /* 브라우저 자동 재생 정책에 막힌 경우 무시 */ });
   }
-
-
-
 
   startRenderLoop() {
     if (!this.isRendering) {
@@ -144,71 +139,19 @@ export class DiceEngine {
     hCtx.stroke();
     
     const hoverTex = new THREE.CanvasTexture(hoverCanvas);
-    const hoverGeom = new THREE.PlaneGeometry(1.65, 1.65);
+    const hoverGeom = new THREE.PlaneGeometry(1.65, 1.65); // 주사위 윗면에 맞춘 크기
     const hoverMat = new THREE.MeshBasicMaterial({
       map: hoverTex,
       transparent: true,
-      depthTest: false,
+      depthTest: false, // Z-fighting 방지 및 항상 위에 렌더링
       depthWrite: false
     });
-
     this.hoverHighlight = new THREE.Mesh(hoverGeom, hoverMat);
     this.hoverHighlight.renderOrder = 999;
     this.hoverHighlight.visible = false;
     this.scene.add(this.hoverHighlight);
 
-    // 8면체 전용 호버 테두리 (육각형 캔버스 방식 - 일반 주사위와 완벽히 동일한 두께 및 간격)
-    const octHoverCanvas = document.createElement('canvas');
-    octHoverCanvas.width = 256;
-    octHoverCanvas.height = 256;
-    const ohCtx = octHoverCanvas.getContext('2d');
-    
-    ohCtx.strokeStyle = '#ffff00';
-    ohCtx.lineWidth = 25 / 1.65; // 크기 1.65배(1.5 * 1.1) 확장에 맞춰 선 두께는 시각적으로 동일하게 유지
-    ohCtx.lineJoin = 'round';
-    
-    const hexR = 105; // 육각형 크기 (주사위를 충분히 감싸도록 설정)
-    
-    // 꼭짓점 좌표 계산
-    const vertices = [];
-    for (let i = 0; i < 6; i++) {
-      const angle = -Math.PI / 2 + (i * Math.PI / 3);
-      const px = 128 + hexR * Math.cos(angle);
-      const py = 128 + hexR * Math.sin(angle);
-      vertices.push({x: px, y: py});
-    }
-    
-    const cornerRadius = 15; // 모서리 둥글기 반경
-    ohCtx.beginPath();
-    
-    // 첫 번째 선분의 중간점에서 시작
-    const startX = vertices[0].x + (vertices[1].x - vertices[0].x) * 0.5;
-    const startY = vertices[0].y + (vertices[1].y - vertices[0].y) * 0.5;
-    ohCtx.moveTo(startX, startY);
-    
-    // 모든 꼭짓점을 돌면서 둥근 모서리 그리기
-    for (let i = 1; i <= 6; i++) {
-      const p1 = vertices[i % 6];
-      const p2 = vertices[(i + 1) % 6];
-      ohCtx.arcTo(p1.x, p1.y, p2.x, p2.y, cornerRadius);
-    }
-    
-    ohCtx.closePath();
-    ohCtx.stroke();
-    
-    const octHoverTex = new THREE.CanvasTexture(octHoverCanvas);
-    const octHoverPlane = new THREE.PlaneGeometry(1.65 * 1.65, 1.65 * 1.65); // 지름 1.65배(1.5 * 1.1) 증가
-    const octHoverMat = new THREE.MeshBasicMaterial({
-      map: octHoverTex,
-      transparent: true,
-      depthTest: false,
-      depthWrite: false
-    });
-    this.octHoverHighlight = new THREE.Mesh(octHoverPlane, octHoverMat);
-    this.octHoverHighlight.renderOrder = 999;
-    this.octHoverHighlight.visible = false;
-    this.scene.add(this.octHoverHighlight);
-
+    // 이벤트 리스너 등록
     this.container.addEventListener('click', this.onClick.bind(this));
     this.container.addEventListener('mousemove', this.onMouseMove.bind(this));
     
@@ -373,7 +316,65 @@ export class DiceEngine {
     createWall(wallThickness, matSize3D + wallThickness * 2, matSize3D/2 + wallThickness/2 - padding - shift, 0, 0, tilt);
   }
 
-
+  createDiceMaterials() {
+    this.diceMaterials = [];
+    for (let i = 1; i <= 6; i++) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      
+      // bg
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 256, 256);
+      ctx.strokeStyle = '#cccccc';
+      ctx.lineWidth = 10;
+      ctx.strokeRect(0,0,256,256);
+      
+      // dots
+      ctx.fillStyle = '#1a1a1a';
+      const drawDot = (x, y) => {
+        ctx.beginPath();
+        ctx.arc(x, y, 25, 0, Math.PI * 2);
+        ctx.fill();
+      };
+      
+      const cx = 128, cy = 128, offset = 60;
+      
+      if ([1,3,5].includes(i)) drawDot(cx, cy);
+      if ([2,3,4,5,6].includes(i)) {
+        drawDot(cx - offset, cy - offset);
+        drawDot(cx + offset, cy + offset);
+      }
+      if ([4,5,6].includes(i)) {
+        drawDot(cx + offset, cy - offset);
+        drawDot(cx - offset, cy + offset);
+      }
+      if (i === 6) {
+        drawDot(cx - offset, cy);
+        drawDot(cx + offset, cy);
+      }
+      
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace; // 정확한 색상 표현을 위해 SRGB 설정
+      // 매끄러운 플라스틱 재질감을 위해 StandardMaterial로 복구하고, 조명에 예쁘게 반사되도록 설정
+      this.diceMaterials.push(new THREE.MeshStandardMaterial({ 
+        map: tex, 
+        roughness: 0.15, 
+        metalness: 0.1 
+      }));
+    }
+    // Mapping faces in order so 1 is y+, 6 is y-, etc. 
+    const matArray = [
+      this.diceMaterials[2], // 3
+      this.diceMaterials[3], // 4
+      this.diceMaterials[0], // 1
+      this.diceMaterials[5], // 6
+      this.diceMaterials[1], // 2
+      this.diceMaterials[4], // 5
+    ];
+    this.diceMaterials = matArray;
+  }
 
   onWindowResize() {
     const appContainer = document.getElementById('app-container');
@@ -554,37 +555,15 @@ export class DiceEngine {
     }
   }
 
-  async roll(configsOrCount) {
-    let configs = [];
-    if (typeof configsOrCount === 'number') {
-      for(let i=0; i<configsOrCount; i++) configs.push({type: 'normal'});
-    } else {
-      configs = configsOrCount;
-    }
-    
-    
+  async roll(count) {
     return new Promise((resolve) => {
       this.clearUnkept();
       this.physicsActive = true;
       this.isAnimating = false;
       this.startRenderLoop();
       
-      let configs = [];
-      let count = 0;
-      if (typeof configsOrCount === 'number') {
-        count = configsOrCount;
-        for(let i=0; i<configsOrCount; i++) configs.push({type: 'normal'});
-      } else {
-        configs = configsOrCount;
-        count = configs.length;
-      }
-      
-      const size = 1.26;
-      const boxGeo = this.diceGeometry;
-      if (!this.octGeoCache) {
-        this.octGeoCache = getSmoothBeveledOctGeo();
-      }
-      const octGeo = this.octGeoCache;
+      const size = 1.26; // 기존 1.8에서 70% 축소
+      const geometry = this.diceGeometry;
 
       const vFov = this.camera.fov * Math.PI / 180;
       const viewHeight = 2 * Math.tan(vFov / 2) * this.camera.position.y;
@@ -594,39 +573,14 @@ export class DiceEngine {
       const matSize = h - frameThickness * 2;
       const matSize3D = viewHeight * (matSize / h);
 
-      for (let i = 0; i < configs.length; i++) {
-        const config = configs[i];
-        const isOct = config.type === 'octahedron';
-        const isHeavy = config.type === 'heavy';
-        
-        const geometry = isOct ? octGeo : boxGeo;
-        const materials = getMaterialForDie(config);
-        
-        const mesh = new THREE.Mesh(geometry, materials);
+      for (let i = 0; i < count; i++) {
+        const mesh = new THREE.Mesh(geometry, this.diceMaterials);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         this.scene.add(mesh);
 
-        let shape;
-        if (isOct) {
-           // 물리 엔진용으로는 충돌 계산이 빠르도록 꼭지점이 6개인 심플한 날카로운 8면체를 사용합니다.
-           const r = 1.125; // 0.65 * sqrt(3)
-           const vertices = [
-             new CANNON.Vec3(r, 0, 0), new CANNON.Vec3(-r, 0, 0),
-             new CANNON.Vec3(0, r, 0), new CANNON.Vec3(0, -r, 0),
-             new CANNON.Vec3(0, 0, r), new CANNON.Vec3(0, 0, -r)
-           ];
-           const faces = [
-             [0, 2, 4], [0, 4, 3], [0, 3, 5], [0, 5, 2],
-             [1, 4, 2], [1, 3, 4], [1, 5, 3], [1, 2, 5]
-           ];
-           shape = new CANNON.ConvexPolyhedron({ vertices, faces });
-        } else {
-           shape = new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2));
-        }
-        
-        const mass = isHeavy ? 3 : 1;
-        const body = new CANNON.Body({ mass: mass, shape });
+        const shape = new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2));
+        const body = new CANNON.Body({ mass: 1, shape });
         
         body.linearDamping = 0.1;
         body.angularDamping = 0.2;
@@ -672,7 +626,7 @@ export class DiceEngine {
         });
 
         this.world.addBody(body);
-        this.diceArray.push({ mesh, body, value: 1, isKept: false, config: configs[i] });
+        this.diceArray.push({ mesh, body, value: 1, isKept: false });
       }
 
       // Check sleep
@@ -703,7 +657,7 @@ export class DiceEngine {
                 this.world.removeBody(die.body);
                 die.body = null;
               }
-              die.value = this.calculateDieValue(die.mesh.quaternion, die.config);
+              die.value = this.calculateDieValue(die.mesh.quaternion);
             }
           });
           
@@ -725,130 +679,45 @@ export class DiceEngine {
     const geometry = this.diceGeometry;
     
     for (let i = 0; i < 5; i++) {
-      const mesh = new THREE.Mesh(geometry, getMaterialForDie({ type: 'normal' }));
+      const mesh = new THREE.Mesh(geometry, this.diceMaterials);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       this.scene.add(mesh);
       
-      this.diceArray.push({ mesh, body: null, value: valuesArray[i], isKept: false, config: {type:'normal'} });
+      this.diceArray.push({ mesh, body: null, value: valuesArray[i], isKept: false });
     }
     
     this.arrangeAll(true);
     return this.diceArray.map(d => d.value);
   }
 
-  calculateDieValue(quaternion, config) {
-    const isOct = config && config.type === 'octahedron';
+  calculateDieValue(quaternion) {
+    // Transform the World UP vector into the die's Local coordinate space
     const worldUp = new THREE.Vector3(0, 1, 0);
     const localUp = worldUp.applyQuaternion(quaternion.clone().invert());
     
-    if (isOct) {
-       // Octahedron faces in OctahedronGeometry default:
-       // The normals of the 8 faces of an octahedron are:
-       // (+1, +1, +1), (-1, +1, +1), (-1, -1, +1), (+1, -1, +1)
-       // (+1, +1, -1), (-1, +1, -1), (-1, -1, -1), (+1, -1, -1) normalized
-       // Let's identify the face whose normal is closest to localUp
-       // OctahedronGeometry의 면 생성 순서에 맞춘 노멀 벡터 (매핑 순서)
-       const normals = [
-         new THREE.Vector3(1, 1, 1).normalize(),   // 1
-         new THREE.Vector3(1, -1, 1).normalize(),  // 2
-         new THREE.Vector3(1, -1, -1).normalize(), // 3
-         new THREE.Vector3(1, 1, -1).normalize(),  // 4
-         new THREE.Vector3(-1, 1, -1).normalize(), // 5
-         new THREE.Vector3(-1, -1, -1).normalize(),// 6
-         new THREE.Vector3(-1, -1, 1).normalize(), // 7
-         new THREE.Vector3(-1, 1, 1).normalize()   // 8
-       ];
-       let bestFace = 0;
-       let maxDot = -Infinity;
-       for (let i = 0; i < 8; i++) {
-         const dot = localUp.dot(normals[i]);
-         if (dot > maxDot) {
-           maxDot = dot;
-           bestFace = i + 1; // 1-indexed
-         }
-       }
-       return bestFace;
-    } else {
-       let rawValue = 1;
-       if (localUp.y > 0.5) rawValue = 1;
-       else if (localUp.z > 0.5) rawValue = 2;
-       else if (localUp.x > 0.5) rawValue = 3;
-       else if (localUp.x < -0.5) rawValue = 4;
-       else if (localUp.z < -0.5) rawValue = 5;
-       else if (localUp.y < -0.5) rawValue = 6;
-       
-       if (config && config.type === 'heavy') {
-         const mapping = {1: 4, 2: 4, 3: 5, 4: 5, 5: 6, 6: 6};
-         return mapping[rawValue] || rawValue;
-       }
-       if (config && config.type === 'sevens') {
-         return rawValue + 1;
-       }
-       if (config && config.type === 'promotion') {
-         let pLevel = config.promotionLevel || 0;
-         let actualValue = 1 + pLevel;
-         if (actualValue > 6) actualValue = 6;
-         return actualValue;
-       }
-       return rawValue; 
-    }
+    // The faces are mapped to: 1=+Y, 6=-Y, 2=+Z, 5=-Z, 3=+X, 4=-X
+    if (localUp.y > 0.5) return 1;
+    if (localUp.z > 0.5) return 2;
+    if (localUp.x > 0.5) return 3;
+    if (localUp.x < -0.5) return 4;
+    if (localUp.z < -0.5) return 5;
+    if (localUp.y < -0.5) return 6;
+    return 1; 
   }
 
-  getTargetRotationForValue(value, targetPos, config) {
-    const isOct = config && config.type === 'octahedron';
-    let baseQuat = new THREE.Quaternion();
-    
-    if (isOct) {
-       const normals = [
-         new THREE.Vector3(1, 1, 1).normalize(),
-         new THREE.Vector3(1, -1, 1).normalize(),
-         new THREE.Vector3(1, -1, -1).normalize(),
-         new THREE.Vector3(1, 1, -1).normalize(),
-         new THREE.Vector3(-1, 1, -1).normalize(),
-         new THREE.Vector3(-1, -1, -1).normalize(),
-         new THREE.Vector3(-1, -1, 1).normalize(),
-         new THREE.Vector3(-1, 1, 1).normalize()
-       ];
-       const targetNormal = normals[value - 1] || normals[0];
-       const localUp = new THREE.Vector3(-targetNormal.x, -targetNormal.y, 2 * targetNormal.z).normalize();
-       const localRight = new THREE.Vector3().crossVectors(localUp, targetNormal).normalize();
-       
-       const mLocal = new THREE.Matrix4().makeBasis(localRight, localUp, targetNormal);
-       const mWorld = new THREE.Matrix4().makeBasis(
-           new THREE.Vector3(1, 0, 0),
-           new THREE.Vector3(0, 0, -1),
-           new THREE.Vector3(0, 1, 0)
-       );
-       const rMat = mWorld.multiply(mLocal.invert());
-       baseQuat.setFromRotationMatrix(rMat);
-    } else {
-       const euler = new THREE.Euler();
-       let targetVal = value;
-       if (config && config.type === 'heavy') {
-         // Map the requested visual/logical value (4,5,6) back to a physical face (1,3,5) that has that value drawn on it
-         const revMapping = {4: 1, 5: 3, 6: 5};
-         targetVal = revMapping[value] || 1;
-       }
-       switch (targetVal) {
-         case 1: euler.set(0, 0, 0); break; // +Y UP
-         case 2: euler.set(-Math.PI / 2, 0, 0); break; // +Z UP
-         case 3: euler.set(0, 0, Math.PI / 2); break; // +X UP
-         case 4: euler.set(0, 0, -Math.PI / 2); break; // -X UP
-         case 5: euler.set(Math.PI / 2, 0, 0); break; // -Z UP
-         case 6: euler.set(Math.PI, 0, 0); break; // -Y UP
-       }
-       baseQuat.setFromEuler(euler);
-        if (config && config.type === 'weird') {
-          let yRot = 0;
-          if (targetVal === 3) yRot = Math.PI / 2;
-          else if (targetVal === 4) yRot = -Math.PI / 2;
-          else if (targetVal === 5 || targetVal === 6) yRot = Math.PI;
-          if (yRot !== 0) {
-            baseQuat.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yRot));
-          }
-        }
+  getTargetRotationForValue(value, targetPos) {
+    const euler = new THREE.Euler();
+    switch (value) {
+      case 1: euler.set(0, 0, 0); break; // +Y UP
+      case 2: euler.set(-Math.PI / 2, 0, 0); break; // +Z UP
+      case 3: euler.set(0, 0, Math.PI / 2); break; // +X UP
+      case 4: euler.set(0, 0, -Math.PI / 2); break; // -X UP
+      case 5: euler.set(Math.PI / 2, 0, 0); break; // -Z UP
+      case 6: euler.set(Math.PI, 0, 0); break; // -Y UP
     }
+    
+    const baseQuat = new THREE.Quaternion().setFromEuler(euler);
     
     // If target position is provided, tilt the die so its top face points exactly at the camera lens.
     // This completely hides the side faces (perspective distortion) for dice placed off-center.
@@ -871,12 +740,8 @@ export class DiceEngine {
 
     // --- 1. 슬롯 초기화 (새로 굴렸을 때만) ---
     if (isFreshRoll) {
-      // 값 순으로 정렬하여 액티브 슬롯(activeSlot) 부여
-      const sortedDice = [...this.diceArray].sort((a, b) => {
-        if (a.config.type === 'weird' && b.config.type !== 'weird') return -1;
-        if (a.config.type !== 'weird' && b.config.type === 'weird') return 1;
-        return a.value - b.value;
-      });
+      // 값에 따라 오름차순 정렬하여 플레이매트 지정석(activeSlot) 부여
+      const sortedDice = [...this.diceArray].sort((a, b) => a.value - b.value);
       sortedDice.forEach((die, index) => {
         die.activeSlot = index;
       });
@@ -935,7 +800,7 @@ export class DiceEngine {
         die.targetPosition = new THREE.Vector3(activeStartX + die.activeSlot * spacing, 1, 0);
       }
       
-      die.targetQuaternion = this.getTargetRotationForValue(die.value, die.targetPosition, die.config);
+      die.targetQuaternion = this.getTargetRotationForValue(die.value, die.targetPosition);
       
       // 애니메이션 대상이 아닌 주사위(상태 변화 없는 주사위)는 즉시 목표 위치에 고정
       if (die.animationProgress === undefined || die.animationProgress >= 1.0) {
@@ -981,9 +846,8 @@ export class DiceEngine {
         }
         
         // 클릭과 동시에 테두리(호버) 즉시 숨김
-        if (this.hoverHighlight.visible || this.octHoverHighlight.visible) {
+        if (this.hoverHighlight.visible) {
           this.hoverHighlight.visible = false;
-          this.octHoverHighlight.visible = false;
           this.container.style.cursor = 'default';
         }
         
@@ -1000,9 +864,8 @@ export class DiceEngine {
   onMouseMove(event) {
     // 굴러가는 중이거나, 정렬 대기 중(100ms 딜레이)이거나, 애니메이션 중이면 호버 숨김
     if (this.allowKeep === false || this.physicsActive || this.isRollSettling || this.diceArray.some(d => d.animationProgress !== undefined && d.animationProgress < 1.0)) {
-      if (this.hoverHighlight.visible || this.octHoverHighlight.visible) {
+      if (this.hoverHighlight.visible) {
         this.hoverHighlight.visible = false;
-        this.octHoverHighlight.visible = false;
         this.container.style.cursor = 'default';
         this.startRenderLoop();
       }
@@ -1027,65 +890,32 @@ export class DiceEngine {
         this.container.style.cursor = 'pointer';
         
         // 윗면(Top face)의 로컬 Normal 찾기
-        let localUp;
-        if (die.config && die.config.type === 'octahedron') {
-           const normals = [
-             new THREE.Vector3(1, 1, 1).normalize(),
-             new THREE.Vector3(1, -1, 1).normalize(),
-             new THREE.Vector3(1, -1, -1).normalize(),
-             new THREE.Vector3(1, 1, -1).normalize(),
-             new THREE.Vector3(-1, 1, -1).normalize(),
-             new THREE.Vector3(-1, -1, -1).normalize(),
-             new THREE.Vector3(-1, -1, 1).normalize(),
-             new THREE.Vector3(-1, 1, 1).normalize()
-           ];
-           localUp = normals[die.value - 1] || normals[0];
-        } else {
-           localUp = {
-             1: new THREE.Vector3(0, 1, 0),
-             2: new THREE.Vector3(0, 0, 1),
-             3: new THREE.Vector3(1, 0, 0),
-             4: new THREE.Vector3(-1, 0, 0),
-             5: new THREE.Vector3(0, 0, -1),
-             6: new THREE.Vector3(0, -1, 0)
-           }[die.value] || new THREE.Vector3(0, 1, 0);
-        }
+        const localUp = {
+          1: new THREE.Vector3(0, 1, 0),
+          2: new THREE.Vector3(0, 0, 1),
+          3: new THREE.Vector3(1, 0, 0),
+          4: new THREE.Vector3(-1, 0, 0),
+          5: new THREE.Vector3(0, 0, -1),
+          6: new THREE.Vector3(0, -1, 0)
+        }[die.value] || new THREE.Vector3(0, 1, 0);
 
         // XY평면(Normal=+Z)으로 생성된 테두리 선을 주사위의 윗면에 일치시키기 위한 회전 계산
-        const isOct = die.config && die.config.type === 'octahedron';
-        let alignQuat = new THREE.Quaternion();
-        if (isOct) {
-           const up = new THREE.Vector3(0, 1, 0);
-           if (Math.abs(localUp.y) > 0.9) up.set(1, 0, 0);
-           const right = new THREE.Vector3().crossVectors(up, localUp).normalize();
-           const lUp = new THREE.Vector3().crossVectors(localUp, right).normalize();
-           const mat = new THREE.Matrix4().makeBasis(right, lUp, localUp);
-           alignQuat.setFromRotationMatrix(mat);
-        } else {
-           alignQuat.setFromUnitVectors(new THREE.Vector3(0, 0, 1), localUp);
-        }
+        const alignQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), localUp);
         const finalQuat = die.mesh.quaternion.clone().multiply(alignQuat);
+        this.hoverHighlight.quaternion.copy(finalQuat);
         
+        // 주사위 표면보다 살짝(1.01) 띄워서 위치 설정
         const worldUpOffset = localUp.clone().applyQuaternion(die.mesh.quaternion).multiplyScalar(1.01);
+        this.hoverHighlight.position.copy(die.mesh.position).add(worldUpOffset);
         
-        const activeHighlight = isOct ? this.octHoverHighlight : this.hoverHighlight;
-        const inactiveHighlight = isOct ? this.hoverHighlight : this.octHoverHighlight;
-        
-        inactiveHighlight.visible = false;
-        
-        // 일반 주사위와 동일한 위치/회전 로직 적용 (2D 평면 방식)
-        activeHighlight.quaternion.copy(finalQuat);
-        activeHighlight.position.copy(die.mesh.position).add(worldUpOffset);
-        
-        if (!activeHighlight.visible) {
-          activeHighlight.visible = true;
+        if (!this.hoverHighlight.visible) {
+          this.hoverHighlight.visible = true;
           this.startRenderLoop();
         }
       }
     } else {
-      if (this.hoverHighlight.visible || this.octHoverHighlight.visible) {
+      if (this.hoverHighlight.visible) {
         this.hoverHighlight.visible = false;
-        this.octHoverHighlight.visible = false;
         this.container.style.cursor = 'default';
         this.startRenderLoop();
       }

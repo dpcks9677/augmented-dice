@@ -1,0 +1,104 @@
+import { mutationDefinitions } from "./scoreEngine.js";
+
+export function setupDebugTools(api) {
+  const btnDebugToggle = document.getElementById('btn-debug-toggle');
+  const debugContent = document.getElementById('debug-content');
+
+  if (btnDebugToggle && debugContent) {
+    btnDebugToggle.addEventListener('click', () => {
+      const isCollapsed = debugContent.classList.toggle('collapsed');
+      btnDebugToggle.textContent = isCollapsed ? '▲' : '▼';
+    });
+  }
+
+  // 디버그 UI 생성
+  const debugGroup = document.createElement('div');
+  debugGroup.className = 'debug-group';
+  debugGroup.innerHTML = `
+    <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start; margin-bottom: 8px;">
+      <span style="color: #fff; font-weight: bold; width: 40px;">변형</span>
+      <select id="debug-player-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; margin-left: 0;">
+        <option value="1">P1</option>
+        <option value="2">P2</option>
+      </select>
+      <select id="debug-mutation-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; max-width: 200px;">
+        ${Object.keys(mutationDefinitions).filter(id => !mutationDefinitions[id].isEnhancement).map(id => `<option value="${id}">${mutationDefinitions[id].name} (${mutationDefinitions[id].target})</option>`).join('')}
+      </select>
+      <button id="debug-mutation-apply" style="padding: 4px 12px; background: #0f4c81; color: #fff; border: none; cursor: pointer; white-space: nowrap;">적용</button>
+    </div>
+
+    <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start;">
+      <span style="color: #fff; font-weight: bold; width: 40px; color: #f1c40f;">강화</span>
+      <select id="debug-enhancement-player-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; margin-left: 0;">
+        <option value="1">P1</option>
+        <option value="2">P2</option>
+      </select>
+      <select id="debug-enhancement-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; max-width: 200px;">
+        ${Object.keys(mutationDefinitions).filter(id => mutationDefinitions[id].isEnhancement).map(id => `<option value="${id}">${mutationDefinitions[id].name}</option>`).join('')}
+      </select>
+      <button id="debug-enhancement-apply" style="padding: 4px 12px; background: #f39c12; color: #fff; border: none; cursor: pointer; white-space: nowrap;">적용</button>
+    </div>
+    
+    <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start; margin-top: 12px; border-top: 1px solid #444; padding-top: 8px;">
+      <button id="debug-turn-prev" style="padding: 4px 8px; background: #555; color: #fff; border: none; cursor: pointer;">&lt; 턴</button>
+      <button id="debug-turn-next" style="padding: 4px 8px; background: #555; color: #fff; border: none; cursor: pointer;">턴 &gt;</button>
+      
+      <input type="text" id="debug-dice-input" placeholder="1,2,3,4,5 또는 합(5~30)" style="flex: 1; min-width: 80px; padding: 4px; background: #333; color: #fff; border: 1px solid #555;" />
+      <button id="debug-dice-apply" style="padding: 4px 12px; background: #0f4c81; color: #fff; border: none; cursor: pointer; white-space: nowrap;">주사위 조작</button>
+    </div>
+  `;
+  if (debugContent) debugContent.appendChild(debugGroup);
+
+  document.getElementById('debug-mutation-apply')?.addEventListener('click', () => {
+    const selectMut = document.getElementById('debug-mutation-select');
+    const selectPlayer = document.getElementById('debug-player-select');
+    if (selectMut && selectMut.value && selectPlayer) {
+      api.applyMutation(Number(selectPlayer.value), selectMut.value);
+    }
+  });
+
+  document.getElementById('debug-enhancement-apply')?.addEventListener('click', () => {
+    const selectMut = document.getElementById('debug-enhancement-select');
+    const selectPlayer = document.getElementById('debug-enhancement-player-select');
+    if (selectMut && selectMut.value && selectPlayer) {
+      api.applyMutation(Number(selectPlayer.value), selectMut.value);
+    }
+  });
+
+  document.getElementById('debug-turn-prev')?.addEventListener('click', () => {
+    api.prevTurn();
+  });
+
+  document.getElementById('debug-turn-next')?.addEventListener('click', () => {
+    api.nextTurn();
+  });
+
+  document.getElementById('debug-dice-apply')?.addEventListener('click', () => {
+    const input = document.getElementById('debug-dice-input').value.trim();
+    if (!input) return;
+    
+    let values = [];
+    if (input.includes(',') || input.includes(' ')) {
+      // 특정 주사위 값 지정 (예: 1, 2, 3, 4, 5)
+      values = input.split(/[, ]+/).map(Number).filter(n => !isNaN(n) && n >= 1 && n <= 6);
+    } else {
+      // 합계만 지정한 경우 (5~30)
+      const sum = Number(input);
+      if (!isNaN(sum) && sum >= 5 && sum <= 30) {
+        values = [1, 1, 1, 1, 1];
+        let diff = sum - 5;
+        for (let i = 0; i < 5 && diff > 0; i++) {
+          const add = Math.min(5, diff);
+          values[i] += add;
+          diff -= add;
+        }
+      }
+    }
+    
+    if (values.length === 5) {
+      api.applyDice(values);
+    } else {
+      alert('올바른 주사위 값(1~6 사이 숫자 5개) 또는 합계(5~30)를 입력하세요.');
+    }
+  });
+}
