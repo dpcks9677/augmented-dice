@@ -176,31 +176,31 @@
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M13 2 L3 14 h9 l-2 8 l10-12 h-9 z" fill="#222" stroke-linejoin="round"/></svg> 27. 재빠른 스트레이트 (Fast Straight)**
     *   **조건:** 2페이즈 종료 전(8라운드 이내)에 스몰/라지 스트레이트 모두 기입
     *   **보상:** 보너스 +15점 획득
-    *   **텍스트:** -
+    *   **텍스트:** 퀘스트: 8턴 이내에 스몰 스트레이트와 라지 스트레이트를 모두 족보에 기입합니다. 퀘스트 완료 시, 보너스 15점을 획득합니다.
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><circle cx="12" cy="13" r="8" fill="none" stroke="#222" stroke-width="2"/><path d="M12 5 v-3 M9 2 h6 M12 13 l3 -3" stroke="#222" stroke-width="2" stroke-linecap="round"/></svg> 28. 낭비할 시간 없다 (No time to waste)**
     *   **조건:** 2페이즈 시작 전(4라운드 이내) 리롤 없이 첫 굴림만으로 족보 3회 기입
     *   **보상:** 남은 게임 동안 내 모든 최종 획득 점수에 +3점 영구 추가
-    *   **텍스트:** -
+    *   **텍스트:** 퀘스트: 4턴 이내에 리롤 없이 첫 굴림만으로 족보를 3회 기입하면, 남은 게임 동안 모든 획득 점수에 영구적으로 +3점이 추가됩니다.
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M4 20 v-5 h5 v-5 h5 v-5 h5" stroke="#222" stroke-width="2.5" fill="none" stroke-linejoin="round"/></svg> 29. 차근차근 (Step by Step)**
     *   **조건:** 상단 구역(Aces ~ Sixes) 족보를 무조건 위에서부터 아래로 순서대로 기입
     *   **보상:** Sixes 완료 즉시, 상단 보너스 점수가 +35점에서 +55점으로 영구 강화
-    *   **텍스트:** -
+    *   **텍스트:** 퀘스트: 상단 구역(Aces부터 Sixes까지)을 위에서부터 순서대로 기입해야 합니다. 성공적으로 모두 기입하면 상단 보너스가 55점으로 강화됩니다. (순서를 어길 시 퀘스트 실패)
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"> <path d="M4 13 l4 -4 l4 4 v6 h-8 z" fill="#222" stroke-linejoin="round"/> <path d="M13 13 l3.5 -3.5 l3.5 3.5 v6 h-7 z" fill="#222" stroke-linejoin="round"/> </svg> 30. 두 집 살림 (Two Households)**
     *   **조건:** '초이스' 칸을 기입할 때, 유효한 '풀하우스' 조건(3개+2개)으로 맞추어 기입
     *   **보상:** 기입 즉시 보너스 +10점 획득
-    *   **텍스트:** -
+    *   **텍스트:** 퀘스트: 풀하우스 족보를 스크래치 하지 않고 기입하고, 초이스 족보를 풀하우스 족보와 동일한 형태로 기입합니다. 퀘스트 완료시 보너스 10점을 획득합니다.
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M8 22 v-18 l10 5 l-10 5" stroke="#222" stroke-width="2" fill="none" stroke-linejoin="round"/><rect x="4" y="20" width="8" height="2" fill="#222"/></svg> 31. 알박기 (Holdout)**
     *   **조건:** 풀하우스를 비워두었다가, 3페이즈(9~12라운드)에 진입한 이후에 풀하우스 족보 완성하여 기입
     *   **보상:** 기입 즉시 보너스 +7점 획득
-    *   **텍스트:** -
+    *   **텍스트:** 퀘스트: 9턴이 시작될 때까지 풀하우스를 비워두었다가, 9~12턴 사이에 풀하우스를 완성하여 기입하면 보너스 7점을 획득합니다.
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><circle cx="10" cy="10" r="5" fill="none" stroke="#222" stroke-width="2"/><path d="M13.5 13.5 l5.5 5.5" stroke="#222" stroke-width="2.5" stroke-linecap="round"/></svg> 32. 신중한 스트레이트 (Cautious Straight)**
     *   **조건:** 스몰 스트레이트를 먼저 기입한 후에만, 라지 스트레이트를 기입 가능 (어길 시 실패)
     *   **보상:** 순서대로 모두 기입 완료 시 보너스 +7점 획득
-    *   **텍스트:** -
+    *   **텍스트:** 퀘스트: 스몰 스트레이트 족보를 채운 후, 라지 스트레이트를 족보를 채웁니다. (순서를 어길 시 퀘스트 실패) 퀘스트 완료 시 보너스 7점을 획득합니다. 
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><circle cx="12" cy="18" r="4" fill="#222"/><circle cx="12" cy="12" r="3" fill="#222"/><circle cx="12" cy="7" r="2" fill="#222"/></svg> 33. 티끌 모아 태산 (Every Little Makes a Mickle)**
     *   **조건:** 족보 기입 시, 포함된 주사위 '1' 눈금의 누적 사용 개수가 총 7개 도달
     *   **보상:** 달성 즉시 보너스 +15점 획득
-    *   **텍스트:** -
+    *   **텍스트:** 퀘스트: 족보 기입에 1의 눈을 가진 면을 7번 사용합니다. 퀘스트 완료 시 보너스 15점을 획득합니다.
 
 ---
 
@@ -212,25 +212,25 @@
     *   **텍스트:** 기본 주사위를 묵직한 주사위로 변경합니다.<br><br>묵직한 주사위는 [4, 4, 5, 5, 6, 6] 눈을 가집니다.
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><rect x="6" y="8" width="12" height="10" rx="4" fill="#222"/><path d="M6 14 h-2 a2 2 0 0 1 0 -4 h2" fill="#222"/></svg> 35. 럭키 펀치 (Lucky Punch)**
     *   **효과:** 매 턴 첫 번째 굴림만으로 '하단 구역' 족보를 기입할 경우, 해당 획득 점수에 +5점 보너스 부여
-    *   **텍스트:** -
+    *   **텍스트:** 매 턴 첫 번째 굴림만으로 '하단 구역' 족보를 기입할 경우, 해당 획득 점수에 +5점 보너스를 부여합니다.
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M12 2 l4 8 v8 l-4 -2 l-4 2 v-8 z" fill="#222" stroke-linejoin="round"/></svg> 36. 추진력 (Momentum)**
     *   **효과:** 내가 족보에 처음으로 0점(스크래치)을 기록했을 때 발동. 내 다음 턴에 '하단 구역' 족보를 완성하여 기입하면 획득 점수가 1.5배로 증가 (단 1회 발동)
-    *   **텍스트:** -
+    *   **텍스트:** 족보에 처음으로 0점(스크래치)을 기록했을 때 발동합니다. 다음 턴에 '하단 구역' 족보를 완성하여 기입하면 획득 점수가 1.5배로 증가합니다. (단 1회 발동)
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M12 2 l3 7 h7 l-5 5 l2 8 l-7 -4 l-7 4 l2 -8 l-5 -5 h7 z" fill="#222" stroke-linejoin="round"/></svg> 37. 황금 주사위 (Golden Die)**
     *   **효과:** 내 주사위 중 1개를 황금 주사위로 지정. 족보 기입 시 이 주사위 눈금이 1, 2, 3 중 하나라면 +3점 추가 획득 (단, 상단 보너스 계산에서는 제외)
     *   **텍스트:** 기본 주사위를 황금 주사위로 변경합니다.<br><br>황금 주사위의 면이 1, 2, 3 이 나왔을 때 족보를 기입하면 추가로 +3점을 얻습니다. (보너스 계산 제외)
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M12 4 a8 8 0 1 0 8 8" stroke="#222" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M20 7 v5 h-5" stroke="#222" stroke-width="2.5" fill="none" stroke-linejoin="round"/></svg> 38. 아직 안 끝났어 (It's Not Over Yet)**
     *   **효과:** 획득 즉시 조건이 나쁜 족보(낮은 점수) 1개를 무작위로 빈칸으로 초기화하고 1턴 추가 획득. 이후 해당 족보를 다시 기입할 때 +3점 추가 획득 (이 보너스는 상단 계산에 포함)
-    *   **텍스트:** -
+    *   **텍스트:** 획득 즉시 가장 점수가 낮은 족보 1개를 빈칸으로 초기화하고 1턴 추가 획득합니다. 이후 해당 족보를 다시 기입할 때 기본 점수에 +3점을 추가로 획득합니다.
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M12 2 L20 12 L12 22 L4 12 Z M4 12 H20 M12 2 L16 12 L12 22 M12 2 L8 12 L12 22" fill="none" stroke="#222" stroke-width="1.5" stroke-linejoin="round"/></svg> 39. 8면 주사위 (8-Sided Dice)**
     *   **효과:** 내 주사위 중 2개를 [1, 2, 3, 4, 4, 5, 5, 6] 눈금이 적힌 주사위로 영구 교체
-    *   **텍스트:** 기본 주사위를 8면 주사위로 변경합니다.<br><br>8면 주사위는 [1, 2, 3, 4, 4, 5, 5, 6] 눈금이 적힌 특성을 가집니다.
+    *   **텍스트:** 기본 주사위를 8면 주사위로 변경합니다.<br><br>8면 주사위는 [1, 2, 3, 4, 4, 5, 5, 6] 눈을 가집니다.
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M9 8 a3 3 0 0 1 6 0 c0 2 -3 3 -3 5" fill="none" stroke="#222" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="17" r="1.5" fill="#222"/></svg> 40. 이상한 주사위 (Strange Die)**
     *   **효과:** 족보에 쓸 수 없는 조커 주사위 1개 추가. 매 턴 기입 시 눈금 결과(+2, +1, +1, 0, -1, 파괴)가 최종 점수에 반영. 파괴 면이 나오면 영구 제거됨. (유지하려면 킵 슬롯 소모)
     *   **텍스트:** 이상한 주사위를 한 개 추가합니다.<br><br>이상한 주사위는 [+2, +1, +1, 0, -1, 파괴] 면을 가지고 있으며, 족보에 쓸 수 없습니다. 매 턴 족보를 기입 시 눈금 결과가 족보 점수에 반영됩니다.
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M4 20 h16 L20 8 l-4 4 l-4 -8 l-4 8 l-4 -4 Z" fill="#222" stroke-linejoin="round"/></svg> 41. 프로모션 주사위 (Promotion Die)**
-    *   **효과:** 초기 눈금이 1인 주사위 1개 추가 획득. 족보 기입에 쓰지 않고 아끼면 매 턴 모든 면의 눈금이 1씩 상승(최대 6). 족보 기입(요트 제외)에 사용하면 즉시 소멸.
-    *   **텍스트:** 기본 주사위를 프로모션 주사위로 변경합니다.<br><br>프로모션 주사위는 모든 눈금이 동일한 주사위며, 초기 눈금이 1입니다. 프로모션 주사위를 사용하지 않고 족보를 기입하면 모든 면의 눈의 수가 1 증가합니다. 요트에는 해당 주사위를 사용할 수 없습니다. 프로모션 주사위를 포함해서 족보를 기입할 시, 프로모션 주사위는 사라집니다.
+    *   **효과:** 기본 주사위 1개를 프로모션 주사위로 변경. 턴이 지날수록 눈금이 1씩 상승(최대 6). 6의 눈인 상태에서 족보를 기입할 시 소모되어 기본 주사위로 돌아옵니다.
+    *   **텍스트:** 기본 주사위 1개를 프로모션 주사위로 변경합니다.<br><br>프로모션 주사위는 모든 눈금이 동일한 주사위며, 초기 눈금이 1입니다. 턴이 지나면 모든 면의 눈 개수가 1 증가합니다. 주사위 눈이 6일 때 족보 기입 시 기본 주사위로 돌아옵니다.
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M12 20 l-8 -8 a4 4 0 0 1 8 -5 a4 4 0 0 1 8 5 z" fill="#222" stroke-linejoin="round"/></svg> 42. 커플 주사위 (Couple Dice)**
     *   **효과:** 내 주사위 중 2개를 커플 주사위로 영구 교체. 족보 기입 시 두 주사위의 눈금이 같다면 +2점 추가 획득 (상단 보너스 계산 제외)
     *   **텍스트:** 기본 주사위 2개를 커플 주사위로 변경합니다.<br><br>족보를 기입 할 때, 커플 주사위 두 개의 눈금이 같다면 +2점 추가로 획득합니다. (단, 상단 보너스 계산에서는 제외)

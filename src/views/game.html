@@ -1,0 +1,102 @@
+    <!-- App Shell: 16:9 컨테이너 (초기 숨김) -->
+    <main id="app-container" class="hidden mode-select-state">
+      
+      <!-- 증강 (Augment) 섹션 (좌측 20%) -->
+      <section id="augment-section">
+        <h2>Augments</h2>
+        <div id="augment-list">
+          <!-- 증강 카드 슬롯 3개 -->
+          <div class="augment-slot" id="aug-slot-0">
+            <div class="aug-empty-icon">
+              <svg viewBox="0 0 24 24" width="1em" height="1em">
+                <path d="M8 9 V7 a4 4 0 0 1 8 0 V9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                <rect x="5" y="9" width="14" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2.5"/>
+                <circle cx="12" cy="16" r="1.5" fill="currentColor"/>
+              </svg>
+            </div>
+            <div class="aug-empty-text">1턴에 첫 번째 증강을 선택할 수 있습니다.</div>
+          </div>
+          <div class="augment-slot" id="aug-slot-1">
+            <div class="aug-empty-icon">
+              <svg viewBox="0 0 24 24" width="1em" height="1em">
+                <path d="M8 9 V7 a4 4 0 0 1 8 0 V9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                <rect x="5" y="9" width="14" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2.5"/>
+                <circle cx="12" cy="16" r="1.5" fill="currentColor"/>
+              </svg>
+            </div>
+            <div class="aug-empty-text">6턴에 두 번째 증강을 선택할 수 있습니다.</div>
+          </div>
+          <div class="augment-slot" id="aug-slot-2">
+            <div class="aug-empty-icon">
+              <svg viewBox="0 0 24 24" width="1em" height="1em">
+                <path d="M8 9 V7 a4 4 0 0 1 8 0 V9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                <rect x="5" y="9" width="14" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2.5"/>
+                <circle cx="12" cy="16" r="1.5" fill="currentColor"/>
+              </svg>
+            </div>
+            <div class="aug-empty-text">9턴에 세 번째 증강을 선택할 수 있습니다.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 플레이어블 섹션 (중앙 45%) -->
+      <section id="playable-section">
+        <div class="controls-area">
+          <span id="game-status">상대 대기 중...</span>
+          <span id="rolls-left">남은 굴림: 3</span>
+        </div>
+        
+        <!-- 주사위 게임 영역 (킵 존 + 버건디 매트) -->
+        <div id="dice-board-area" class="dice-container">
+          <div class="table-frame">
+            <div class="burgundy-mat"></div>
+          </div>
+          <!-- 3D 캔버스가 이 안에 삽입됨 (절대 위치로 전체 덮음) -->
+        </div>
+        
+        <button id="btn-roll" class="neo-btn" disabled>굴리기 (Roll)</button>
+      </section>
+
+      <!-- 게임 메뉴 섹션 (우측 40%, 모드 선택용) -->
+      <section id="play-menu-section">
+        <div class="play-menu-card">
+          <h2>Play Augmented Dice</h2>
+          <button id="btn-play-normal" class="btn-chess-secondary">요트 다이스 플레이 (기본)</button>
+          <button id="btn-play-augmented" class="btn-chess-primary">증강 요트 다이스 플레이</button>
+        </div>
+      </section>
+
+      <!-- 족보(점수판) 섹션 (우측 40%) -->
+      <section id="scorecard-section">
+          <table id="score-table" class="neo-table">
+            <thead>
+              <!-- Row 1: Profile Pictures -->
+              <tr>
+                <th class="col-cat border-none"></th>
+                <th id="p1-profile" class="col-player profile-row">
+                  <div class="profile-pic"></div>
+                </th>
+                <th id="p2-profile" class="col-player profile-row">
+                  <div class="profile-pic"></div>
+                </th>
+                <th class="col-cat border-none"></th>
+              </tr>
+              <!-- Row 2: Categories and Names -->
+              <tr>
+                <th class="col-cat highlight-dark">Categories</th>
+                <th id="p1-name" class="col-player">
+                  <div class="name-text">P1</div>
+                </th>
+                <th id="p2-name" class="col-player">
+                  <div class="name-text">P2</div>
+                </th>
+                <th class="col-cat highlight-dark">Categories</th>
+              </tr>
+            </thead>
+          <tbody id="score-tbody">
+            <!-- 자바스크립트에서 렌더링 -->
+          </tbody>
+        </table>
+      </section>
+      
+    </main>

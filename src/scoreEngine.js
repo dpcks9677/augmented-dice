@@ -20,7 +20,7 @@ export const mutationDefinitions = {
   },
   'prime-numbers': {
     id: 'prime-numbers', name: '프라임 넘버즈', target: 'threes', enName: 'P. Numbers', excludeFromUpper: false,
-    calculate: (dice, counts, sum) => dice.every(d => d === 2 || d === 3 || d === 5) ? 12 : 0
+    calculate: (dice, counts, sum) => dice.every(d => d === 2 || d === 3 || d === 5 || d === 7) ? 12 : 0
   },
   'anti-six-fours': {
     id: 'anti-six-fours', name: '안티-식스 쿼드', target: 'fours', enName: '-6. Fours', excludeFromUpper: false,
@@ -57,7 +57,7 @@ export const mutationDefinitions = {
   'tiny-house': {
     id: 'tiny-house', name: '타이니 하우스', target: 'fullhouse', enName: 'Tiny House', excludeFromUpper: false,
     calculate: (dice, counts, sum) => {
-      if (counts[5] > 0 || counts[6] > 0) return 0; 
+      if (counts[5] > 0 || counts[6] > 0 || counts[7] > 0) return 0; 
       const vals = Object.values(counts);
       if ((vals.includes(3) && vals.includes(2)) || vals.includes(5)) return 28;
       return 0;
@@ -67,7 +67,7 @@ export const mutationDefinitions = {
     id: 'two-pair', name: '투 페어', target: 'fullhouse', enName: 'Two Pair', excludeFromUpper: false,
     calculate: (dice, counts, sum) => {
       let pairCount = 0;
-      for (let i = 1; i <= 6; i++) {
+      for (let i = 1; i <= 7; i++) {
         if (counts[i] >= 2) pairCount++;
       }
       return (pairCount >= 2 || Object.values(counts).some(c => c >= 4)) ? 15 : 0;
@@ -77,7 +77,7 @@ export const mutationDefinitions = {
     id: 'head-and-tail', name: '머리와 몸통', target: 'fullhouse', enName: 'Head & Run', excludeFromUpper: false,
     calculate: (dice, counts, sum) => {
       let valid = false;
-      for (let pairVal = 1; pairVal <= 6; pairVal++) {
+      for (let pairVal = 1; pairVal <= 7; pairVal++) {
         if (counts[pairVal] >= 2) {
           counts[pairVal] -= 2; // 일시적 제거
           const str = Object.values(counts).map(c => c > 0 ? '1' : '0').join('');
@@ -101,13 +101,13 @@ export const mutationDefinitions = {
     id: 'double-large-straight', name: '더블 라지 스트레이트', target: 's-straight', enName: 'L. Straight', excludeFromUpper: false, 
     calculate: (dice, counts, sum) => {
       const uStr = [...new Set(dice)].sort().join('');
-      return /12345|23456/.test(uStr) ? 30 : 0;
+      return /12345|23456|34567/.test(uStr) ? 30 : 0;
     }
   },
   'prime-collection': {
     id: 'prime-collection', name: '프라임 컬렉션', target: 'l-straight', enName: 'P. Collection', excludeFromUpper: false,
     calculate: (dice, counts, sum) => {
-      if (!dice.every(d => d === 2 || d === 3 || d === 5)) return 0;
+      if (!dice.every(d => d === 2 || d === 3 || d === 5 || d === 7)) return 0;
       if (counts[2] > 0 && counts[3] > 0 && counts[5] > 0) return 35;
       return 0;
     }
@@ -118,7 +118,7 @@ export const mutationDefinitions = {
       const vals = Object.values(counts);
       if (!((vals.includes(3) && vals.includes(2)) || vals.includes(5))) return 0;
       const nums = [];
-      for(let i = 1; i <= 6; i++) if (counts[i] > 0) nums.push(i);
+      for(let i = 1; i <= 7; i++) if (counts[i] > 0) nums.push(i);
       if (nums.length === 2 && Math.abs(nums[0] - nums[1]) === 1) return 35;
       return 0;
     }
@@ -133,7 +133,7 @@ export const mutationDefinitions = {
   'high-dice': {
     id: 'high-dice', name: '하이 다이스', target: 'l-straight', enName: 'High Dice', excludeFromUpper: false,
     calculate: (dice, counts, sum) => {
-      if (dice.every(d => [4,5,6].includes(d)) && sum >= 26) return 35;
+      if (dice.every(d => [4,5,6,7].includes(d)) && sum >= 26) return 35;
       return 0;
     }
   },
@@ -165,6 +165,17 @@ export const mutationDefinitions = {
     calculate: (dice, counts, sum) => (sum === 21) ? 21 : 0
   },
   // -------------------------
+  // Quest Section
+  // -------------------------
+  'fast-straight': { id: 'fast-straight', name: '재빠른 스트레이트', target: 'q1', enName: 'Fast Straight', isQuest: true },
+  'no-time-to-waste': { id: 'no-time-to-waste', name: '낭비할 시간 없다', target: 'q2', enName: 'No time to waste', isQuest: true },
+  'step-by-step': { id: 'step-by-step', name: '차근차근', target: 'q3', enName: 'Step by Step', isQuest: true },
+  'two-households': { id: 'two-households', name: '두 집 살림', target: 'q4', enName: 'Two Households', isQuest: true },
+  'holdout': { id: 'holdout', name: '알박기', target: 'q5', enName: 'Holdout', isQuest: true },
+  'cautious-straight': { id: 'cautious-straight', name: '신중한 스트레이트', target: 'q6', enName: 'Cautious Straight', isQuest: true },
+  'every-little': { id: 'every-little', name: '티끌 모아 태산', target: 'q7', enName: 'Every Little', isQuest: true },
+  
+  // -------------------------
   // Enhancement Section
   // -------------------------
   'weighted-dice': { id: 'weighted-dice', name: '묵직한 주사위', target: 'eh1', enName: 'Weighted', isEnhancement: true },
@@ -180,7 +191,7 @@ export const mutationDefinitions = {
 };
 
 export function calculateScores(dice, activeMutations = {}, context = {}) {
-  const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+  const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
   let sum = 0;
   
   dice.forEach(d => {
@@ -194,8 +205,8 @@ export function calculateScores(dice, activeMutations = {}, context = {}) {
   
   const uniqueSorted = [...new Set(dice)].sort();
   const uniqueStr = uniqueSorted.join('');
-  const isSmallStraight = /1234|2345|3456/.test(uniqueStr);
-  const isLargeStraight = /12345|23456/.test(uniqueStr);
+  const isSmallStraight = /1234|2345|3456|4567/.test(uniqueStr);
+  const isLargeStraight = /12345|23456|34567/.test(uniqueStr);
 
   let scores = {
     aces: counts[1] * 1,
@@ -215,7 +226,7 @@ export function calculateScores(dice, activeMutations = {}, context = {}) {
   // 활성화된 증강 덮어씌우기
   for (const [targetCat, mutationId] of Object.entries(activeMutations)) {
     const mut = mutationDefinitions[mutationId];
-    if (mut && !mut.isEnhancement) {
+    if (mut && !mut.isEnhancement && !mut.isQuest) {
       scores[targetCat] = mut.calculate(dice, counts, sum, context);
     }
   }
@@ -249,11 +260,11 @@ export function calculateScores(dice, activeMutations = {}, context = {}) {
        bonusDetails.push({ value: weirdSum, color: '#754581' });
     }
     
-    // 커플 주사위: 두 주사위의 눈금이 같다면 +2점
+    // 커플 주사위: 두 주사위의 눈금이 같다면 +3점
     const coupleDice = context.fullDice.filter(d => d.type === 'couple');
     if (coupleDice.length === 2 && coupleDice[0].value === coupleDice[1].value) {
-       globalBonus += 2;
-       bonusDetails.push({ value: 2, color: '#ff2c97' });
+       globalBonus += 3;
+       bonusDetails.push({ value: 3, color: '#ff2c97' });
     }
   }
   

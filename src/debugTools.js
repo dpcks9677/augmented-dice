@@ -16,19 +16,19 @@ export function setupDebugTools(api) {
   debugGroup.className = 'debug-group';
   debugGroup.innerHTML = `
     <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start; margin-bottom: 8px;">
-      <span style="color: #fff; font-weight: bold; width: 40px;">변형</span>
+      <span style="color: #222; font-weight: bold; width: 40px;">변형</span>
       <select id="debug-player-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; margin-left: 0;">
         <option value="1">P1</option>
         <option value="2">P2</option>
       </select>
       <select id="debug-mutation-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; max-width: 200px;">
-        ${Object.keys(mutationDefinitions).filter(id => !mutationDefinitions[id].isEnhancement).map(id => `<option value="${id}">${mutationDefinitions[id].name} (${mutationDefinitions[id].target})</option>`).join('')}
+        ${Object.keys(mutationDefinitions).filter(id => !mutationDefinitions[id].isEnhancement && !mutationDefinitions[id].isQuest).map(id => `<option value="${id}">${mutationDefinitions[id].name} (${mutationDefinitions[id].target})</option>`).join('')}
       </select>
       <button id="debug-mutation-apply" style="padding: 4px 12px; background: #0f4c81; color: #fff; border: none; cursor: pointer; white-space: nowrap;">적용</button>
     </div>
 
-    <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start;">
-      <span style="color: #fff; font-weight: bold; width: 40px; color: #f1c40f;">강화</span>
+    <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start; margin-bottom: 8px;">
+      <span style="color: #f1c40f; font-weight: bold; width: 40px;">강화</span>
       <select id="debug-enhancement-player-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; margin-left: 0;">
         <option value="1">P1</option>
         <option value="2">P2</option>
@@ -38,6 +38,19 @@ export function setupDebugTools(api) {
       </select>
       <button id="debug-enhancement-apply" style="padding: 4px 12px; background: #f39c12; color: #fff; border: none; cursor: pointer; white-space: nowrap;">적용</button>
     </div>
+    
+    <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start;">
+      <span style="color: #27ae60; font-weight: bold; width: 40px;">퀘스트</span>
+      <select id="debug-quest-player-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; margin-left: 0;">
+        <option value="1">P1</option>
+        <option value="2">P2</option>
+      </select>
+      <select id="debug-quest-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; max-width: 200px;">
+        ${Object.keys(mutationDefinitions).filter(id => mutationDefinitions[id].isQuest).map(id => `<option value="${id}">${mutationDefinitions[id].name}</option>`).join('')}
+      </select>
+      <button id="debug-quest-apply" style="padding: 4px 12px; background: #27ae60; color: #fff; border: none; cursor: pointer; white-space: nowrap;">적용</button>
+    </div>
+
     
     <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start; margin-top: 12px; border-top: 1px solid #444; padding-top: 8px;">
       <button id="debug-turn-prev" style="padding: 4px 8px; background: #555; color: #fff; border: none; cursor: pointer;">&lt; 턴</button>
@@ -60,6 +73,14 @@ export function setupDebugTools(api) {
   document.getElementById('debug-enhancement-apply')?.addEventListener('click', () => {
     const selectMut = document.getElementById('debug-enhancement-select');
     const selectPlayer = document.getElementById('debug-enhancement-player-select');
+    if (selectMut && selectMut.value && selectPlayer) {
+      api.applyMutation(Number(selectPlayer.value), selectMut.value);
+    }
+  });
+
+  document.getElementById('debug-quest-apply')?.addEventListener('click', () => {
+    const selectMut = document.getElementById('debug-quest-select');
+    const selectPlayer = document.getElementById('debug-quest-player-select');
     if (selectMut && selectMut.value && selectPlayer) {
       api.applyMutation(Number(selectPlayer.value), selectMut.value);
     }

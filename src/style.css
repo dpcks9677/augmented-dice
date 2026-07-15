@@ -1,11 +1,16 @@
 /* src/style.css */
 
 :root {
-  --bg-color: #f5f5f5; /* very light gray */
-  --text-color: #111111; /* dark almost black */
-  --border-color: #e5e5e5; /* light gray border */
-  --accent-color: #ffffff; /* pure white for cards */
-  --primary-color: #1a1a1a; /* almost black for buttons */
+  --bg-color: #f5f5f5;
+  /* very light gray */
+  --text-color: #111111;
+  /* dark almost black */
+  --border-color: #e5e5e5;
+  /* light gray border */
+  --accent-color: #ffffff;
+  /* pure white for cards */
+  --primary-color: #1a1a1a;
+  /* almost black for buttons */
   --border-width: 1px;
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -126,7 +131,7 @@ body {
 }
 
 .aug-desc {
-  font-size: 0.8rem;
+  font-size: 1.04rem;
   color: #444;
   line-height: 1.35;
   overflow-y: auto;
@@ -134,7 +139,8 @@ body {
 
 /* 중앙 플레이어블 섹션 (컨텐츠 크기에 맞춤) */
 #playable-section {
-  flex: 0 0 auto; /* 내용물 너비만큼 차지 */
+  flex: 0 0 auto;
+  /* 내용물 너비만큼 차지 */
   border-right: var(--border-width) solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -163,7 +169,8 @@ body {
   flex-direction: column;
   position: relative;
   margin-bottom: 20px;
-  align-items: center; /* 가로 중앙 정렬 */
+  align-items: center;
+  /* 가로 중앙 정렬 */
 }
 
 /* 카지노 테이블 프레임 (외곽 84px 두께) */
@@ -173,10 +180,10 @@ body {
   background-color: #1a1a1a;
   border: 4px solid #000;
   border-radius: 12px;
-  box-shadow: inset 0 10px 30px rgba(0,0,0,0.9);
-  background-image: 
-    linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.03) 75%, rgba(255,255,255,0.03)), 
-    linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.03) 75%, rgba(255,255,255,0.03));
+  box-shadow: inset 0 10px 30px rgba(0, 0, 0, 0.9);
+  background-image:
+    linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03)),
+    linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03));
   background-size: 10px 10px;
   background-position: 0 0, 5px 5px;
   z-index: 0;
@@ -188,36 +195,43 @@ body {
 
 /* 버건디 매트 (중앙, 정사각형 유지) */
 .burgundy-mat {
-  flex-grow: 1; 
-  aspect-ratio: 1 / 1; 
-  background-color: #6a1a2f; /* Burgundy */
+  flex-grow: 1;
+  aspect-ratio: 1 / 1;
+  max-width: 100%;
+  max-height: 100%;
+  margin: auto;
+  background-color: #6a1a2f;
+  /* Burgundy */
   border: 4px solid #4a1020;
-  border-radius: 8px; /* 안쪽 모서리 */
-  box-shadow: inset 0 40px 120px rgba(0,0,0,0.95);
-  background-image: 
-    linear-gradient(45deg, rgba(255,255,255,0.05) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.05) 75%, rgba(255,255,255,0.05)), 
-    linear-gradient(45deg, rgba(255,255,255,0.05) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.05) 75%, rgba(255,255,255,0.05));
+  border-radius: 8px;
+  /* 안쪽 모서리 */
+  box-shadow: inset 0 40px 120px rgba(0, 0, 0, 0.95);
+  background-image:
+    linear-gradient(45deg, rgba(255, 255, 255, 0.05) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.05) 75%, rgba(255, 255, 255, 0.05)),
+    linear-gradient(45deg, rgba(255, 255, 255, 0.05) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.05) 75%, rgba(255, 255, 255, 0.05));
   background-size: 10px 10px;
   background-position: 0 0, 5px 5px;
   z-index: 0;
 }
 
 /* 3D 캔버스는 전체 컨테이너를 덮음 */
-#dice-board-area canvas {
+.dice-container canvas {
   width: 100% !important;
   height: 100% !important;
   position: absolute;
   top: 0;
   left: 0;
   z-index: 1;
-  pointer-events: none; /* 클릭 이벤트 통과 (필요 시 수정) */
+  pointer-events: none;
+  /* 클릭 이벤트 통과 (필요 시 수정) */
 }
 
 /* 우측 35% 족보 섹션 */
 #scorecard-section {
   width: 35%;
   padding: 2% 2%;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   background-color: var(--accent-color);
   display: flex;
   flex-direction: column;
@@ -231,17 +245,33 @@ body {
   margin-bottom: auto;
   border-collapse: collapse;
   font-size: min(1vw, 1.8vh);
+  table-layout: fixed;
 }
 
 .neo-table tr {
-  height: 1%; /* 모든 행의 높이를 동일하게 분배 */
+  /* 반응형을 위해 브라우저의 기본 테이블 자동 분배(1%)에 맡김 */
+  height: 1%;
 }
 
-.neo-table th, .neo-table td {
+.neo-table thead tr:first-child,
+.neo-table thead tr:first-child th {
+  height: auto !important;
+  /* 프로필 사진 행은 컨텐츠 크기에 맞춤 */
+}
+
+/* 두 번째 행(Categories / P1 / P2)은 다른 행보다 2배의 높이를 갖도록 설정 */
+.neo-table thead tr:nth-child(2) th {
+  padding-top: 1.5vh !important;
+  padding-bottom: 1.5vh !important;
+  height: auto;
+}
+
+.neo-table th,
+.neo-table td {
   border-bottom: var(--border-width) solid var(--border-color);
   padding: 0 4px;
   text-align: center;
-  height: 1%; /* 테이블 레이아웃이 내용을 무시하고 강제로 칸 높이를 똑같이 맞추도록 지시 */
+  height: 1%;
 }
 
 .neo-table th {
@@ -283,7 +313,7 @@ body {
   background-color: #f0f0f0;
   border: 2px solid #000;
   border-radius: 12px;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -295,20 +325,21 @@ body {
   transition: all 0.2s ease;
   border-radius: 4px;
 }
+
 .score-cell.suggested {
   cursor: pointer;
+  color: #999999;
+  font-style: italic;
 }
+
 .score-cell.suggested:hover {
   background-color: #f0f0f0;
 }
+
 .score-cell.filled {
   cursor: default;
   font-weight: bold;
   color: var(--primary-color);
-}
-.score-cell.suggested {
-  color: #999999;
-  font-style: italic;
 }
 
 /* 킵된 주사위 스타일 */
@@ -335,10 +366,12 @@ body {
   box-shadow: var(--shadow-md);
   transition: all 0.2s ease;
 }
+
 .die-icon:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
 }
+
 .die-icon.kept {
   border-color: #333333;
   background-color: #f0f0f0;
@@ -350,6 +383,7 @@ body {
   width: 20%;
   transition: background-color 0.3s;
 }
+
 .col-player.active-turn {
   background-color: #f5f5f5;
   color: #111111;
@@ -370,20 +404,24 @@ body {
   box-shadow: var(--shadow-sm);
   transition: all 0.2s ease;
 }
+
 .neo-btn:hover:not(:disabled) {
   background-color: #333333;
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);
 }
+
 .neo-btn:active:not(:disabled) {
   transform: translateY(0);
 }
+
 .neo-btn:disabled {
   background-color: #e0e0e0;
   color: #999999;
   cursor: not-allowed;
   box-shadow: none;
 }
+
 .neo-btn.sm {
   padding: 8px 16px;
   font-size: 0.9rem;
@@ -392,13 +430,17 @@ body {
 /* 오버레이 (로비) */
 .overlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background-color: rgba(0, 0, 0, 0.8);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
 }
+
 .overlay.hidden {
   display: none;
 }
@@ -430,7 +472,9 @@ body {
   color: #333333;
 }
 
-#lobby-actions, #multiplayer-actions, #waiting-room {
+#lobby-actions,
+#multiplayer-actions,
+#waiting-room {
   display: flex;
   flex-direction: column;
   gap: 15px;
@@ -451,6 +495,7 @@ body {
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
+
 .neo-input:focus {
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
@@ -474,7 +519,11 @@ body {
   justify-content: space-between;
   background-color: #f9f9f9;
 }
-.status.ready { color: #333333; font-weight: 700; }
+
+.status.ready {
+  color: #333333;
+  font-weight: 700;
+}
 
 .room-controls {
   display: flex;
@@ -556,4 +605,252 @@ body {
 .debug-content.collapsed {
   max-height: 0;
   padding: 0 12px;
+}
+
+/* Augment Selection Modal Styles */
+.augment-modal-card {
+  max-width: 900px !important;
+  width: 90vw !important;
+  height: 50vh !important;
+  display: flex;
+  flex-direction: column;
+  padding: 40px !important;
+  text-align: center;
+}
+
+#augment-modal-title {
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+
+#augment-modal-desc {
+  font-size: 1.2rem;
+  color: #666;
+  margin-bottom: 30px;
+}
+
+.augment-options-container {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  justify-content: center;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+
+/* 획득한 증강 표시 슬롯 스타일 (인벤토리) */
+.aug-slot-filled {
+  padding: 15px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.aug-slot-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 10px;
+}
+
+.aug-slot-name {
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.aug-slot-desc {
+  font-size: 0.82rem;
+  color: #555;
+  line-height: 1.4;
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+/* 모달에 쓰이는 증강 옵션 카드 호버 효과 등 */
+.augment-option {
+  background-color: var(--bg-color);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.augment-option h3 {
+  margin-bottom: 8px;
+  font-size: 1.1rem;
+  color: var(--text-color);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.augment-option p {
+  font-size: 1.17rem;
+  color: #555;
+  line-height: 1.4;
+}
+
+.augment-option:hover {
+  transform: translateY(-5px);
+  border-color: var(--primary-color) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+ 
+
+/* --- App Container States & Transitions --- */
+#augment-section {
+  transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.5s ease;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+#playable-section {
+  transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+#app-container.mode-select-state #augment-section {
+  width: 0%;
+  padding: 0;
+  margin: 0;
+  opacity: 0;
+  border-right: none;
+}
+
+#app-container.mode-select-state #playable-section {
+  width: 65%;
+}
+
+#app-container.playing-state #augment-section {
+  width: 20%;
+  opacity: 1;
+}
+
+#app-container.playing-state #playable-section {
+  width: 45%;
+}
+
+#app-container.playing-state #play-menu-section {
+  display: none;
+}
+
+#app-container.mode-select-state #scorecard-section { display: none; }
+#app-container.playing-state #scorecard-section { display: flex; }
+
+
+/* -------------------------------------------
+   Landing View Redesign (Chess.com Style)
+------------------------------------------- */
+#landing-view {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 60px;
+  width: 100vw;
+  height: 100vh;
+  padding: 40px;
+  box-sizing: border-box;
+  background-color: var(--bg-color); /* Match game background */
+}
+
+/* Left side: Interactive Dice Board */
+#landing-dice-wrapper {
+  flex: 0 0 55%;
+  max-width: 800px;
+  aspect-ratio: 1 / 1;
+  position: relative;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  border: var(--border-width) solid var(--border-color);
+  background: var(--accent-color);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  
+  /* 등장 애니메이션 초기 상태 */
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.8s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+#landing-dice-wrapper.loaded {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Right side: Content */
+#landing-content {
+  flex: 0 0 35%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  color: var(--text-color);
+}
+
+.landing-title {
+  font-size: 3.5rem;
+  font-weight: 800;
+  margin: 0 0 16px 0;
+  line-height: 1.2;
+  color: var(--text-color);
+}
+
+.landing-subtitle {
+  font-size: 1.2rem;
+  font-weight: 500;
+  margin: 0 0 40px 0;
+  line-height: 1.5;
+  color: #666;
+}
+
+#btn-get-started {
+  font-size: 1.2rem;
+  padding: 16px 40px;
+  width: 100%;
+  max-width: 400px;
+  border-radius: var(--radius);
+  background-color: var(--primary-color);
+  color: var(--accent-color);
+  font-weight: 600;
+  border: none;
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#btn-get-started:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  background-color: #333;
+}
+
+#btn-get-started:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 1024px) {
+  #landing-view {
+    flex-direction: column;
+    padding: 20px;
+    gap: 30px;
+  }
+  #landing-dice-wrapper, #landing-content {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 600px;
+  }
+  #landing-content {
+    align-items: center;
+    text-align: center;
+  }
 }

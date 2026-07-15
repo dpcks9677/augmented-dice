@@ -3,23 +3,12 @@ import { calculateScores, mutationDefinitions } from "./scoreEngine.js";
 import { DiceEngine } from "./DiceEngine.js";
 import { getDiceSvg, getSpecialSvg, getVariantSvg } from "./svgIcons.js";
 import { setupDebugTools } from "./debugTools.js";
-import { uiManager } from "./UIManager.js";
 
 let augmentData = [];
 fetch('/src/augments.json').then(r => r.json()).then(d => { augmentData = d; }).catch(e => console.error(e));
 
-uiManager.mountAllViews();
-
 // DOM 요소 캐싱
 const els = {
-  landingView: document.getElementById('landing-view'),
-  btnGetStarted: document.getElementById('btn-get-started'),
-  loginView: document.getElementById('login-view'),
-  btnDummyLogin: document.getElementById('btn-dummy-login'),
-  appContainer: document.getElementById('app-container'),
-  playMenuSection: document.getElementById('play-menu-section'),
-  btnPlayNormal: document.getElementById('btn-play-normal'),
-  btnPlayAugmented: document.getElementById('btn-play-augmented'),
   lobbyOverlay: document.getElementById('lobby-overlay'),
   myNickname: document.getElementById('my-nickname'),
   btnSingleplayer: document.getElementById('btn-singleplayer'),
@@ -67,6 +56,7 @@ if (!myNickname) {
   myNickname = `${randAdj} ${randNoun}`;
   localStorage.setItem('ad_nickname', myNickname);
 }
+els.myNickname.textContent = myNickname;
 
 // 전역 상태
 let socket = null;
@@ -91,71 +81,30 @@ let playerYachtBank = { 1: 0, 2: 0 };
 let yachtBankLocked = { 1: false, 2: false };
 let destroyedStrangeDice = { 1: false, 2: false };
 let promotionConsumed = { 1: false, 2: false };
-let questProgress = { 1: {}, 2: {} };
 
-
-let landingDiceEngine = null;
-
-// 로비용 주사위 엔진 초기화
-setTimeout(() => {
-  const landingWrapper = document.getElementById('landing-dice-wrapper');
-  if (landingWrapper) {
-    landingDiceEngine = new DiceEngine("#landing-dice-wrapper");
-    
-    // 엔진 초기화 후 애니메이션 클래스 추가 (페이드 인 & 슬라이드 업)
-    requestAnimationFrame(() => {
-      landingWrapper.classList.add('loaded');
-    });
-    
-    // 자동 굴림 애니메이션 (렌더링 후 약간의 딜레이 뒤에 실행)
-    setTimeout(() => {
-      if (landingDiceEngine) {
-        landingDiceEngine.roll(5);
-      }
-    }, 800);
-    
-    landingWrapper.addEventListener('click', () => {
-      if (landingDiceEngine) {
-         landingDiceEngine.roll(5);
-      }
-    });
-  }
-}, 500); // 렌더링 대기
-
-// 2. 메인 로비 흐름 제어 (새 UI)
-els.btnGetStarted?.addEventListener('click', () => {
-  els.landingView?.classList.add('hidden');
-  els.loginView?.classList.remove('hidden');
+// 2. 메인 로비 흐름 제어
+els.btnMultiplayer.addEventListener('click', () => {
+  els.btnHotseat.classList.add('hidden');
+  els.btnSingleplayer.classList.add('hidden');
+  els.btnMultiplayer.classList.add('hidden');
+  els.multiplayerActions.classList.remove('hidden');
 });
 
-els.btnDummyLogin?.addEventListener('click', () => {
-  els.loginView?.classList.add('hidden');
-  els.appContainer?.classList.remove('hidden');
-});
-
-// 기존 멀티플레이어 흐름 제어 (요소 없을 시 대비)
-els.btnMultiplayer?.addEventListener('click', () => {
-  els.btnHotseat?.classList.add('hidden');
-  els.btnSingleplayer?.classList.add('hidden');
-  els.btnMultiplayer?.classList.add('hidden');
-  els.multiplayerActions?.classList.remove('hidden');
-});
-
-els.btnBackToLobby?.addEventListener('click', () => {
-  els.multiplayerActions?.classList.add('hidden');
-  els.btnHotseat?.classList.remove('hidden');
-  els.btnSingleplayer?.classList.remove('hidden');
-  els.btnMultiplayer?.classList.remove('hidden');
+els.btnBackToLobby.addEventListener('click', () => {
+  els.multiplayerActions.classList.add('hidden');
+  els.btnHotseat.classList.remove('hidden');
+  els.btnSingleplayer.classList.remove('hidden');
+  els.btnMultiplayer.classList.remove('hidden');
 });
 
 // 방 생성/입장 로직 (멀티플레이)
-els.btnCreateRoom?.addEventListener('click', () => {
+els.btnCreateRoom.addEventListener('click', () => {
   const code = Math.random().toString(36).substring(2, 6).toUpperCase();
   joinRoom(code, true);
 });
-els.btnJoinRoom?.addEventListener('click', () => {
-  const code = els.inputRoomCode?.value.toUpperCase();
-  if (code && code.length === 4) joinRoom(code, false);
+els.btnJoinRoom.addEventListener('click', () => {
+  const code = els.inputRoomCode.value.toUpperCase();
+  if (code.length === 4) joinRoom(code, false);
 });
 
 function joinRoom(roomId, asHost) {
@@ -194,38 +143,10 @@ function joinRoom(roomId, asHost) {
 // 3. 로컬 핫시트 모드 로직 (코어 게임 루프)
 // -----------------------------------------------------
 
-els.btnPlayNormal?.addEventListener('click', () => {
+els.btnHotseat.addEventListener('click', () => {
   try {
     gameMode = 'hotseat';
-    els.appContainer?.classList.remove('mode-select-state');
-    els.appContainer?.classList.add('playing-state');
-    els.p1Name.querySelector('.name-text').textContent = "Player 1";
-    els.p2Name.querySelector('.name-text').textContent = "Player 2";
-    startHotseatGame();
-  } catch (err) {
-    alert("오류 발생: " + err.message + "\n" + err.stack);
-    console.error(err);
-  }
-});
-
-els.btnPlayAugmented?.addEventListener('click', () => {
-  try {
-    gameMode = 'augmented-hotseat';
-    els.appContainer?.classList.remove('mode-select-state');
-    els.appContainer?.classList.add('playing-state');
-    els.p1Name.querySelector('.name-text').textContent = "Player 1";
-    els.p2Name.querySelector('.name-text').textContent = "Player 2";
-    startHotseatGame();
-  } catch (err) {
-    alert("오류 발생: " + err.message + "\n" + err.stack);
-    console.error(err);
-  }
-});
-
-els.btnHotseat?.addEventListener('click', () => {
-  try {
-    gameMode = 'hotseat';
-    els.lobbyOverlay?.classList.add('hidden');
+    els.lobbyOverlay.classList.add('hidden');
     els.p1Name.querySelector('.name-text').textContent = "Player 1";
     els.p2Name.querySelector('.name-text').textContent = "Player 2";
     
@@ -250,41 +171,6 @@ function startHotseatGame() {
   startTurn();
 }
 
-function showAugmentSelectionModal(player, onSelect) {
-  const modal = document.getElementById('augment-selection-modal');
-  const title = document.getElementById('augment-modal-title');
-  const optionsContainer = document.getElementById('augment-options');
-  
-  if (!modal || !title || !optionsContainer) return;
-  
-  title.textContent = `Player ${player} 증강 선택`;
-  optionsContainer.innerHTML = '';
-  
-  const shuffled = [...augmentData].sort(() => 0.5 - Math.random());
-  const selectedAugments = shuffled.slice(0, 3);
-  
-  selectedAugments.forEach(aug => {
-    const btn = document.createElement('div');
-    btn.className = 'augment-option';
-    let desc = aug.description || aug.name + ' 증강이 적용됩니다.';
-    // removed <br> replacement
-    
-    const icon = getVariantSvg(aug.mutationId) || '';
-    btn.innerHTML = `
-      <div class="aug-slot-header">${icon} <span class="aug-slot-name">${aug.name}</span></div>
-      <div class="aug-slot-desc">${desc}</div>
-    `;
-    btn.addEventListener('click', () => {
-      modal.classList.add('hidden');
-      if (window.applyMutation) window.applyMutation(player, aug.mutationId);
-      if (onSelect) onSelect();
-    });
-    optionsContainer.appendChild(btn);
-  });
-  
-  modal.classList.remove('hidden');
-}
-
 function startTurn() {
   rollsLeft = 3;
   keptDice = [];
@@ -297,35 +183,6 @@ function startTurn() {
   els.p2Name.classList.toggle('active-turn', currentPlayer === 2);
   els.p1Profile.classList.toggle('active-turn', currentPlayer === 1);
   els.p2Profile.classList.toggle('active-turn', currentPlayer === 2);
-  
-  if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(currentPlayer);
-  
-  if (gameMode === 'augmented-hotseat') {
-    const currentAugCount = Object.keys(activeMutations[currentPlayer] || {}).length;
-    let expectedCount = 0;
-    if (currentRound >= 1) expectedCount = 1;
-    if (currentRound >= 6) expectedCount = 2;
-    if (currentRound >= 9) expectedCount = 3;
-    
-    if (currentAugCount < expectedCount) {
-      els.btnRoll.disabled = true;
-      showAugmentSelectionModal(currentPlayer, () => {
-        if (currentPlayer === 1) {
-          const p2Count = Object.keys(activeMutations[2] || {}).length;
-          if (p2Count < expectedCount) {
-            if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(2);
-            showAugmentSelectionModal(2, () => {
-              if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(1);
-              if (diceBoxReady) els.btnRoll.disabled = false;
-            });
-            return;
-          }
-        }
-        if (diceBoxReady) els.btnRoll.disabled = false;
-      });
-      return;
-    }
-  }
   
   if (diceBoxReady) els.btnRoll.disabled = false;
 }
@@ -447,6 +304,8 @@ function showNotSelectedState(neededCount) {
     // 이미 확정된 점수면 스킵
     if (scores[currentPlayer][cat.id] !== undefined) return;
     
+    const activeMuts = Object.values(activeMutations[currentPlayer] || {});
+
     // "선택되지 않음" 상태 적용
     cell.textContent = '-';
     cell.style.color = '#888';
@@ -615,6 +474,53 @@ function lockScore(catId, scoreInfo) {
     endGame();
   } else {
     startTurn();
+  }
+}
+
+function applyAugment(player, augmentId) {
+  const mutDef = mutationDefinitions[augmentId];
+  if (!mutDef) return;
+
+  const target = mutDef.target;
+  const isEnhancement = mutDef.isEnhancement;
+  const isQuest = mutDef.isQuest;
+
+  // 적용할 대상(category)이 있는 경우 (퀘스트, 일부 강화, 변형)
+  if (target) {
+    activeMutations[player][target] = augmentId;
+    
+    // 변형(Modification)인 경우: 대상 족보가 이미 기입되어 있다면 초기화하여 추가 턴 기회 제공
+    if (!isEnhancement && !isQuest) {
+      if (scores[player][target] !== undefined) {
+        delete scores[player][target];
+      }
+    }
+  }
+
+  // 강화 증강 특수 로직 초기화
+  if (isEnhancement) {
+    if (augmentId === 'not-over') {
+      // 가장 점수가 낮은 족보 1개를 빈칸으로 초기화하고 타겟으로 지정
+      let minCat = null;
+      let minScore = Infinity;
+      Object.entries(scores[player]).forEach(([cat, scoreObj]) => {
+        if (cat === 'bonus') return;
+        const s = typeof scoreObj === 'object' ? scoreObj.score : scoreObj;
+        if (s < minScore) {
+          minScore = s;
+          minCat = cat;
+        }
+      });
+      if (minCat) {
+        delete scores[player][minCat];
+        notOverTarget[player] = minCat;
+      }
+    }
+  }
+
+  // 예외 특수 케이스 로직들
+  if (augmentId === 'double-large-straight') {
+    upperBonusThreshold[player] = 60; // 보너스 달성 허들 완화
   }
 }
 
@@ -844,120 +750,8 @@ setTimeout(() => {
 // -----------------------------------------------------
 // 5. 디버그 도구
 // -----------------------------------------------------
-// 좌측 증강 섹션(UI) 업데이트 함수
-function getQuestProgressText(player, mutId) {
-  const prog = questProgress[player] || {};
-  const s = scores[player] || {};
-  let questLines = [];
-  let status = 'in-progress';
-  
-  const line = (text, isDone) => {
-    if (isDone) return `<div style="margin-top: 8px;"><span style="text-decoration: line-through; opacity: 0.7;"><strong><u>퀘스트</u></strong>: ${text}</span></div>`;
-    return `<div style="margin-top: 8px;"><strong><u>퀘스트</u></strong>: ${text}</div>`;
-  };
-  
-  switch(mutId) {
-    case 'fast-straight':
-      questLines.push(line('8턴 안에 S. Straight 기입', s['s-straight']?.score > 0));
-      questLines.push(line('8턴 안에 L. Straight 기입', s['l-straight']?.score > 0));
-      if (prog.fastStraightRewarded) status = 'completed';
-      else if (currentRound > 8 && !(s['s-straight']?.score > 0 && s['l-straight']?.score > 0)) status = 'failed';
-      break;
-      
-    case 'no-time-to-waste':
-      const count = prog.noTimeCount || 0;
-      questLines.push(line(`리롤 없이 족보 기입 (${count}/3)`, count >= 3));
-      if (prog.noTimeRewarded) status = 'completed';
-      break;
-      
-    case 'step-by-step':
-      questLines.push(line('상단 족보 모두 채우기', prog.stepRewarded));
-      if (prog.stepRewarded) status = 'completed';
-      break;
-      
-    case 'two-households':
-      questLines.push(line('Choice 족보를 Full House 형태로 기입', prog.twoHouseholdsRewarded));
-      questLines.push(line('Full House 족보 기입', s['fullhouse']?.score > 0));
-      if (prog.twoHouseholdsRewarded && s['fullhouse']?.score > 0) status = 'completed';
-      break;
-      
-    case 'holdout':
-      questLines.push(line('9턴 이후에 Full House 기입', prog.holdoutRewarded));
-      if (prog.holdoutRewarded) status = 'completed';
-      else if (s['fullhouse'] !== undefined && !prog.holdoutRewarded) status = 'failed';
-      break;
-      
-    case 'cautious-straight':
-      questLines.push(line('S. Straight를 L. Straight 보다 먼저 기입', s['s-straight'] !== undefined && !prog.cautiousFailed));
-      questLines.push(line('L. Straight 기입', prog.cautiousRewarded));
-      if (prog.cautiousRewarded) status = 'completed';
-      else if (prog.cautiousFailed) status = 'failed';
-      break;
-      
-    case 'every-little':
-      const elCount = prog.everyLittleCount || 0;
-      questLines.push(line(`1의 눈을 포함하여 족보 기입 (${elCount}/7)`, elCount >= 7));
-      if (prog.everyLittleRewarded) status = 'completed';
-      break;
-  }
-  
-  let resultHTML = '';
-  if (status === 'completed') {
-    resultHTML += '<div style="color: #D4AF37; font-weight: bold; margin-top: 5px; background: rgba(212,175,55,0.1); padding: 4px; border-radius: 4px;">✨ 퀘스트 완료!</div>';
-  } else if (status === 'failed') {
-    resultHTML += '<div style="color: #e74c3c; font-weight: bold; margin-top: 5px; background: rgba(231,76,60,0.1); padding: 4px; border-radius: 4px;">❌ 퀘스트 실패</div>';
-  } else {
-    resultHTML += '<div style="color: #3498db; font-weight: bold; margin-top: 5px; background: rgba(52,152,219,0.1); padding: 4px; border-radius: 4px;">⏳ 퀘스트 진행 중</div>';
-  }
-  
-  resultHTML += '<hr style="margin: 12px 0 8px 0; border: none; border-top: 1px dashed #ccc;">';
-  resultHTML += questLines.join('');
-  
-  return resultHTML;
-}
-
-
-// -----------------------------------------------------
-// 5. 디버그 및 핫시트 UI 도구
-// -----------------------------------------------------
-window.updateAugmentSidebar = function(player) {
-  const muts = Object.values(activeMutations[player] || {});
-  for (let i = 0; i < 3; i++) {
-    const slot = document.getElementById(`aug-slot-${i}`);
-    if (!slot) continue;
-    
-    if (i < muts.length) {
-      const mutationId = muts[i];
-      const mut = mutationDefinitions[mutationId];
-      if (!mut) continue;
-      const svgIcon = getVariantSvg(mutationId);
-      const augInfo = augmentData.find(a => a.name.includes(mut.name) || (a.mark && mut.enName && a.mark === mut.enName)) || {};
-      let description = augInfo.description || mut.name + ' 증강이 적용되었습니다.';
-      if (mut.isQuest && typeof getQuestProgressText === 'function') description += '<br>' + getQuestProgressText(player, mutationId);
-      
-      slot.classList.add('filled');
-      slot.innerHTML = `
-        <div class="aug-slot-filled">
-          <div class="aug-slot-header">${svgIcon} <span class="aug-slot-name">${mut.name}</span></div>
-          <div class="aug-slot-desc">${description}</div>
-        </div>
-      `;
-    } else {
-      slot.classList.remove('filled');
-      let roundText = i === 0 ? "1턴" : (i === 1 ? "6턴" : "9턴");
-      slot.innerHTML = `
-        <div class="aug-empty-icon">
-          <svg viewBox="0 0 24 24" width="1em" height="1em">
-            <path d="M8 9 V7 a4 4 0 0 1 8 0 V9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-            <rect x="5" y="9" width="14" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2.5"/>
-            <circle cx="12" cy="16" r="1.5" fill="currentColor"/>
-          </svg>
-        </div>
-        <div class="aug-empty-text">${roundText}에 증강을 선택할 수 있습니다.</div>
-      `;
-    }
-  }
-};
+// 증강 적용 함수
+let debugAugmentCount = 0;
 
 window.applyMutation = function(player, mutationId) {
   const mut = mutationDefinitions[mutationId];
@@ -982,7 +776,26 @@ window.applyMutation = function(player, mutationId) {
   }
   
   // 좌측 증강 섹션(UI) 업데이트
-  updateAugmentSidebar(player);
+  const augInfo = augmentData.find(a => a.name.includes(mut.name) || (a.mark && mut.enName && a.mark === mut.enName)) || {};
+  let description = augInfo.description || mut.name + ' 증강이 적용되었습니다.';
+  description = description.replace(/변경합니다\.\s*/g, '변경합니다.<br><br>');
+  
+  let slotIndex = debugAugmentCount;
+  if (slotIndex >= 3) {
+    slotIndex = 2; // 다 찼다면 세 번째 칸 덮어씌우기
+  } else {
+    debugAugmentCount++;
+  }
+  
+  const slot = document.getElementById(`aug-slot-${slotIndex}`);
+  if (slot) {
+    const svgIcon = getVariantSvg(mutationId);
+    slot.classList.add('filled');
+    slot.innerHTML = `
+      <div class="aug-header">${svgIcon} <span>${mut.name}</span></div>
+      <div class="aug-desc">${description}</div>
+    `;
+  }
   
   // 점수판 리렌더링 (보너스 등 업데이트)
   updateScoreboard();
@@ -1020,19 +833,17 @@ setupDebugTools({
     }
   },
   applyDice: (values) => {
+    // 디버그 조작 시 진행 중인 애니메이션이나 이전 상태를 무시하고 덮어씌움
     diceEngine.forceValues(values);
     
-    rollsLeft--;
-    updateRollsUI();
-    if (gameMode !== 'hotseat' && gameMode !== 'augmented-hotseat') {
-      triggerOpponentTurn(); 
-    } else {
-      // 핫시트일 때는 다음 사람으로 넘기지 않고 점수 선택 대기
-      els.gameStatus.textContent = `P${currentPlayer} 족보 선택 대기 중...`;
-      if (rollsLeft <= 0) {
-        els.btnRoll.disabled = true;
-        diceEngine.allowKeep = false;
-      }
+    // 로컬 상태 동기화
+    keptDice = [];
+    activeDice = diceEngine.diceArray.filter(d => d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
+    
+    // 남은 굴림 횟수가 남아있어야 기입 가능하므로, 굴림 횟수가 3번일 때만 1회 차감 처리하여 족보 클릭이 가능하도록 함
+    if (rollsLeft === 3) {
+      rollsLeft--;
+      updateRollsUI();
     }
     
     updateScorePreviews();

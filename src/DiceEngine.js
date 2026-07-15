@@ -25,6 +25,18 @@ export class DiceEngine {
     this.onWindowResize();
     
     window.addEventListener('resize', this.onWindowResize.bind(this));
+    
+    // 컨테이너 크기가 변경될 때(CSS 트랜지션 등) 캔버스 크기를 자동 조절
+    const resizeObserver = new ResizeObserver(() => {
+      if (this.container.clientWidth > 0 && this.container.clientHeight > 0) {
+        this.onWindowResize();
+        this.startRenderLoop();
+      }
+    });
+    if (this.container) {
+      resizeObserver.observe(this.container);
+    }
+    
     this.container.addEventListener('click', this.onClick.bind(this));
     
     // 지오메트리 캐싱
@@ -376,23 +388,35 @@ export class DiceEngine {
 
 
   onWindowResize() {
-    const appContainer = document.getElementById('app-container');
-    if (!appContainer) return;
+    let maxW, maxH;
 
-    const availableTotalHeight = appContainer.clientHeight;
-    
-    const controls = document.querySelector('.controls-area');
-    const btn = document.getElementById('btn-roll');
-    const margins = 20; // margin-bottom on .dice-container
-    const paddingY = 48; // playable-section top+bottom padding
-    const paddingX = 48; // playable-section left+right padding
-    
-    const usedHeight = (controls ? controls.offsetHeight : 0) 
-                     + (btn ? btn.offsetHeight : 0) 
-                     + paddingY + margins;
-                     
-    const maxW = appContainer.clientWidth * 0.78 - paddingX;
-    const maxH = availableTotalHeight - usedHeight;
+    if (this.container.id === 'landing-dice-wrapper') {
+      // Landing page: container is sized by flexbox/CSS, so we can just use its current offset parent or window size
+      // Reset explicit styles first so we can measure the natural CSS size
+      this.container.style.width = '';
+      this.container.style.height = '';
+      const rect = this.container.getBoundingClientRect();
+      maxW = rect.width;
+      maxH = rect.height;
+    } else {
+      // Game page
+      const appContainer = document.getElementById('app-container');
+      if (!appContainer) return;
+
+      const availableTotalHeight = appContainer.clientHeight;
+      const controls = document.querySelector('.controls-area');
+      const btn = document.getElementById('btn-roll');
+      const margins = 20; // margin-bottom on .dice-container
+      const paddingY = 48; // playable-section top+bottom padding
+      const paddingX = 48; // playable-section left+right padding
+      
+      const usedHeight = (controls ? controls.offsetHeight : 0) 
+                       + (btn ? btn.offsetHeight : 0) 
+                       + paddingY + margins;
+                       
+      maxW = appContainer.clientWidth * 0.78 - paddingX;
+      maxH = availableTotalHeight - usedHeight;
+    }
     
     // 정사각형 유지: 가로 세로 중 가용한 공간이 더 작은 쪽에 맞춤
     const containerSize = Math.min(maxW, maxH);
@@ -418,8 +442,12 @@ export class DiceEngine {
     
     // 컨테이너 크기 강제 고정
     this.container.style.flexGrow = '0';
-    this.container.style.width = w + 'px';
-    this.container.style.height = h + 'px';
+    // For landing, we shouldn't force the container size because CSS aspect-ratio handles it, 
+    // but the canvas will be w x h. Actually, fixing the container size is fine as long as we use the correct w and h.
+    if (this.container.id !== 'landing-dice-wrapper') {
+      this.container.style.width = w + 'px';
+      this.container.style.height = h + 'px';
+    }
     
     // 자식 요소들 크기 강제 동기화 (CSS flex 버그 방지)
     const burgundy = this.container.querySelector('.burgundy-mat');
@@ -589,9 +617,9 @@ export class DiceEngine {
       const vFov = this.camera.fov * Math.PI / 180;
       const viewHeight = 2 * Math.tan(vFov / 2) * this.camera.position.y;
       
-      const frameThickness = 84;
       const h = this.container.clientHeight;
-      const matSize = h - frameThickness * 2;
+      const matSize = h / 1.25;
+      const frameThickness = matSize * 0.125;
       const matSize3D = viewHeight * (matSize / h);
 
       for (let i = 0; i < configs.length; i++) {
