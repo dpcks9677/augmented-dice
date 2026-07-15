@@ -410,6 +410,10 @@ export class DiceEngine {
       const paddingY = 48; // playable-section top+bottom padding
       const paddingX = 48; // playable-section left+right padding
       
+      // 이전 프레임에서 고정된 width를 초기화하여 글자 래핑(wrapping) 현상으로 인한 비정상적인 offsetHeight 증가 방지
+      if (controls) controls.style.width = '';
+      if (btn) btn.style.width = '';
+      
       const usedHeight = (controls ? controls.offsetHeight : 0) 
                        + (btn ? btn.offsetHeight : 0) 
                        + paddingY + margins;
