@@ -35,19 +35,32 @@ body {
   overflow: hidden;
 }
 
-/* 18:9 와이드 컨테이너 */
+/* 앱 컨테이너 기본 스타일 */
 #app-container {
-  width: 98vw;
-  height: calc(98vw * (9/18));
-  max-height: 95vh;
-  max-width: calc(95vh * (18/9));
   background-color: var(--accent-color);
   border: var(--border-width) solid var(--border-color);
   box-shadow: var(--shadow-lg);
   border-radius: var(--radius);
   display: flex;
+  justify-content: center;
   position: relative;
   overflow: hidden;
+  transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* 1. 모드 선택 화면 (내용물에 맞춰 테두리 축소) */
+#app-container.mode-select-state {
+  height: 95vh;
+  width: max-content;
+  max-width: 98vw;
+}
+
+/* 2. 게임 화면 (18:9 고정 비율) */
+#app-container.playing-state {
+  width: 98vw;
+  height: calc(98vw * (9/18));
+  max-height: 95vh;
+  max-width: calc(95vh * (18/9));
 }
 
 /* 좌측 증강 섹션 (가변 폭) */
@@ -144,6 +157,7 @@ body {
   border-right: var(--border-width) solid var(--border-color);
   display: flex;
   flex-direction: column;
+  align-items: center;
   padding: 24px;
   background-color: #fafafa;
 }
@@ -228,7 +242,7 @@ body {
 
 /* 우측 35% 족보 섹션 */
 #scorecard-section {
-  width: 35%;
+  flex: 1;
   padding: 2% 2%;
   overflow-y: auto;
   overflow-x: hidden;
@@ -702,21 +716,23 @@ body {
   box-shadow: var(--shadow-lg) !important;
 }
 
- 
+ 
 
 /* --- App Container States & Transitions --- */
-#augment-section {
-  transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.5s ease;
+#augment-section,
+#playable-section,
+#play-menu-section,
+#scorecard-section {
+  transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
   overflow: hidden;
-  white-space: nowrap;
 }
 
-#playable-section {
-  transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
+/* -------------------------------------------
+   Mode Select State
+------------------------------------------- */
 #app-container.mode-select-state #augment-section {
-  width: 0%;
+  width: 0;
+  flex: 0 0 0;
   padding: 0;
   margin: 0;
   opacity: 0;
@@ -724,20 +740,132 @@ body {
 }
 
 #app-container.mode-select-state #playable-section {
-  width: 65%;
+  width: auto;
+  flex: 0 0 auto;
 }
 
-#app-container.playing-state #augment-section {
-  width: 20%;
+#app-container.mode-select-state #play-menu-section {
+  width: 400px;
+  flex: 0 0 400px;
   opacity: 1;
 }
 
+#app-container.mode-select-state #scorecard-section {
+  width: 0;
+  flex: 0 0 0;
+  padding: 0;
+  margin: 0;
+  opacity: 0;
+}
+
+/* -------------------------------------------
+   Playing State
+------------------------------------------- */
+#app-container.playing-state #augment-section {
+  width: 320px;
+  flex: 0 0 320px;
+  opacity: 1;
+  padding: 24px;
+}
+
 #app-container.playing-state #playable-section {
-  width: 45%;
+  width: auto;
+  flex: 0 0 auto;
 }
 
 #app-container.playing-state #play-menu-section {
-  display: none;
+  width: 0;
+  flex: 0 0 0;
+  padding: 0;
+  margin: 0;
+  opacity: 0;
+  border-left: none;
+}
+
+#app-container.playing-state #scorecard-section {
+  width: 400px;
+  flex: 0 0 400px;
+  opacity: 1;
+  padding: 24px;
+}
+
+/* -------------------------------------------
+   Play Menu Section (Mode Select)
+------------------------------------------- */
+#play-menu-section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+  padding: 40px;
+  background-color: var(--accent-color);
+  border-left: var(--border-width) solid var(--border-color);
+}
+
+.play-menu-card {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.play-menu-card h2 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--text-color);
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* Primary Button (Augmented) */
+#btn-play-augmented {
+  background-color: #6a9b41;
+  color: #fff;
+  border: none;
+  padding: 20px 24px;
+  font-size: 1.3rem;
+  font-weight: 800;
+  border-radius: var(--radius);
+  cursor: pointer;
+  box-shadow: 0 5px 0 #4f772e;
+  transition: transform 0.1s, box-shadow 0.1s, background-color 0.2s;
+  text-align: center;
+}
+
+#btn-play-augmented:hover {
+  background-color: #7ab24a;
+}
+
+#btn-play-augmented:active {
+  transform: translateY(5px);
+  box-shadow: 0 0 0 #4f772e;
+}
+
+/* Secondary Button (Normal) */
+#btn-play-normal {
+  background-color: #e5e5e5;
+  color: #333333;
+  border: none;
+  padding: 16px 24px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  border-radius: var(--radius);
+  cursor: pointer;
+  box-shadow: 0 4px 0 #cccccc;
+  transition: transform 0.1s, box-shadow 0.1s, background-color 0.2s;
+  text-align: center;
+}
+
+#btn-play-normal:hover {
+  background-color: #d4d4d4;
+  color: #111;
+}
+
+#btn-play-normal:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 #cccccc;
 }
 
 #app-container.mode-select-state #scorecard-section { display: none; }

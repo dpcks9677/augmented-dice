@@ -414,7 +414,13 @@ export class DiceEngine {
                        + (btn ? btn.offsetHeight : 0) 
                        + paddingY + margins;
                        
-      maxW = appContainer.clientWidth * 0.78 - paddingX;
+      let baseWidth = appContainer.clientWidth;
+      if (appContainer.classList.contains('mode-select-state')) {
+        // In mode-select, app-container shrinks to max-content, so use window width to avoid infinite shrink loop
+        baseWidth = window.innerWidth;
+      }
+                       
+      maxW = baseWidth * 0.78 - paddingX;
       maxH = availableTotalHeight - usedHeight;
     }
     
@@ -447,6 +453,11 @@ export class DiceEngine {
     if (this.container.id !== 'landing-dice-wrapper') {
       this.container.style.width = w + 'px';
       this.container.style.height = h + 'px';
+      
+      const controls = document.querySelector('.controls-area');
+      const btn = document.getElementById('btn-roll');
+      if (controls) controls.style.width = w + 'px';
+      if (btn) btn.style.width = w + 'px';
     }
     
     // 자식 요소들 크기 강제 동기화 (CSS flex 버그 방지)
