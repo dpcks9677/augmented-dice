@@ -99,10 +99,16 @@ body {
   background-color: var(--accent-color);
 }
 
-#augment-section h2,
-#profile-section h2 {
+#augment-section h2 {
   font-size: 1.4rem;
   margin-bottom: 20px;
+  text-align: center;
+  color: var(--text-color);
+}
+
+#profile-section h2 {
+  font-size: 1.4rem;
+  margin: 0 !important;
   text-align: center;
   color: var(--text-color);
 }
@@ -370,7 +376,7 @@ body {
   align-items: center;
 }
 
-.neo-table {
+.game-table {
   width: 100%;
   height: 98%;
   margin-top: auto;
@@ -380,41 +386,41 @@ body {
   table-layout: fixed;
 }
 
-.neo-table tr {
+.game-table tr {
   /* 반응형을 위해 브라우저의 기본 테이블 자동 분배(1%)에 맡김 */
   height: 1%;
 }
 
-.neo-table thead tr:first-child,
-.neo-table thead tr:first-child th {
+.game-table thead tr:first-child,
+.game-table thead tr:first-child th {
   height: auto !important;
   /* 프로필 사진 행은 컨텐츠 크기에 맞춤 */
 }
 
 /* 두 번째 행(Categories / P1 / P2)은 다른 행보다 2배의 높이를 갖도록 설정 */
-.neo-table thead tr:nth-child(2) th {
+.game-table thead tr:nth-child(2) th {
   padding-top: 1.5vh !important;
   padding-bottom: 1.5vh !important;
   height: auto;
 }
 
-.neo-table th,
-.neo-table td {
+.game-table th,
+.game-table td {
   border-bottom: var(--border-width) solid var(--border-color);
   padding: 0 4px;
   text-align: center;
   height: 1%;
 }
 
-.neo-table th {
+.game-table th {
   font-weight: 600;
   color: #333333;
   background-color: #f9f9f9;
 }
 
 /* 플레이어 1, 2 분리선 */
-.neo-table th:nth-child(2),
-.neo-table td:nth-child(2) {
+.game-table th:nth-child(2),
+.game-table td:nth-child(2) {
   border-right: 2px solid #cccccc;
 }
 
@@ -533,7 +539,7 @@ body {
 }
 
 /* 플랫 디자인 버튼 (흑백) */
-.neo-btn {
+.game-btn {
   background-color: var(--primary-color);
   color: white;
   border: none;
@@ -547,24 +553,24 @@ body {
   transition: all 0.2s ease;
 }
 
-.neo-btn:hover:not(:disabled) {
+.game-btn:hover:not(:disabled) {
   background-color: #333333;
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);
 }
 
-.neo-btn:active:not(:disabled) {
+.game-btn:active:not(:disabled) {
   transform: translateY(0);
 }
 
-.neo-btn:disabled {
+.game-btn:disabled {
   background-color: #e0e0e0;
   color: #999999;
   cursor: not-allowed;
   box-shadow: none;
 }
 
-.neo-btn.sm {
+.game-btn.sm {
   padding: 8px 16px;
   font-size: 0.9rem;
 }
@@ -587,7 +593,7 @@ body {
   display: none;
 }
 
-.neo-card {
+.game-card {
   background-color: var(--accent-color);
   border: var(--border-width) solid var(--border-color);
   border-radius: var(--radius);
@@ -597,7 +603,7 @@ body {
   min-width: 420px;
 }
 
-.neo-card h1 {
+.game-card h1 {
   font-size: 2.2rem;
   margin-bottom: 24px;
   font-weight: 700;
@@ -626,7 +632,7 @@ body {
   display: none !important;
 }
 
-.neo-input {
+.game-input {
   border: var(--border-width) solid var(--border-color);
   border-radius: 8px;
   padding: 12px;
@@ -638,7 +644,7 @@ body {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.neo-input:focus {
+.game-input:focus {
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
 }
@@ -1244,3 +1250,17 @@ body {
 .login-divider:not(:empty)::after {
   margin-left: 1em;
 }
+
+#profile-avatar-container.editing:hover .avatar-edit-overlay { display: flex !important; }
+.avatar-edit-overlay.hidden { display: none !important; }
+
+.profile-header { position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+.icon-btn { background: none; border: none; color: var(--text-color); cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; opacity: 0.7; transition: opacity 0.2s, color 0.2s; }
+.icon-btn:hover { opacity: 1; color: var(--primary-color); }
+#btn-logout { position: absolute; left: 0; top: 50%; transform: translateY(-50%); }
+#btn-edit-status { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+
+.profile-header h2 { margin: 0; padding: 0; line-height: 24px; display: flex; align-items: center; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.fade-in { animation: fadeIn 0.5s ease-out forwards; }

@@ -1,6 +1,6 @@
     <!-- 게임 종료 모달 -->
     <div id="endgame-modal" class="overlay hidden">
-      <div class="lobby-card neo-card" style="text-align: center;">
+      <div class="lobby-card game-card" style="text-align: center;">
         <h1 id="endgame-title">게임 종료!</h1>
         <div class="score-summary" style="margin: 20px 0; font-size: 1.2rem; line-height: 1.6; display: flex; justify-content: space-around;">
           <div>
@@ -17,13 +17,42 @@
           </div>
         </div>
         <h2 id="endgame-winner" style="color: #f1c40f; margin-bottom: 30px; font-size: 2rem;">P1 승리!</h2>
-        <button id="btn-return-lobby" class="neo-btn">로비로 돌아가기</button>
+        <button id="btn-return-lobby" class="game-btn">로비로 돌아가기</button>
+      </div>
+    </div>
+
+    <!-- 증강 상세 정보 모달 (추가 가능) -->
+    <div id="augment-detail-modal" class="overlay hidden">
+      <div class="lobby-card game-card">
+        <!-- 구현 대기 -->
+      </div>
+    </div>
+
+    <!-- 프로필 이미지 크롭 모달 -->
+    <div id="crop-modal" class="overlay hidden">
+      <div class="lobby-card game-card" style="width: 500px; max-width: 90vw; text-align: center;">
+        <h2>프로필 이미지 설정</h2>
+        
+        <div id="crop-input-section" style="margin-top: 20px;">
+          <p style="margin-bottom: 10px;">적용할 이미지 링크(URL)를 입력해주세요.</p>
+          <input type="text" id="crop-image-url" class="game-input" placeholder="https://example.com/image.jpg" style="width: 100%; margin-bottom: 20px;" />
+          <button id="btn-crop-load" class="game-btn">불러오기</button>
+          <button id="btn-crop-cancel1" class="game-btn btn-login-secondary" style="margin-left: 10px;">취소</button>
+        </div>
+
+        <div id="crop-edit-section" class="hidden" style="margin-top: 20px;">
+          <div style="width: 100%; height: 300px; background: #333; margin-bottom: 20px;">
+            <img id="crop-image-preview" src="" style="max-width: 100%; display: block;" />
+          </div>
+          <button id="btn-crop-save" class="game-btn">저장 및 적용</button>
+          <button id="btn-crop-cancel2" class="game-btn btn-login-secondary" style="margin-left: 10px;">취소</button>
+        </div>
       </div>
     </div>
 
     <!-- 증강 선택 모달 -->
     <div id="augment-selection-modal" class="overlay hidden">
-      <div class="lobby-card neo-card augment-modal-card">
+      <div class="lobby-card game-card augment-modal-card">
         <h1 id="augment-modal-title">증강 선택</h1>
         <p id="augment-modal-desc">원하는 증강을 하나 선택하세요.</p>
         <div id="augment-options" class="augment-options-container">

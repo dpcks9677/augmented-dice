@@ -3,14 +3,35 @@
       
       <!-- 프로필 섹션 (좌측, 메인 로비 시 표시) -->
       <section id="profile-section">
-        <h2>My Profile</h2>
+        <div class="profile-header">
+          <button id="btn-logout" class="icon-btn" title="로그아웃">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+          </button>
+          <h2>My Profile</h2>
+          <button id="btn-edit-status" class="icon-btn" title="프로필 편집">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </button>
+        </div>
         <div id="profile-content">
           <!-- 1. 프로필 카드 -->
           <div class="profile-card">
-            <div class="profile-avatar-placeholder"></div>
-            <div class="profile-user-info">
+            <div id="profile-avatar-container" class="profile-avatar-placeholder" style="position: relative; overflow: hidden; cursor: pointer;">
+              <canvas id="profile-avatar-canvas" width="120" height="120" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
+              <div class="avatar-edit-overlay hidden" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+              </div>
+            </div>
+            <div class="profile-user-info" style="width: 100%; text-align: center;">
               <div id="profile-nickname" class="profile-name">Player</div>
-              <div class="profile-status-msg">안녕하세요! 주사위 굴리러 왔습니다.</div>
+              <div id="profile-status-msg" class="profile-status-msg" style="word-break: keep-all;">안녕하세요! 주사위 굴리러 왔습니다.</div>
+              <input type="text" id="profile-status-input" class="game-input hidden" maxlength="30" style="margin-top: 8px; width: 100%; font-size: 0.9rem; text-align: center; padding: 4px;" />
             </div>
             <div class="profile-user-detail">
               <div class="detail-item"><span>가입일</span><span class="detail-val">2026.07.18</span></div>
@@ -79,7 +100,7 @@
           <!-- 3D 캔버스가 이 안에 삽입됨 (절대 위치로 전체 덮음) -->
         </div>
         
-        <button id="btn-roll" class="neo-btn" disabled>굴리기 (Roll)</button>
+        <button id="btn-roll" class="game-btn" disabled>굴리기 (Roll)</button>
       </section>
 
       <!-- 게임 메뉴 섹션 (우측 40%, 모드 선택용) -->
@@ -98,7 +119,7 @@
 
       <!-- 족보(점수판) 섹션 (우측 40%) -->
       <section id="scorecard-section">
-          <table id="score-table" class="neo-table">
+          <table id="score-table" class="game-table">
             <thead>
               <!-- Row 1: Profile Pictures -->
               <tr>

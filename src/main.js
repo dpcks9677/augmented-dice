@@ -4,8 +4,9 @@ import { DiceEngine } from "./DiceEngine.js";
 import { getDiceSvg, getSpecialSvg, getVariantSvg } from "./svgIcons.js";
 import { setupDebugTools } from "./debugTools.js";
 import { uiManager } from "./UIManager.js";
-import { subscribeAuthState, signInWithGoogle, setNickname, getCurrentUser } from "./authEngine.js";
-
+import "cropperjs/dist/cropper.css";
+import { subscribeAuthState, signInWithGoogle, setNickname, getCurrentUser, saveUserToDB, getUserFromDB, signOutUser, updateUserStatusMsg, updateUserAvatar } from "./authEngine.js";
+import Cropper from "cropperjs";
 let augmentData = [];
 fetch('/src/augments.json').then(r => r.json()).then(d => { augmentData = d; }).catch(e => console.error(e));
 
@@ -149,22 +150,52 @@ setTimeout(() => {
 // reCAPTCHA v3는 DOM 렌더링 함수가 필요 없으므로 기존 v2 로직은 제거합니다.
 
 // 2. Firebase Auth 흐름 제어
-subscribeAuthState((user) => {
+subscribeAuthState(async (user) => {
   if (user) {
-    // 구글 로그인은 기본적으로 계정 이름을 displayName에 채워버리므로,
-    // 우리 게임에서 닉네임 설정을 마쳤는지 로컬스토리지 플래그로 확인합니다.
-    const isSetupDone = localStorage.getItem('isNicknameSet_' + user.uid);
+    // Firestore에서 유저 데이터 조회
+    const userData = await getUserFromDB(user.uid);
     
-    if (isSetupDone) {
+    if (userData && userData.nickname) {
       // 닉네임이 설정된 로그인 유저: 메인 게임 화면으로 바로 이동
       els.landingView?.classList.add('hidden');
       els.loginView?.classList.add('hidden');
       els.nicknameSetupView?.classList.add('hidden');
       els.appContainer?.classList.remove('hidden');
-      if(els.myNickname) els.myNickname.textContent = user.displayName || "Player";
-      if(els.profileNickname) els.profileNickname.textContent = user.displayName || "Player";
+      
+      const nick = userData.nickname;
+      if(els.myNickname) els.myNickname.textContent = nick;
+      if(els.profileNickname) els.profileNickname.textContent = nick;
+      
+      const profileStatus = document.getElementById('profile-status-msg');
+      if (profileStatus && userData.statusMsg) {
+        profileStatus.textContent = userData.statusMsg;
+      }
+      
+      // 추가 프로필 통계 바인딩
+      const profilePlays = document.getElementById('profile-plays');
+      if (profilePlays) profilePlays.textContent = userData.gamesPlayed || 0;
+      
+      const profileViews = document.getElementById('profile-views');
+      if (profileViews) profileViews.textContent = userData.profileViews || 0;
+      
+      const profileDate = document.getElementById('profile-date');
+      if (profileDate && userData.createdAt) {
+        // serverTimestamp()를 Date 객체로 변환
+        const dateObj = userData.createdAt.toDate ? userData.createdAt.toDate() : new Date(userData.createdAt);
+        profileDate.textContent = dateObj.toLocaleDateString();
+      }
+      
+      if (userData.avatarUrl && userData.cropData) {
+        // 호이스팅된 함수라 호출 가능. 혹은 렌더 함수가 하단에 정의되어 있어도 호이스팅됨.
+        // renderAvatar는 main.js 하단에 정의되어 있으므로 setTimeout으로 지연 호출
+        setTimeout(() => {
+          if (typeof renderAvatar === 'function') {
+            renderAvatar(userData.avatarUrl, userData.cropData);
+          }
+        }, 100);
+      }
     } else {
-      // 구글 로그인은 했으나 게임 내 닉네임 설정(및 캡챠)이 없는 경우: 닉네임 설정 화면
+      // DB에 회원정보(닉네임)가 없는 경우: 닉네임 설정 화면
       els.landingView?.classList.add('hidden');
       els.loginView?.classList.add('hidden');
       els.appContainer?.classList.add('hidden');
@@ -192,6 +223,91 @@ els.btnGoogleLogin?.addEventListener('click', async () => {
     console.error("Login failed", error);
   }
 });
+
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) {
+  btnLogout.addEventListener('click', async () => {
+    try {
+      await signOutUser();
+      
+      const landingView = document.getElementById('landing-view');
+      if (landingView) {
+        landingView.classList.remove('fade-in');
+        void landingView.offsetWidth; // Reflow
+        landingView.classList.add('fade-in');
+      }
+      
+      if (typeof landingDiceEngine !== 'undefined' && landingDiceEngine) {
+        setTimeout(() => {
+          landingDiceEngine.roll(5);
+        }, 100);
+      }
+    } catch (e) {
+      console.error("Logout failed", e);
+    }
+  });
+}
+
+const profileStatus = document.getElementById('profile-status-msg');
+const btnEditStatus = document.getElementById('btn-edit-status');
+const profileStatusInput = document.getElementById('profile-status-input');
+
+if (btnEditStatus && profileStatus && profileStatusInput) {
+  let isEditing = false;
+  const iconEdit = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
+  const iconSave = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>`;
+
+  const saveStatus = async () => {
+    const user = getCurrentUser();
+    if (!user) return;
+    
+    const newMsg = profileStatusInput.value.trim().substring(0, 30);
+    if(newMsg === "") {
+      alert("소개말을 입력해주세요.");
+      return;
+    }
+    
+    const success = await updateUserStatusMsg(user.uid, newMsg);
+    if (success) {
+      profileStatus.textContent = newMsg;
+    } else {
+      alert("소개말 업데이트에 실패했습니다.");
+    }
+    
+    isEditing = false;
+    profileStatusInput.classList.add('hidden');
+    profileStatus.classList.remove('hidden');
+    btnEditStatus.innerHTML = iconEdit;
+    btnEditStatus.title = "프로필 편집";
+    const avatarCtr = document.getElementById('profile-avatar-container');
+    if (avatarCtr) avatarCtr.classList.remove('editing');
+  };
+
+  btnEditStatus.addEventListener('click', () => {
+    const user = getCurrentUser();
+    if (!user) return;
+    
+    if (!isEditing) {
+      isEditing = true;
+      profileStatus.classList.add('hidden');
+      profileStatusInput.classList.remove('hidden');
+      profileStatusInput.value = profileStatus.textContent;
+      profileStatusInput.focus();
+      btnEditStatus.innerHTML = iconSave;
+      btnEditStatus.title = "저장";
+      const avatarCtr = document.getElementById('profile-avatar-container');
+      if (avatarCtr) avatarCtr.classList.add('editing');
+    } else {
+      saveStatus();
+    }
+  });
+
+  profileStatusInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      saveStatus();
+    }
+  });
+}
 
 els.btnSubmitNickname?.addEventListener('click', async () => {
   const nickname = els.nicknameInput?.value.trim();
@@ -224,7 +340,10 @@ els.btnSubmitNickname?.addEventListener('click', async () => {
     const user = getCurrentUser();
     if (user) {
       await setNickname(user, nickname);
-      // 설정 완료 플래그 저장 (현재 기기)
+      // Firestore DB에 데이터 병합
+      await saveUserToDB(user.uid, nickname);
+      
+      // 설정 완료 플래그 저장 (현재 기기 fallback)
       localStorage.setItem('isNicknameSet_' + user.uid, 'true');
       
       // 화면 전환
@@ -232,17 +351,25 @@ els.btnSubmitNickname?.addEventListener('click', async () => {
       els.appContainer?.classList.remove('hidden');
       if(els.myNickname) els.myNickname.textContent = nickname;
       if(els.profileNickname) els.profileNickname.textContent = nickname;
+      
+      // 신규가입 UI 업데이트
+      const profilePlays = document.getElementById('profile-plays');
+      if (profilePlays) profilePlays.textContent = 0;
+      
+      const profileViews = document.getElementById('profile-views');
+      if (profileViews) profileViews.textContent = 0;
+      
+      const profileDate = document.getElementById('profile-date');
+      if (profileDate) profileDate.textContent = new Date().toLocaleDateString();
     }
   } catch(e) {
     alert("닉네임 설정 중 오류가 발생했습니다.");
+    console.error(e);
   }
 });
 
 // (임시) 이메일 로그인 버튼 동작 유지
-els.btnDummyLogin?.addEventListener('click', () => {
-  els.loginView?.classList.add('hidden');
-  els.appContainer?.classList.remove('hidden');
-});
+
 
 // 기존 멀티플레이어 흐름 제어 (요소 없을 시 대비)
 els.btnMultiplayer?.addEventListener('click', () => {
@@ -1235,3 +1362,110 @@ setupDebugTools({
     updateScorePreviews();
   }
 });
+
+function renderAvatar(url, cropData) {
+  const canvas = document.getElementById('profile-avatar-canvas');
+  if (!canvas || !url || !cropData) return;
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  img.crossOrigin = "Anonymous";
+  img.onload = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(
+      img,
+      cropData.x, cropData.y, cropData.width, cropData.height,
+      0, 0, canvas.width, canvas.height
+    );
+    canvas.style.display = 'block';
+  };
+  img.src = url;
+}
+
+// Avatar modal logic
+const avatarContainer = document.getElementById('profile-avatar-container');
+const cropModal = document.getElementById('crop-modal');
+const cropUrlInput = document.getElementById('crop-image-url');
+const btnCropLoad = document.getElementById('btn-crop-load');
+const btnCropCancel1 = document.getElementById('btn-crop-cancel1');
+const btnCropCancel2 = document.getElementById('btn-crop-cancel2');
+const btnCropSave = document.getElementById('btn-crop-save');
+const cropInputSection = document.getElementById('crop-input-section');
+const cropEditSection = document.getElementById('crop-edit-section');
+const cropImagePreview = document.getElementById('crop-image-preview');
+
+let cropperInstance = null;
+
+if (avatarContainer && cropModal) {
+  avatarContainer.addEventListener('click', () => {
+    const user = getCurrentUser();
+    if (!user) {
+      alert("로그인이 필요합니다.");
+      return;
+    }
+    cropModal.classList.remove('hidden');
+    cropInputSection.classList.remove('hidden');
+    cropEditSection.classList.add('hidden');
+    cropUrlInput.value = "";
+    if (cropperInstance) {
+      cropperInstance.destroy();
+      cropperInstance = null;
+    }
+  });
+
+  const closeModal = () => {
+    cropModal.classList.add('hidden');
+    if (cropperInstance) {
+      cropperInstance.destroy();
+      cropperInstance = null;
+    }
+  };
+
+  btnCropCancel1?.addEventListener('click', closeModal);
+  btnCropCancel2?.addEventListener('click', closeModal);
+
+  btnCropLoad?.addEventListener('click', () => {
+    const url = cropUrlInput.value.trim();
+    if (!url) return alert("이미지 링크를 입력하세요.");
+    
+    cropImagePreview.onload = () => {
+      cropInputSection.classList.add('hidden');
+      cropEditSection.classList.remove('hidden');
+      if (cropperInstance) cropperInstance.destroy();
+      cropperInstance = new Cropper(cropImagePreview, {
+        aspectRatio: 1,
+        viewMode: 1,
+        dragMode: 'move',
+        autoCropArea: 1,
+        restore: false,
+        guides: true,
+        center: true,
+        highlight: false,
+        cropBoxMovable: true,
+        cropBoxResizable: true,
+        toggleDragModeOnDblclick: false,
+      });
+    };
+    cropImagePreview.onerror = () => {
+      alert("이미지를 불러올 수 없습니다. 올바른 URL인지, 혹은 CORS 제한이 없는지 확인해주세요.");
+    };
+    cropImagePreview.crossOrigin = "Anonymous";
+    cropImagePreview.src = url;
+  });
+
+  btnCropSave?.addEventListener('click', async () => {
+    if (!cropperInstance) return;
+    const user = getCurrentUser();
+    if (!user) return;
+    
+    const cropData = cropperInstance.getData(true); // rounded values
+    const url = cropUrlInput.value.trim();
+    
+    const success = await updateUserAvatar(user.uid, url, cropData);
+    if (success) {
+      renderAvatar(url, cropData);
+      closeModal();
+    } else {
+      alert("아바타 저장에 실패했습니다.");
+    }
+  });
+}
