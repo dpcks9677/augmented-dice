@@ -81,8 +81,10 @@ body {
   max-height: none;
 }
 
-#app-container.playing-state #profile-section { display: none; }
-#app-container.playing-state #augment-section { display: flex; }
+#app-container.playing-state:not(.normal-mode) #profile-section { display: none; }
+#app-container.playing-state:not(.normal-mode) #augment-section { display: flex; }
+#app-container.playing-state.normal-mode #profile-section { display: flex; }
+#app-container.playing-state.normal-mode #augment-section { display: none; }
 #app-container.playing-state #play-menu-section { display: none; }
 #app-container.playing-state #scorecard-section { display: flex; }
 
@@ -896,7 +898,7 @@ body {
 /* -------------------------------------------
    Playing State
 ------------------------------------------- */
-#app-container.playing-state #profile-section {
+#app-container.playing-state:not(.normal-mode) #profile-section {
   width: 0;
   flex: 0 0 0;
   padding: 0;
@@ -905,11 +907,29 @@ body {
   border-right: none;
 }
 
-#app-container.playing-state #augment-section {
+#app-container.playing-state:not(.normal-mode) #augment-section {
   width: calc(22.5% + 60px);
   flex: 0 0 calc(22.5% + 60px);
   opacity: 1;
   padding: 24px;
+}
+
+/* Normal Mode: Profile Section replaces Augment Section */
+#app-container.playing-state.normal-mode #profile-section {
+  width: calc(22.5% + 60px);
+  flex: 0 0 calc(22.5% + 60px);
+  opacity: 1;
+  padding: 24px;
+  border-right: 1px solid var(--border-color);
+}
+
+#app-container.playing-state.normal-mode #augment-section {
+  width: 0;
+  flex: 0 0 0;
+  padding: 0;
+  margin: 0;
+  opacity: 0;
+  border-right: none;
 }
 
 #app-container.playing-state #playable-section {
@@ -963,35 +983,11 @@ body {
   text-align: center;
 }
 
-/* Primary Button (Augmented) */
-#btn-play-augmented {
-  background-color: #6a9b41;
-  color: #fff;
-  border: none;
-  padding: 20px 24px;
-  font-size: 1.3rem;
-  font-weight: 800;
-  border-radius: var(--radius);
-  cursor: pointer;
-  box-shadow: 0 5px 0 #4f772e;
-  transition: transform 0.1s, box-shadow 0.1s, background-color 0.2s;
-  text-align: center;
-}
-
-#btn-play-augmented:hover {
-  background-color: #7ab24a;
-}
-
-#btn-play-augmented:active {
-  transform: translateY(5px);
-  box-shadow: 0 0 0 #4f772e;
-}
-
-/* Secondary Button (Normal) */
-#btn-play-normal {
-  background-color: #e5e5e5;
-  color: #333333;
-  border: none;
+/* Shared Menu Button Style */
+.btn-play-menu {
+  background-color: #f5f5f5;
+  color: var(--primary-color);
+  border: 1px solid var(--border-color);
   padding: 16px 24px;
   font-size: 1.1rem;
   font-weight: 700;
@@ -1002,14 +998,28 @@ body {
   text-align: center;
 }
 
-#btn-play-normal:hover {
-  background-color: #d4d4d4;
-  color: #111;
+.btn-play-menu:hover:not(:disabled) {
+  background-color: #e0e0e0;
+  color: #000;
 }
 
-#btn-play-normal:active {
+.btn-play-menu:active:not(:disabled) {
   transform: translateY(4px);
   box-shadow: 0 0 0 #cccccc;
+}
+
+.btn-play-menu:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: translateY(4px);
+}
+
+.menu-divider {
+  width: 100%;
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 10px 0;
 }
 
 #app-container.mode-select-state #scorecard-section { display: none; }

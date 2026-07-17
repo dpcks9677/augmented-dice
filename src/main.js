@@ -28,8 +28,8 @@ const els = {
   augmentSection: document.getElementById('augment-section'),
   
   playMenuSection: document.getElementById('play-menu-section'),
-  btnPlayNormal: document.getElementById('btn-play-normal'),
-  btnPlayAugmented: document.getElementById('btn-play-augmented'),
+  btnPlayNormal: document.getElementById('btn-norm-hotseat'),
+  btnPlayAugmented: document.getElementById('btn-aug-hotseat'),
   lobbyOverlay: document.getElementById('lobby-overlay'),
   myNickname: document.getElementById('my-nickname'),
   btnSingleplayer: document.getElementById('btn-singleplayer'),
@@ -316,6 +316,12 @@ function transitionToPlaying(mode) {
     els.appContainer.classList.remove('mode-select-state');
     els.appContainer.classList.add('playing-state');
     
+    if (mode === 'hotseat') {
+      els.appContainer.classList.add('normal-mode');
+    } else {
+      els.appContainer.classList.remove('normal-mode');
+    }
+    
     gameMode = mode;
     if (els.p1Name) els.p1Name.querySelector('.name-text').textContent = "Player 1";
     if (els.p2Name) els.p2Name.querySelector('.name-text').textContent = "Player 2";
@@ -470,6 +476,28 @@ function updateRollsUI() {
 
 // 주사위 굴림
 els.btnRoll.addEventListener('click', async () => {
+  // 로비(자유 연습) 모드일 경우 코어 게임 로직을 무시하고 무한 굴리기
+  if (els.appContainer?.classList.contains('mode-select-state')) {
+    els.btnRoll.disabled = true;
+    
+    // 킵된 주사위 외의 나머지만 굴림
+    const keptCount = diceEngine.diceArray.filter(d => d.isKept).length;
+    const specialConfigs = [];
+    for(let i=0; i < 5 - keptCount; i++) specialConfigs.push({ type: 'normal' });
+    
+    diceEngine.cleanUpDeadDice();
+    await diceEngine.roll(specialConfigs);
+    
+    setTimeout(() => {
+      // 본 게임과 동일하게 굴린 후에는 모든 주사위 킵을 풀고 중앙(버건디 매트)에 정렬
+      diceEngine.diceArray.forEach(die => die.isKept = false);
+      diceEngine.arrangeAll(true);
+      if (diceBoxReady) els.btnRoll.disabled = false;
+    }, 100);
+    return;
+  }
+
+  // 실제 게임 모드 로직
   if (rollsLeft <= 0) return;
   
   rollsLeft--;
@@ -763,32 +791,57 @@ function endGame() {
 }
 
 els.btnReturnLobby.addEventListener('click', () => {
-  // 상태 초기화
-  scores = { 1: {}, 2: {} };
-  activeMutations = { 1: {}, 2: {} };
-  upperBonusThreshold = { 1: 63, 2: 63 };
-  playerYachtBank = { 1: 0, 2: 0 };
-  yachtBankLocked = { 1: false, 2: false };
-  destroyedStrangeDice = { 1: false, 2: false };
-  promotionConsumed = { 1: false, 2: false };
-  currentRound = 1;
-  currentPlayer = 1;
-  gameMode = 'none';
-  socket = null;
-  currentRoom = null;
-  isHost = false;
-  
+  // 1. 모달 닫기 및 페이드 아웃
   els.endgameModal.classList.add('hidden');
-  els.lobbyOverlay.classList.remove('hidden');
+  if (els.appContainer) els.appContainer.style.opacity = '0';
   
-  // 로비 초기 상태 복구
-  els.multiplayerActions.classList.add('hidden');
-  els.waitingRoom.classList.add('hidden');
-  els.btnHotseat.classList.remove('hidden');
-  els.btnSingleplayer.classList.remove('hidden');
-  els.btnMultiplayer.classList.remove('hidden');
-  
-  updateScoreboard();
+  setTimeout(() => {
+    // 2. 상태 및 레이아웃 초기화
+    scores = { 1: {}, 2: {} };
+    activeMutations = { 1: {}, 2: {} };
+    upperBonusThreshold = { 1: 63, 2: 63 };
+    playerYachtBank = { 1: 0, 2: 0 };
+    yachtBankLocked = { 1: false, 2: false };
+    destroyedStrangeDice = { 1: false, 2: false };
+    promotionConsumed = { 1: false, 2: false };
+    currentRound = 1;
+    currentPlayer = 1;
+    gameMode = 'none';
+    socket = null;
+    currentRoom = null;
+    isHost = false;
+    
+    // UI 전환 (playing -> mode-select)
+    if (els.appContainer) {
+      els.appContainer.classList.remove('playing-state', 'normal-mode');
+      els.appContainer.classList.add('mode-select-state');
+    }
+    
+    // 멀티플레이 관련 로비 UI 원복
+    if (els.lobbyOverlay) els.lobbyOverlay.classList.remove('hidden');
+    if (els.multiplayerActions) els.multiplayerActions.classList.add('hidden');
+    if (els.waitingRoom) els.waitingRoom.classList.add('hidden');
+    if (els.btnHotseat) els.btnHotseat.classList.remove('hidden');
+    if (els.btnSingleplayer) els.btnSingleplayer.classList.remove('hidden');
+    if (els.btnMultiplayer) els.btnMultiplayer.classList.remove('hidden');
+    
+    updateScoreboard();
+    
+    // 주사위 및 킵 상태 정리
+    if (diceEngine) {
+      diceEngine.diceArray.forEach(die => die.isKept = false);
+      diceEngine.arrangeAll(true);
+      diceEngine.allowKeep = true;
+    }
+    if (els.gameStatus) els.gameStatus.textContent = '로비 (자유 연습)';
+    if (els.rollsLeft) els.rollsLeft.textContent = '무한 굴리기';
+    if (els.btnRoll) els.btnRoll.disabled = false;
+    
+    // 3. 페이드 인
+    requestAnimationFrame(() => {
+      if (els.appContainer) els.appContainer.style.opacity = '1';
+    });
+  }, 600);
 });
 
 
@@ -939,6 +992,9 @@ setTimeout(() => {
   diceEngine = new DiceEngine("#dice-board-area");
   
   diceEngine.onDieClick = (val, isKept) => {
+    // 로비 화면일 경우 점수 연산 생략 (클릭/킵만 작동)
+    if (els.appContainer?.classList.contains('mode-select-state')) return;
+
     // 상태 배열을 엔진과 동기화 (이상한 주사위는 족보 계산 배열에서 제외)
     activeDice = diceEngine.diceArray.filter(d => !d.isKept && d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
     keptDice = diceEngine.diceArray.filter(d => d.isKept && d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
@@ -948,6 +1004,12 @@ setTimeout(() => {
   };
   
   diceBoxReady = true;
+  if (els.appContainer?.classList.contains('mode-select-state')) {
+    els.btnRoll.disabled = false;
+    if(els.gameStatus) els.gameStatus.textContent = '로비 (자유 연습)';
+    if(els.rollsLeft) els.rollsLeft.textContent = '무한 굴리기';
+    diceEngine.allowKeep = true;
+  }
   
   // --- 디버그 모드 자동 시작 ---
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
