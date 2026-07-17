@@ -4,6 +4,7 @@ import { DiceEngine } from "./DiceEngine.js";
 import { getDiceSvg, getSpecialSvg, getVariantSvg } from "./svgIcons.js";
 import { setupDebugTools } from "./debugTools.js";
 import { uiManager } from "./UIManager.js";
+import { subscribeAuthState, signInWithGoogle, setNickname, getCurrentUser } from "./authEngine.js";
 
 let augmentData = [];
 fetch('/src/augments.json').then(r => r.json()).then(d => { augmentData = d; }).catch(e => console.error(e));
@@ -16,7 +17,16 @@ const els = {
   btnGetStarted: document.getElementById('btn-get-started'),
   loginView: document.getElementById('login-view'),
   btnDummyLogin: document.getElementById('btn-dummy-login'),
+  btnGoogleLogin: document.getElementById('btn-google-login'),
+  nicknameSetupView: document.getElementById('nickname-setup-view'),
+  nicknameInput: document.getElementById('nickname-input'),
+  btnSubmitNickname: document.getElementById('btn-submit-nickname'),
   appContainer: document.getElementById('app-container'),
+  
+  profileSection: document.getElementById('profile-section'),
+  profileNickname: document.getElementById('profile-nickname'),
+  augmentSection: document.getElementById('augment-section'),
+  
   playMenuSection: document.getElementById('play-menu-section'),
   btnPlayNormal: document.getElementById('btn-play-normal'),
   btnPlayAugmented: document.getElementById('btn-play-augmented'),
@@ -56,6 +66,20 @@ const els = {
   endgameWinner: document.getElementById('endgame-winner'),
   btnReturnLobby: document.getElementById('btn-return-lobby')
 };
+
+// 화면 스케일링 로직
+function handleAppScaling() {
+  if (!els.appContainer) return;
+  const targetW = 1920;
+  const targetH = 960;
+  const scaleX = window.innerWidth / targetW;
+  const scaleY = window.innerHeight / targetH;
+  const scale = Math.min(scaleX, scaleY) * 0.96;
+  els.appContainer.style.transform = `scale(${scale})`;
+  els.appContainer.style.transformOrigin = 'center';
+}
+window.addEventListener('resize', handleAppScaling);
+setTimeout(handleAppScaling, 50);
 
 // 1. 유저 식별 (랜덤 닉네임 생성 및 캐시)
 let myNickname = localStorage.getItem('ad_nickname');
@@ -122,12 +146,99 @@ setTimeout(() => {
   }
 }, 500); // 렌더링 대기
 
-// 2. 메인 로비 흐름 제어 (새 UI)
+// reCAPTCHA v3는 DOM 렌더링 함수가 필요 없으므로 기존 v2 로직은 제거합니다.
+
+// 2. Firebase Auth 흐름 제어
+subscribeAuthState((user) => {
+  if (user) {
+    // 구글 로그인은 기본적으로 계정 이름을 displayName에 채워버리므로,
+    // 우리 게임에서 닉네임 설정을 마쳤는지 로컬스토리지 플래그로 확인합니다.
+    const isSetupDone = localStorage.getItem('isNicknameSet_' + user.uid);
+    
+    if (isSetupDone) {
+      // 닉네임이 설정된 로그인 유저: 메인 게임 화면으로 바로 이동
+      els.landingView?.classList.add('hidden');
+      els.loginView?.classList.add('hidden');
+      els.nicknameSetupView?.classList.add('hidden');
+      els.appContainer?.classList.remove('hidden');
+      if(els.myNickname) els.myNickname.textContent = user.displayName || "Player";
+      if(els.profileNickname) els.profileNickname.textContent = user.displayName || "Player";
+    } else {
+      // 구글 로그인은 했으나 게임 내 닉네임 설정(및 캡챠)이 없는 경우: 닉네임 설정 화면
+      els.landingView?.classList.add('hidden');
+      els.loginView?.classList.add('hidden');
+      els.appContainer?.classList.add('hidden');
+      els.nicknameSetupView?.classList.remove('hidden');
+    }
+  } else {
+    // 비로그인 유저: 랜딩 페이지
+    els.appContainer?.classList.add('hidden');
+    els.loginView?.classList.add('hidden');
+    els.nicknameSetupView?.classList.add('hidden');
+    els.landingView?.classList.remove('hidden');
+  }
+});
+
 els.btnGetStarted?.addEventListener('click', () => {
   els.landingView?.classList.add('hidden');
   els.loginView?.classList.remove('hidden');
 });
 
+els.btnGoogleLogin?.addEventListener('click', async () => {
+  try {
+    await signInWithGoogle();
+    // 성공하면 subscribeAuthState가 알아서 뷰를 전환함
+  } catch (error) {
+    console.error("Login failed", error);
+  }
+});
+
+els.btnSubmitNickname?.addEventListener('click', async () => {
+  const nickname = els.nicknameInput?.value.trim();
+  if (!nickname) {
+    alert("닉네임을 입력해주세요!");
+    return;
+  }
+  
+  // reCAPTCHA v3 검증 (백그라운드 토큰 발급)
+  if (typeof grecaptcha !== 'undefined') {
+    try {
+      await new Promise((resolve, reject) => {
+        grecaptcha.ready(async () => {
+          try {
+            const token = await grecaptcha.execute('6LdKulgtAAAAAJgJb6_hEQJNE7hKre6Ab8EURscy', {action: 'submit'});
+            if (!token) reject("토큰 발급 실패");
+            else resolve();
+          } catch(e) {
+            reject(e);
+          }
+        });
+      });
+    } catch (e) {
+      alert("자동가입 방지(reCAPTCHA) 검증에 실패했습니다. 다시 시도해주세요.");
+      return;
+    }
+  }
+
+  try {
+    const user = getCurrentUser();
+    if (user) {
+      await setNickname(user, nickname);
+      // 설정 완료 플래그 저장 (현재 기기)
+      localStorage.setItem('isNicknameSet_' + user.uid, 'true');
+      
+      // 화면 전환
+      els.nicknameSetupView?.classList.add('hidden');
+      els.appContainer?.classList.remove('hidden');
+      if(els.myNickname) els.myNickname.textContent = nickname;
+      if(els.profileNickname) els.profileNickname.textContent = nickname;
+    }
+  } catch(e) {
+    alert("닉네임 설정 중 오류가 발생했습니다.");
+  }
+});
+
+// (임시) 이메일 로그인 버튼 동작 유지
 els.btnDummyLogin?.addEventListener('click', () => {
   els.loginView?.classList.add('hidden');
   els.appContainer?.classList.remove('hidden');
@@ -194,14 +305,33 @@ function joinRoom(roomId, asHost) {
 // 3. 로컬 핫시트 모드 로직 (코어 게임 루프)
 // -----------------------------------------------------
 
+function transitionToPlaying(mode) {
+  if (!els.appContainer) return;
+  
+  // 1. 페이드 아웃 시작
+  els.appContainer.style.opacity = '0';
+  
+  setTimeout(() => {
+    // 2. 완전히 투명해진 상태에서 레이아웃 전환 및 게임 초기화
+    els.appContainer.classList.remove('mode-select-state');
+    els.appContainer.classList.add('playing-state');
+    
+    gameMode = mode;
+    if (els.p1Name) els.p1Name.querySelector('.name-text').textContent = "Player 1";
+    if (els.p2Name) els.p2Name.querySelector('.name-text').textContent = "Player 2";
+    
+    startHotseatGame();
+    
+    // 3. 다시 페이드 인
+    requestAnimationFrame(() => {
+      els.appContainer.style.opacity = '1';
+    });
+  }, 600); // style.css의 opacity 0.6s 전환 시간과 동일하게 대기
+}
+
 els.btnPlayNormal?.addEventListener('click', () => {
   try {
-    gameMode = 'hotseat';
-    els.appContainer?.classList.remove('mode-select-state');
-    els.appContainer?.classList.add('playing-state');
-    els.p1Name.querySelector('.name-text').textContent = "Player 1";
-    els.p2Name.querySelector('.name-text').textContent = "Player 2";
-    startHotseatGame();
+    transitionToPlaying('hotseat');
   } catch (err) {
     alert("오류 발생: " + err.message + "\n" + err.stack);
     console.error(err);
@@ -210,12 +340,7 @@ els.btnPlayNormal?.addEventListener('click', () => {
 
 els.btnPlayAugmented?.addEventListener('click', () => {
   try {
-    gameMode = 'augmented-hotseat';
-    els.appContainer?.classList.remove('mode-select-state');
-    els.appContainer?.classList.add('playing-state');
-    els.p1Name.querySelector('.name-text').textContent = "Player 1";
-    els.p2Name.querySelector('.name-text').textContent = "Player 2";
-    startHotseatGame();
+    transitionToPlaying('augmented-hotseat');
   } catch (err) {
     alert("오류 발생: " + err.message + "\n" + err.stack);
     console.error(err);
@@ -269,7 +394,7 @@ function showAugmentSelectionModal(player, onSelect) {
     let desc = aug.description || aug.name + ' 증강이 적용됩니다.';
     // removed <br> replacement
     
-    const icon = getVariantSvg(aug.mutationId) || '';
+    const icon = aug.icon || getVariantSvg(aug.mutationId) || '';
     btn.innerHTML = `
       <div class="aug-slot-header">${icon} <span class="aug-slot-name">${aug.name}</span></div>
       <div class="aug-slot-desc">${desc}</div>
@@ -903,14 +1028,14 @@ function getQuestProgressText(player, mutId) {
   
   let resultHTML = '';
   if (status === 'completed') {
-    resultHTML += '<div style="color: #D4AF37; font-weight: bold; margin-top: 5px; background: rgba(212,175,55,0.1); padding: 4px; border-radius: 4px;">✨ 퀘스트 완료!</div>';
+    resultHTML += '<div style="color: #D4AF37; font-weight: bold; margin-top: 5px;">퀘스트 성공</div>';
   } else if (status === 'failed') {
-    resultHTML += '<div style="color: #e74c3c; font-weight: bold; margin-top: 5px; background: rgba(231,76,60,0.1); padding: 4px; border-radius: 4px;">❌ 퀘스트 실패</div>';
+    resultHTML += '<div style="color: #e74c3c; font-weight: bold; margin-top: 5px;">퀘스트 실패</div>';
   } else {
-    resultHTML += '<div style="color: #3498db; font-weight: bold; margin-top: 5px; background: rgba(52,152,219,0.1); padding: 4px; border-radius: 4px;">⏳ 퀘스트 진행 중</div>';
+    resultHTML += '<div style="color: #3498db; font-weight: bold; margin-top: 5px;">퀘스트 진행 중</div>';
   }
   
-  resultHTML += '<hr style="margin: 12px 0 8px 0; border: none; border-top: 1px dashed #ccc;">';
+  resultHTML += '<hr style="margin: 4px 0 8px 0; border: none; border-top: 1px dashed #ccc;">';
   resultHTML += questLines.join('');
   
   return resultHTML;
@@ -930,16 +1055,21 @@ window.updateAugmentSidebar = function(player) {
       const mutationId = muts[i];
       const mut = mutationDefinitions[mutationId];
       if (!mut) continue;
-      const svgIcon = getVariantSvg(mutationId);
       const augInfo = augmentData.find(a => a.name.includes(mut.name) || (a.mark && mut.enName && a.mark === mut.enName)) || {};
+      const svgIcon = augInfo.icon || getVariantSvg(mutationId);
       let description = augInfo.description || mut.name + ' 증강이 적용되었습니다.';
-      if (mut.isQuest && typeof getQuestProgressText === 'function') description += '<br>' + getQuestProgressText(player, mutationId);
+      
+      let questHTML = '';
+      if (mut.isQuest && typeof getQuestProgressText === 'function') {
+        questHTML = `<div class="aug-slot-desc" style="margin-top: auto; width: 100%; padding-bottom: 0;">${getQuestProgressText(player, mutationId)}</div>`;
+      }
       
       slot.classList.add('filled');
       slot.innerHTML = `
-        <div class="aug-slot-filled">
-          <div class="aug-slot-header">${svgIcon} <span class="aug-slot-name">${mut.name}</span></div>
+        <div class="aug-slot-filled" style="display: flex; flex-direction: column; height: 100%;">
+          <div class="aug-slot-header">${svgIcon} <span class="aug-slot-name">${augInfo.name || mut.name}</span></div>
           <div class="aug-slot-desc">${description}</div>
+          ${questHTML}
         </div>
       `;
     } else {
@@ -974,7 +1104,8 @@ window.applyMutation = function(player, mutationId) {
   const targetTh = document.getElementById(player === 1 ? `cat-title-left-${mut.target}` : `cat-title-right-${mut.target}`);
   
   if (targetTh) {
-    const svgIcon = getVariantSvg(mutationId);
+    const augInfo = augmentData.find(a => a.name.includes(mut.name) || (a.mark && mut.enName && a.mark === mut.enName)) || {};
+    const svgIcon = augInfo.icon || getVariantSvg(mutationId);
     targetTh.innerHTML = `${svgIcon} ${mut.enName}`;
 
     targetTh.style.backgroundColor = '#87CEEB'; // Sky Blue
@@ -1021,6 +1152,10 @@ setupDebugTools({
   },
   applyDice: (values) => {
     diceEngine.forceValues(values);
+    
+    // 디버그로 강제 주입된 주사위 값을 로컬 상태에 동기화
+    keptDice = [];
+    activeDice = [...values].sort((a, b) => a - b);
     
     rollsLeft--;
     updateRollsUI();

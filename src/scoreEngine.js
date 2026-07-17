@@ -201,7 +201,8 @@ export function calculateScores(dice, activeMutations = {}, context = {}) {
 
   const countValues = Object.values(counts);
   const hasMultiple = (n) => countValues.some(c => c >= n);
-  const isFullHouse = (countValues.includes(3) && countValues.includes(2)) || countValues.includes(5);
+  const sortedCounts = [...countValues].sort((a, b) => b - a);
+  const isFullHouse = (sortedCounts[0] >= 3 && sortedCounts[1] >= 2) || (sortedCounts[0] >= 5);
   
   const uniqueSorted = [...new Set(dice)].sort();
   const uniqueStr = uniqueSorted.join('');

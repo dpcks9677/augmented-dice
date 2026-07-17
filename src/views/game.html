@@ -1,7 +1,32 @@
     <!-- App Shell: 16:9 컨테이너 (초기 숨김) -->
     <main id="app-container" class="hidden mode-select-state">
       
-      <!-- 증강 (Augment) 섹션 (좌측 20%) -->
+      <!-- 프로필 섹션 (좌측, 메인 로비 시 표시) -->
+      <section id="profile-section">
+        <h2>My Profile</h2>
+        <div id="profile-content">
+          <!-- 1. 프로필 카드 -->
+          <div class="profile-card">
+            <div class="profile-avatar-placeholder"></div>
+            <div class="profile-user-info">
+              <div id="profile-nickname" class="profile-name">Player</div>
+              <div class="profile-status-msg">안녕하세요! 주사위 굴리러 왔습니다.</div>
+            </div>
+            <div class="profile-user-detail">
+              <div class="detail-item"><span>가입일</span><span class="detail-val">2026.07.18</span></div>
+              <div class="detail-item"><span>플레이 횟수</span><span class="detail-val">0</span></div>
+              <div class="detail-item"><span>조회수</span><span class="detail-val">0</span></div>
+            </div>
+          </div>
+          
+          <!-- 2. 게임 기록 컨테이너 -->
+          <div class="history-card">
+            <div class="history-empty-text">게임 기록이 없습니다.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 증강 (Augment) 섹션 (좌측 20%, 게임 중 표시) -->
       <section id="augment-section">
         <h2>Augments</h2>
         <div id="augment-list">

@@ -1,18 +1,36 @@
     <!-- 로그인 뷰 -->
     <div id="login-view" class="hidden">
       <div class="login-card">
-        <h2>로그인</h2>
-        <div class="social-login">
-          <button class="btn-social apple">Continue with Apple</button>
-          <button class="btn-social google">Continue with Google</button>
+        <h2>계정 로그인</h2>
+        
+        <div class="primary-login-container">
+          <button id="btn-dummy-login" class="btn-login-primary">Continue with Email</button>
         </div>
-        <div class="divider">
+        
+        <div class="login-divider">
           <span>OR</span>
         </div>
-        <div class="email-login">
-          <input type="text" placeholder="Username or Email" class="login-input" />
-          <input type="password" placeholder="Password" class="login-input" />
-          <button id="btn-dummy-login" class="btn-chess-primary">Log In</button>
+        
+        <div class="social-login-container">
+          <button class="btn-login-secondary">📱 Continue with Phone</button>
+          <button id="btn-google-login" class="btn-login-secondary">G Continue with Google</button>
+          <button class="btn-login-secondary">🍎 Continue with Apple</button>
         </div>
+      </div>
+    </div>
+
+    <!-- 닉네임 설정 뷰 -->
+    <div id="nickname-setup-view" class="hidden">
+      <div class="login-card">
+        <h2>닉네임 설정</h2>
+        <p style="margin-bottom: 20px; color: #666;">게임을 시작하기 전에 사용할 닉네임을 정해주세요.</p>
+        <div class="primary-login-container">
+          <input type="text" id="nickname-input" placeholder="Nickname" class="neo-input" style="width: 100%; box-sizing: border-box; text-align: left;" />
+        </div>
+        
+        <!-- Google reCAPTCHA v3는 보이지 않으므로 별도의 DOM 위젯을 그리지 않습니다. -->
+        <div style="margin: 20px auto;"></div>
+        
+        <button id="btn-submit-nickname" class="btn-login-primary">시작하기</button>
       </div>
     </div>

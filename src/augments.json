@@ -1,7 +1,8 @@
 [
   {
     "id": 1,
-    "name": "럭키 세븐 (Lucky Sevens)",
+    "name": "럭키 세븐",
+    "en-name": "Lucky Sevens",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"> <path d=\"M7 6 H17 L11 20\" fill=\"none\" stroke=\"#222\" stroke-width=\"3.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/> <path d=\"M4 12 L8 12 M6 10 L6 14\" stroke=\"#222\" stroke-width=\"1.5\" stroke-linecap=\"round\"/> </svg>",
     "target": "에이스 (Aces)",
     "mark": "L. Sevens",
@@ -10,7 +11,8 @@
   },
   {
     "id": 2,
-    "name": "퍼펙트 스퀘어 (Perfect Squares)",
+    "name": "퍼펙트 스퀘어",
+    "en-name": "Perfect Squares",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"> <rect x=\"5\" y=\"5\" width=\"6\" height=\"6\" fill=\"#222\"/> <rect x=\"13\" y=\"13\" width=\"6\" height=\"6\" fill=\"#222\"/> <rect x=\"5\" y=\"13\" width=\"6\" height=\"6\" fill=\"none\" stroke=\"#222\" stroke-width=\"1.5\"/> <rect x=\"13\" y=\"5\" width=\"6\" height=\"6\" fill=\"none\" stroke=\"#222\" stroke-width=\"1.5\"/> </svg>",
     "target": "에이스 (Aces)",
     "mark": "P. Squares",
@@ -19,7 +21,8 @@
   },
   {
     "id": 3,
-    "name": "안티-에이스 듀스 (Anti-Ace Deuces)",
+    "name": "안티-에이스 듀스",
+    "en-name": "Anti-Ace Deuces",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path fill-rule=\"evenodd\" d=\"M6 2 h12 a4 4 0 0 1 4 4 v12 a4 4 0 0 1 -4 4 h-12 a4 4 0 0 1 -4 -4 v-12 a4 4 0 0 1 4 -4 Z M 17 5 A 2 2 0 1 0 17 9 A 2 2 0 1 0 17 5 Z M 7 15 A 2 2 0 1 0 7 19 A 2 2 0 1 0 7 15 Z\" fill=\"#222\"/></svg>",
     "target": "듀스 (Deuces)",
     "mutationId": "anti-ace-deuces",
@@ -27,7 +30,8 @@
   },
   {
     "id": 4,
-    "name": "안티-포 트리플 (Anti-Four Threes)",
+    "name": "안티-포 트리플",
+    "en-name": "Anti-Four Threes",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path fill-rule=\"evenodd\" d=\"M6 2 h12 a4 4 0 0 1 4 4 v12 a4 4 0 0 1 -4 4 h-12 a4 4 0 0 1 -4 -4 v-12 a4 4 0 0 1 4 -4 Z M 17 5 A 2 2 0 1 0 17 9 A 2 2 0 1 0 17 5 Z M 12 10 A 2 2 0 1 0 12 14 A 2 2 0 1 0 12 10 Z M 7 15 A 2 2 0 1 0 7 19 A 2 2 0 1 0 7 15 Z\" fill=\"#222\"/></svg>",
     "target": "트리플 (Threes)",
     "mutationId": "anti-four-threes",
@@ -35,7 +39,8 @@
   },
   {
     "id": 5,
-    "name": "프라임 넘버즈 (Prime Numbers)",
+    "name": "프라임 넘버즈",
+    "en-name": "Prime Numbers",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"> <path d=\"M12 2 L20 12 L12 22 L4 12 Z\" fill=\"none\" stroke=\"#222\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/> <circle cx=\"12\" cy=\"12\" r=\"2.5\" fill=\"#222\"/> </svg>",
     "target": "트리플 (Threes)",
     "mark": "P. Numbers",
@@ -44,7 +49,8 @@
   },
   {
     "id": 6,
-    "name": "안티-식스 쿼드 (Anti-Six Fours)",
+    "name": "안티-식스 쿼드",
+    "en-name": "Anti-Six Fours",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path fill-rule=\"evenodd\" d=\"M6 2 h12 a4 4 0 0 1 4 4 v12 a4 4 0 0 1 -4 4 h-12 a4 4 0 0 1 -4 -4 v-12 a4 4 0 0 1 4 -4 Z M 7 5 A 2 2 0 1 0 7 9 A 2 2 0 1 0 7 5 Z M 17 5 A 2 2 0 1 0 17 9 A 2 2 0 1 0 17 5 Z M 7 15 A 2 2 0 1 0 7 19 A 2 2 0 1 0 7 15 Z M 17 15 A 2 2 0 1 0 17 19 A 2 2 0 1 0 17 15 Z\" fill=\"#222\"/></svg>",
     "target": "쿼드 (Fours)",
     "mutationId": "anti-six-fours",
@@ -52,7 +58,8 @@
   },
   {
     "id": 7,
-    "name": "안티-식스 펜타 (Anti-Six Fives)",
+    "name": "안티-식스 펜타",
+    "en-name": "Anti-Six Fives",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path fill-rule=\"evenodd\" d=\"M6 2 h12 a4 4 0 0 1 4 4 v12 a4 4 0 0 1 -4 4 h-12 a4 4 0 0 1 -4 -4 v-12 a4 4 0 0 1 4 -4 Z M 7 5 A 2 2 0 1 0 7 9 A 2 2 0 1 0 7 5 Z M 17 5 A 2 2 0 1 0 17 9 A 2 2 0 1 0 17 5 Z M 12 10 A 2 2 0 1 0 12 14 A 2 2 0 1 0 12 10 Z M 7 15 A 2 2 0 1 0 7 19 A 2 2 0 1 0 7 15 Z M 17 15 A 2 2 0 1 0 17 19 A 2 2 0 1 0 17 15 Z\" fill=\"#222\"/></svg>",
     "target": "펜타 (Fives)",
     "mutationId": "anti-six-fives",
@@ -60,7 +67,8 @@
   },
   {
     "id": 8,
-    "name": "안티-파이브 헥사 (Anti-Five Sixes)",
+    "name": "안티-파이브 헥사",
+    "en-name": "Anti-Five Sixes",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path fill-rule=\"evenodd\" d=\"M6 2 h12 a4 4 0 0 1 4 4 v12 a4 4 0 0 1 -4 4 h-12 a4 4 0 0 1 -4 -4 v-12 a4 4 0 0 1 4 -4 Z M 7 5 A 2 2 0 1 0 7 9 A 2 2 0 1 0 7 5 Z M 17 5 A 2 2 0 1 0 17 9 A 2 2 0 1 0 17 5 Z M 7 10 A 2 2 0 1 0 7 14 A 2 2 0 1 0 7 10 Z M 17 10 A 2 2 0 1 0 17 14 A 2 2 0 1 0 17 10 Z M 7 15 A 2 2 0 1 0 7 19 A 2 2 0 1 0 7 15 Z M 17 15 A 2 2 0 1 0 17 19 A 2 2 0 1 0 17 15 Z\" fill=\"#222\"/></svg>",
     "target": "헥사 (Sixes)",
     "mutationId": "anti-five-sixes",
@@ -68,7 +76,8 @@
   },
   {
     "id": 9,
-    "name": "갬블러 (Gambler)",
+    "name": "갬블러",
+    "en-name": "Gambler",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path d=\"M12 2 C12 2 4 10 4 15 C4 18 7 20 10 20 C11 20 12 19 12 17 C12 19 13 20 14 20 C17 20 20 18 20 15 C20 10 12 2 12 2 Z M12 17 L10 22 H14 Z\" fill=\"#222\"/></svg>",
     "target": "초이스 (Choice)",
     "mark": "Gambler",
@@ -77,7 +86,8 @@
   },
   {
     "id": 10,
-    "name": "쓰리 오브 어 카인드 (Three of a Kind)",
+    "name": "쓰리 오브 어 카인드",
+    "en-name": "Three of a Kind",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"> <rect x=\"10\" y=\"3\" width=\"4\" height=\"4\" rx=\"0.5\" fill=\"#222\"/> <rect x=\"5\" y=\"14\" width=\"4\" height=\"4\" rx=\"0.5\" fill=\"#222\"/> <rect x=\"15\" y=\"14\" width=\"4\" height=\"4\" rx=\"0.5\" fill=\"#222\"/> </svg>",
     "target": "포카인드 (Four of a Kind)",
     "mark": "3 of a Kind",
@@ -86,7 +96,8 @@
   },
   {
     "id": 11,
-    "name": "포 바이 포 (Four by Four)",
+    "name": "포 바이 포",
+    "en-name": "Four by Four",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><rect x=\"4\" y=\"4\" width=\"7\" height=\"7\" fill=\"#222\"/><rect x=\"13\" y=\"4\" width=\"7\" height=\"7\" fill=\"#222\"/><rect x=\"4\" y=\"13\" width=\"7\" height=\"7\" fill=\"#222\"/><rect x=\"13\" y=\"13\" width=\"7\" height=\"7\" fill=\"#222\"/></svg>",
     "target": "포카인드 (Four of a Kind)",
     "mark": "Four x Four",
@@ -95,7 +106,8 @@
   },
   {
     "id": 12,
-    "name": "타이니 하우스 (Tiny House)",
+    "name": "타이니 하우스",
+    "en-name": "Tiny House",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path d=\"M12 4 L4 12 v8 h16 v-8 Z\" fill=\"#222\" stroke=\"#222\" stroke-width=\"1.5\" stroke-linejoin=\"round\"/></svg>",
     "target": "풀하우스 (Full House)",
     "mark": "Tiny House",
@@ -104,7 +116,8 @@
   },
   {
     "id": 13,
-    "name": "투 페어 (Two Pair)",
+    "name": "투 페어",
+    "en-name": "Two Pair",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"> <rect x=\"4\" y=\"5\" width=\"5\" height=\"5\" rx=\"0.5\" fill=\"#222\"/> <rect x=\"4\" y=\"14\" width=\"5\" height=\"5\" rx=\"0.5\" fill=\"#222\"/> <rect x=\"15\" y=\"5\" width=\"5\" height=\"5\" rx=\"0.5\" fill=\"none\" stroke=\"#222\" stroke-width=\"1.5\"/> <rect x=\"15\" y=\"14\" width=\"5\" height=\"5\" rx=\"0.5\" fill=\"none\" stroke=\"#222\" stroke-width=\"1.5\"/> </svg>",
     "target": "풀하우스 (Full House)",
     "mark": "Two Pair",
@@ -113,7 +126,8 @@
   },
   {
     "id": 14,
-    "name": "머리와 몸통 (Head & Tail)",
+    "name": "머리와 몸통",
+    "en-name": "Head & Tail",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"> <rect x=\"7\" y=\"3\" width=\"4\" height=\"6\" rx=\"0.5\" fill=\"#222\" /> <rect x=\"13\" y=\"3\" width=\"4\" height=\"6\" rx=\"0.5\" fill=\"#222\" /> <rect x=\"4\" y=\"13\" width=\"4\" height=\"6\" rx=\"0.5\" fill=\"none\" stroke=\"#222\" stroke-width=\"1.5\" /> <rect x=\"10\" y=\"13\" width=\"4\" height=\"6\" rx=\"0.5\" fill=\"none\" stroke=\"#222\" stroke-width=\"1.5\" /> <rect x=\"16\" y=\"13\" width=\"4\" height=\"6\" rx=\"0.5\" fill=\"none\" stroke=\"#222\" stroke-width=\"1.5\" /> </svg>",
     "target": "풀하우스 (Full House)",
     "mark": "Head & Run",
@@ -122,7 +136,8 @@
   },
   {
     "id": 15,
-    "name": "에번스 (Evens)",
+    "name": "에번스",
+    "en-name": "Evens",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"> <circle cx=\"8\" cy=\"5\" r=\"2\" fill=\"#222\"/> <circle cx=\"16\" cy=\"5\" r=\"2\" fill=\"#222\"/> <circle cx=\"8\" cy=\"12\" r=\"2\" fill=\"#222\"/> <circle cx=\"16\" cy=\"12\" r=\"2\" fill=\"#222\"/> <circle cx=\"8\" cy=\"19\" r=\"2\" fill=\"#222\"/> <circle cx=\"16\" cy=\"19\" r=\"2\" fill=\"#222\"/> </svg>",
     "target": "스몰 스트레이트 (Small Straight)",
     "mark": "Evens",
@@ -131,7 +146,8 @@
   },
   {
     "id": 16,
-    "name": "오즈 (Odds)",
+    "name": "오즈",
+    "en-name": "Odds",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"> <circle cx=\"12\" cy=\"12\" r=\"2.5\" fill=\"#222\"/> <circle cx=\"5\" cy=\"5\" r=\"2.5\" fill=\"none\" stroke=\"#222\" stroke-width=\"1.5\"/> <circle cx=\"19\" cy=\"19\" r=\"2.5\" fill=\"none\" stroke=\"#222\" stroke-width=\"1.5\"/> </svg>",
     "target": "스몰 스트레이트 (Small Straight)",
     "mark": "Odds",
@@ -140,7 +156,8 @@
   },
   {
     "id": 17,
-    "name": "더블 라지 스트레이트 (Double Large Straight)",
+    "name": "더블 라지 스트레이트",
+    "en-name": "Double Large Straight",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"> <path d=\"M3 21 v-4 h4 v-4 h4 v-4 h4 v-4 h4\" stroke=\"#222\" stroke-width=\"2\" fill=\"none\" stroke-linejoin=\"round\"/> <path d=\"M8 21 v-4 h4 v-4 h4 v-4 h4\" stroke=\"#222\" stroke-width=\"2\" fill=\"none\" stroke-linejoin=\"round\"/> </svg>",
     "target": "스몰 스트레이트 (Small Straight)",
     "mark": "L. Straight",
@@ -149,7 +166,8 @@
   },
   {
     "id": 18,
-    "name": "프라임 컬렉션 (Prime Collection)",
+    "name": "프라임 컬렉션",
+    "en-name": "Prime Collection",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path d=\"M12 2 L15 5 L12 8 L9 5 Z\" fill=\"#222\"/><path d=\"M7 11 L10 14 L7 17 L4 14 Z\" fill=\"#222\"/><path d=\"M17 11 L20 14 L17 17 L14 14 Z\" fill=\"#222\"/></svg>",
     "target": "라지 스트레이트 (Large Straight)",
     "mark": "P. Collection",
@@ -158,7 +176,8 @@
   },
   {
     "id": 19,
-    "name": "땅콩주택 (Duplex House)",
+    "name": "땅콩주택",
+    "en-name": "Duplex House",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"> <path d=\"M6 7 L2 11 v7 h8 v-7 Z\" fill=\"none\" stroke=\"#222\" stroke-width=\"2\" stroke-linejoin=\"round\"/> <path d=\"M18 7 L14 11 v7 h8 v-7 Z\" fill=\"none\" stroke=\"#222\" stroke-width=\"2\" stroke-linejoin=\"round\"/> </svg>",
     "target": "라지 스트레이트 (Large Straight)",
     "mark": "D. House",
@@ -167,7 +186,8 @@
   },
   {
     "id": 20,
-    "name": "마운틴 (Mountain)",
+    "name": "마운틴",
+    "en-name": "Mountain",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"> <path d=\"M3 18 L12 5 L21 18 Z\" fill=\"none\" stroke=\"#222\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/> <path d=\"M8 12 L12 16 L16 12\" fill=\"none\" stroke=\"#222\" stroke-width=\"2\" stroke-linejoin=\"round\"/> </svg>",
     "target": "라지 스트레이트 (Large Straight)",
     "mark": "Mountain",
@@ -176,7 +196,8 @@
   },
   {
     "id": 21,
-    "name": "하이 다이스 (High Dice)",
+    "name": "하이 다이스",
+    "en-name": "High Dice",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><rect x=\"4\" y=\"14\" width=\"4\" height=\"6\" fill=\"#222\"/><rect x=\"10\" y=\"10\" width=\"4\" height=\"10\" fill=\"#222\"/><rect x=\"16\" y=\"4\" width=\"4\" height=\"16\" fill=\"#222\"/></svg>",
     "target": "라지 스트레이트 (Large Straight)",
     "mark": "High Dice",
@@ -185,7 +206,8 @@
   },
   {
     "id": 22,
-    "name": "두 번째 초이스 (Whatever it takes...)",
+    "name": "두 번째 초이스",
+    "en-name": "Whatever it takes...",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"> <path d=\"M18 18 V10 C18 5, 6 5, 6 10 V18 M2 14 L6 18 L10 14\" stroke=\"#222\" stroke-width=\"2.5\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/> </svg>",
     "target": "요트 (Yacht)",
     "mark": "2nd Choice",
@@ -194,7 +216,8 @@
   },
   {
     "id": 23,
-    "name": "피보나치 넘버즈 (Fibonacci Numbers)",
+    "name": "피보나치 넘버즈",
+    "en-name": "Fibonacci Numbers",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"> <rect x=\"2.5\" y=\"5.5\" width=\"13\" height=\"13\" fill=\"none\" stroke=\"#222\" stroke-width=\"0.5\"/> <rect x=\"15.5\" y=\"5.5\" width=\"8\" height=\"8\" fill=\"none\" stroke=\"#222\" stroke-width=\"0.5\"/> <rect x=\"18.5\" y=\"13.5\" width=\"5\" height=\"5\" fill=\"none\" stroke=\"#222\" stroke-width=\"0.5\"/> <rect x=\"15.5\" y=\"15.5\" width=\"3\" height=\"3\" fill=\"none\" stroke=\"#222\" stroke-width=\"0.5\"/> <rect x=\"15.5\" y=\"13.5\" width=\"2\" height=\"2\" fill=\"none\" stroke=\"#222\" stroke-width=\"0.5\"/> <rect x=\"17.5\" y=\"13.5\" width=\"1\" height=\"1\" fill=\"none\" stroke=\"#222\" stroke-width=\"0.5\"/> <rect x=\"17.5\" y=\"14.5\" width=\"1\" height=\"1\" fill=\"none\" stroke=\"#222\" stroke-width=\"0.5\"/> <path d=\"M 18.5 14.5 A 1 1 0 0 0 17.5 13.5 A 2 2 0 0 0 15.5 15.5 A 3 3 0 0 0 18.5 18.5 A 5 5 0 0 0 23.5 13.5 A 8 8 0 0 0 15.5 5.5 A 13 13 0 0 0 2.5 18.5\" fill=\"none\" stroke=\"#222\" stroke-width=\"1.5\" stroke-linecap=\"round\"/> </svg>",
     "target": "요트 (Yacht)",
     "mark": "Fib. Numbers",
@@ -203,7 +226,8 @@
   },
   {
     "id": 24,
-    "name": "리버스 초이스 (Reverse Choice)",
+    "name": "리버스 초이스",
+    "en-name": "Reverse Choice",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path fill-rule=\"evenodd\" d=\"M6 2 h12 a4 4 0 0 1 4 4 v12 a4 4 0 0 1 -4 4 h-12 a4 4 0 0 1 -4 -4 v-12 a4 4 0 0 1 4 -4 Z M10 4 h4 v4 h-4 Z M10 16 h4 v4 h-4 Z M4 10 h4 v4 h-4 Z M16 10 h4 v4 h-4 Z M10 10 h4 v4 h-4 Z\" fill=\"#222\"/></svg>",
     "target": "요트 (Yacht)",
     "mark": "R. Choice",
@@ -212,16 +236,18 @@
   },
   {
     "id": 25,
-    "name": "요트 뱅크 (Yacht Bank)",
+    "name": "요트 뱅크",
+    "en-name": "Yacht Bank",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"> <path d=\"M12 3 L3 9 h18 Z\" fill=\"#222\" stroke-linejoin=\"round\"/> <rect x=\"4\" y=\"10\" width=\"2\" height=\"8\" fill=\"#222\"/> <rect x=\"11\" y=\"10\" width=\"2\" height=\"8\" fill=\"#222\"/> <rect x=\"18\" y=\"10\" width=\"2\" height=\"8\" fill=\"#222\"/> <rect x=\"2\" y=\"19\" width=\"20\" height=\"2\" fill=\"#222\"/> </svg>",
     "target": "요트 (Yacht)",
     "mark": "Bank",
-    "description": "요트 족보를 <strong><u>요트 뱅크</u></strong> 족보로 변경합니다.<br><br>빈칸인 동안 뱅크에 점수가 +2점씩 누적됩니다.<br><br>요트가 아닌 주사위 조합으로 족보를 기입할 때는 쌓인 이자만큼 점수를 획득하고, 요트 주사위 조합으로 족보를 기입할 때는 현재 이자의 두 배만큼 점수를 획득합니다.<br><br>(상대가 요트 족보를 먼저 기입하게 되면 이자는 더 이상 누적되지 않습니다.)",
+    "description": "요트 족보를 <strong><u>요트 뱅크</u></strong> 족보로 변경합니다.<br><br>빈칸인 동안 뱅크에 점수가 +2점씩 누적됩니다.<br><br>요트가 아닌 주사위 조합으로 족보 기입할 때는 쌓인 이자만큼 점수를 획득하고, 요트 주사위 조합으로 족보를 기입할 때는 현재 이자의 두 배만큼 점수를 획득합니다.<br><br>(상대가 요트 족보를 먼저 기입하게 되면 이자는 더 이상 누적되지 않습니다.)",
     "mutationId": "yacht-bank"
   },
   {
     "id": 26,
-    "name": "블랙잭 21 (Blackjack 21)",
+    "name": "블랙잭 21",
+    "en-name": "Blackjack 21",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"> <circle cx=\"12\" cy=\"12\" r=\"10\" fill=\"none\" stroke=\"#222\" stroke-width=\"1.5\"/> <circle cx=\"12\" cy=\"12\" r=\"8\" fill=\"none\" stroke=\"#222\" stroke-width=\"4\" stroke-dasharray=\"3.1416 3.1416\"/> <circle cx=\"12\" cy=\"12\" r=\"6\" fill=\"none\" stroke=\"#222\" stroke-width=\"1.5\"/> </svg>",
     "target": "요트 (Yacht)",
     "mark": "Blackjack",
@@ -230,7 +256,8 @@
   },
   {
     "id": 27,
-    "name": "재빠른 스트레이트 (Fast Straight)",
+    "name": "재빠른 스트레이트",
+    "en-name": "Fast Straight",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path d=\"M13 2 L3 14 h9 l-2 8 l10-12 h-9 z\" fill=\"#222\" stroke-linejoin=\"round\"/></svg>",
     "target": "q1",
     "type": "Quest",
@@ -240,7 +267,8 @@
   },
   {
     "id": 28,
-    "name": "낭비할 시간 없다 (No time to waste)",
+    "name": "낭비할 시간 없다",
+    "en-name": "No time to waste",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><circle cx=\"12\" cy=\"13\" r=\"8\" fill=\"none\" stroke=\"#222\" stroke-width=\"2\"/><path d=\"M12 5 v-3 M9 2 h6 M12 13 l3 -3\" stroke=\"#222\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg>",
     "target": "q2",
     "type": "Quest",
@@ -250,7 +278,8 @@
   },
   {
     "id": 29,
-    "name": "차근차근 (Step by Step)",
+    "name": "차근차근",
+    "en-name": "Step by Step",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path d=\"M4 20 v-5 h5 v-5 h5 v-5 h5\" stroke=\"#222\" stroke-width=\"2.5\" fill=\"none\" stroke-linejoin=\"round\"/></svg>",
     "target": "q3",
     "type": "Quest",
@@ -260,7 +289,8 @@
   },
   {
     "id": 30,
-    "name": "두 집 살림 (Two Households)",
+    "name": "두 집 살림",
+    "en-name": "Two Households",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"> <path d=\"M4 13 l4 -4 l4 4 v6 h-8 z\" fill=\"#222\" stroke-linejoin=\"round\"/> <path d=\"M13 13 l3.5 -3.5 l3.5 3.5 v6 h-7 z\" fill=\"#222\" stroke-linejoin=\"round\"/> </svg>",
     "target": "q4",
     "type": "Quest",
@@ -270,7 +300,8 @@
   },
   {
     "id": 31,
-    "name": "알박기 (Holdout)",
+    "name": "알박기",
+    "en-name": "Holdout",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path d=\"M8 22 v-18 l10 5 l-10 5\" stroke=\"#222\" stroke-width=\"2\" fill=\"none\" stroke-linejoin=\"round\"/><rect x=\"4\" y=\"20\" width=\"8\" height=\"2\" fill=\"#222\"/></svg>",
     "target": "q5",
     "type": "Quest",
@@ -280,7 +311,8 @@
   },
   {
     "id": 32,
-    "name": "신중한 스트레이트 (Cautious Straight)",
+    "name": "신중한 스트레이트",
+    "en-name": "Cautious Straight",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><circle cx=\"10\" cy=\"10\" r=\"5\" fill=\"none\" stroke=\"#222\" stroke-width=\"2\"/><path d=\"M13.5 13.5 l5.5 5.5\" stroke=\"#222\" stroke-width=\"2.5\" stroke-linecap=\"round\"/></svg>",
     "target": "q6",
     "type": "Quest",
@@ -290,7 +322,8 @@
   },
   {
     "id": 33,
-    "name": "티끌 모아 태산 (Every Little Makes a Mickle)",
+    "name": "티끌 모아 태산",
+    "en-name": "Every Little Makes a Mickle",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><circle cx=\"12\" cy=\"18\" r=\"4\" fill=\"#222\"/><circle cx=\"12\" cy=\"12\" r=\"3\" fill=\"#222\"/><circle cx=\"12\" cy=\"7\" r=\"2\" fill=\"#222\"/></svg>",
     "target": "q7",
     "type": "Quest",
@@ -300,70 +333,80 @@
   },
   {
     "id": 34,
-    "name": "묵직한 주사위 (Weighted Dice)",
+    "name": "묵직한 주사위",
+    "en-name": "Weighted Dice",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path d=\"M7 10 c0 -3 10 -3 10 0 v4 a5 5 0 0 1 -10 0 z\" fill=\"#222\"/><path d=\"M9 10 v-4 a3 3 0 0 1 6 0 v4\" fill=\"none\" stroke=\"#222\" stroke-width=\"2\"/></svg>",
     "description": "기본 주사위를 <strong><u>묵직한 주사위</strong></u>로 변경합니다.<br><br>묵직한 주사위는 <strong><u>4, 4, 5, 5, 6, 6</u></strong> 눈금 조합을 가집니다.",
     "mutationId": "weighted-dice"
   },
   {
     "id": 35,
-    "name": "럭키 펀치 (Lucky Punch)",
+    "name": "럭키 펀치",
+    "en-name": "Lucky Punch",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><rect x=\"6\" y=\"8\" width=\"12\" height=\"10\" rx=\"4\" fill=\"#222\"/><path d=\"M6 14 h-2 a2 2 0 0 1 0 -4 h2\" fill=\"#222\"/></svg>",
     "description": "매 턴 첫 번째 굴림만으로 '하단 구역' 족보를 기입할 경우, 해당 획득 점수에 +5점 보너스를 부여합니다.",
     "mutationId": "lucky-punch"
   },
   {
     "id": 36,
-    "name": "추진력 (Momentum)",
+    "name": "추진력",
+    "en-name": "Momentum",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path d=\"M12 2 l4 8 v8 l-4 -2 l-4 2 v-8 z\" fill=\"#222\" stroke-linejoin=\"round\"/></svg>",
     "description": "<strong><u>족보에 처음으로 0점(스크래치)을 기록했을 때 발동</strong></u>합니다.<br><br>다음 턴에 '하단 구역' 족보를 완성하여 기입하면 획득 점수가 1.5배로 증가합니다.<br><br>(소수점은 버리며, 단 1회 발동합니다.)",
     "mutationId": "momentum"
   },
   {
     "id": 37,
-    "name": "황금 주사위 (Golden Die)",
+    "name": "황금 주사위",
+    "en-name": "Golden Die",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path d=\"M12 2 l3 7 h7 l-5 5 l2 8 l-7 -4 l-7 4 l2 -8 l-5 -5 h7 z\" fill=\"#222\" stroke-linejoin=\"round\"/></svg>",
     "description": "기본 주사위를 <strong><u>황금 주사위</strong></u>로 변경합니다.<br><br>황금 주사위는 족보 기입 시 이 주사위 눈금이 1, 2, 3 중 하나라면 +3점 추가로 획득합니다.",
     "mutationId": "golden-die"
   },
   {
     "id": 38,
-    "name": "아직 안 끝났어 (It's Not Over Yet)",
+    "name": "아직 안 끝났어",
+    "en-name": "It's Not Over Yet",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path d=\"M12 4 a8 8 0 1 0 8 8\" stroke=\"#222\" stroke-width=\"2.5\" fill=\"none\" stroke-linecap=\"round\"/><path d=\"M20 7 v5 h-5\" stroke=\"#222\" stroke-width=\"2.5\" fill=\"none\" stroke-linejoin=\"round\"/></svg>",
     "description": "획득 즉시 가장 점수가 낮은 족보 1개를 빈칸으로 초기화하고 1턴 추가 획득합니다.<br><br>이후 해당 족보를 다시 기입할 때 기본 점수에 +3점을 추가로 획득합니다.",
     "mutationId": "not-over"
   },
   {
     "id": 39,
-    "name": "8면 주사위 (8-Sided Dice)",
+    "name": "8면 주사위",
+    "en-name": "8-Sided Dice",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path d=\"M12 2 L20 12 L12 22 L4 12 Z M4 12 H20 M12 2 L16 12 L12 22 M12 2 L8 12 L12 22\" fill=\"none\" stroke=\"#222\" stroke-width=\"1.5\" stroke-linejoin=\"round\"/></svg>",
     "description": "기본 주사위를 <strong><u>8면 주사위</strong></u>로 변경합니다.<br><br>8면 주사위는 <strong><u>1, 2, 3, 4, 4, 5, 5, 6</u></strong> 눈금 조합을 가집니다.",
     "mutationId": "8-sided"
   },
   {
     "id": 40,
-    "name": "이상한 주사위 (Strange Die)",
+    "name": "이상한 주사위",
+    "en-name": "Strange Die",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path d=\"M9 8 a3 3 0 0 1 6 0 c0 2 -3 3 -3 5\" fill=\"none\" stroke=\"#222\" stroke-width=\"2.5\" stroke-linecap=\"round\"/><circle cx=\"12\" cy=\"17\" r=\"1.5\" fill=\"#222\"/></svg>",
     "description": "기본 주사위를 <strong><u>이상한 주사위</strong></u>로 변경합니다.<br><br>이상한 주사위는 족보에 쓸 수 없는 조커 주사위이며, <strong><u>+2, +1, +1, 0, -1, 파괴</u></strong> 눈금 조합을 가집니다.<br><br>매 턴 족보 기입 시 눈금에 표시된 만큼 추가로 점수를 얻으며, 파괴 면이 나온 상태로 족보를 기입하면 주사위가 사라집니다.",
     "mutationId": "strange-die"
   },
   {
     "id": 41,
-    "name": "프로모션 주사위 (Promotion Die)",
+    "name": "프로모션 주사위",
+    "en-name": "Promotion Die",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path d=\"M4 20 h16 L20 8 l-4 4 l-4 -8 l-4 8 l-4 -4 Z\" fill=\"#222\" stroke-linejoin=\"round\"/></svg>",
     "description": "기본 주사위 1개를 <strong><u>프로모션 주사위</strong></u>로 변경합니다.<br><br>프로모션 주사위는 턴이 지날수록 눈금이 1씩 상승(최대 6)하며, 6의 눈인 상태에서 족보를 기입할 시 소모되어 기본 주사위로 돌아옵니다.",
     "mutationId": "promotion-die"
   },
   {
     "id": 42,
-    "name": "커플 주사위 (Couple Dice)",
+    "name": "커플 주사위",
+    "en-name": "Couple Dice",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path d=\"M12 20 l-8 -8 a4 4 0 0 1 8 -5 a4 4 0 0 1 8 5 z\" fill=\"#222\" stroke-linejoin=\"round\"/></svg>",
     "description": "기본 주사위를 <strong><u>커플 주사위</strong></u>로 변경합니다.<br><br>커플 주사위는 족보 기입 시 두 주사위의 눈금이 같다면 +3점 추가 획득(상단 보너스 계산 제외)하는 특성을 가집니다.",
     "mutationId": "couple-dice"
   },
   {
     "id": 43,
-    "name": "세븐스 다이스 (Sevens Dice)",
+    "name": "세븐스 다이스",
+    "en-name": "Sevens Dice",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"3\" fill=\"none\" stroke=\"#222\" stroke-width=\"2\"/><circle cx=\"7\" cy=\"7\" r=\"1.5\" fill=\"#222\"/><circle cx=\"17\" cy=\"7\" r=\"1.5\" fill=\"#222\"/><circle cx=\"7\" cy=\"12\" r=\"1.5\" fill=\"#222\"/><circle cx=\"12\" cy=\"12\" r=\"1.5\" fill=\"#222\"/><circle cx=\"17\" cy=\"12\" r=\"1.5\" fill=\"#222\"/><circle cx=\"7\" cy=\"17\" r=\"1.5\" fill=\"#222\"/><circle cx=\"17\" cy=\"17\" r=\"1.5\" fill=\"#222\"/></svg>",
     "description": "기본 주사위 2개를 <strong><u>세븐스 다이스</strong></u>로 변경합니다.<br><br>세븐스 다이스는 <strong><u>2, 3, 4, 5, 6, 7</u></strong> 눈금 조합을 가집니다.<br><br>추가되는 7의 눈으로 족보를 완성할 수 있도록 조건이 확장됩니다.",
     "mutationId": "sevens-dice"

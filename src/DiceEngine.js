@@ -406,8 +406,8 @@ export class DiceEngine {
       const availableTotalHeight = appContainer.clientHeight;
       const controls = document.querySelector('.controls-area');
       const btn = document.getElementById('btn-roll');
-      const margins = 20; // margin-bottom on .dice-container
-      const paddingY = 48; // playable-section top+bottom padding
+      const margins = 40; // controls-area 하단 20px + dice-container 하단 20px
+      const paddingY = 48; // playable-section 상/하단 패딩 합
       const paddingX = 48; // playable-section left+right padding
       
       // 이전 프레임에서 고정된 width를 초기화하여 글자 래핑(wrapping) 현상으로 인한 비정상적인 offsetHeight 증가 방지
@@ -681,7 +681,7 @@ export class DiceEngine {
         
         body.position.set(
           startX + (Math.random() - 0.5) * 4.0, // X: 중앙 주변
-          5 + (i * 0.5) + Math.random(),        // Y: 약간 공중
+          2 + (i * 0.5) + Math.random(),        // Y: 보드에 가깝게
           startZ - (i * 1.5) - Math.random()    // Z: 하단 벽 안쪽
         );
         
@@ -691,12 +691,12 @@ export class DiceEngine {
           Math.random() * Math.PI
         );
         
-        // 위로 (Z축 음수 방향) 던지기
+        // 중앙으로 포물선을 그리며 던져지도록 속도 설정
         const spread = (i / Math.max(1, count - 1)) - 0.5; // -0.5 ~ 0.5
         body.velocity.set(
           (Math.random() - 0.5) * 8 + (spread * 12), // X축 퍼짐
-          -5 - Math.random() * 5,                    // Y축 (아래로)
-          -18 - Math.random() * 6                    // Z축 (강하게 위로)
+          10 + Math.random() * 10,                   // Y축 위로 살짝 포물선
+          -10 - Math.random() * 8                    // Z축 앞(중앙)으로 적절히 던지기
         );
         
         body.angularVelocity.set(
