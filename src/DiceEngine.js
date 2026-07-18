@@ -597,7 +597,7 @@ export class DiceEngine {
     }
   }
 
-  async roll(configsOrCount) {
+  async roll(configsOrCount, isObserving = false) {
     let configs = [];
     if (typeof configsOrCount === 'number') {
       for(let i=0; i<configsOrCount; i++) configs.push({type: 'normal'});
@@ -608,7 +608,7 @@ export class DiceEngine {
     
     return new Promise((resolve) => {
       this.clearUnkept();
-      this.physicsActive = true;
+      this.physicsActive = !isObserving;
       this.isAnimating = false;
       this.startRenderLoop();
       
@@ -718,7 +718,12 @@ export class DiceEngine {
         this.diceArray.push({ mesh, body, value: 1, isKept: false, config: configs[i] });
       }
 
-      // Check sleep
+      // Check sleep (only if running physics locally)
+      if (isObserving) {
+        this.observingResolve = resolve;
+        return; // Will be resolved by forceRollEnd
+      }
+
       let attempts = 0;
       const checkSleep = setInterval(() => {
         attempts++;
@@ -755,6 +760,42 @@ export class DiceEngine {
           resolve();
         }
       }, 100);
+    });
+  }
+  // 관전자(Guest)용 롤 종료 트리거
+  forceRollEnd(finalValues) {
+    this.physicsActive = false;
+    this.diceArray.forEach((die, index) => {
+      if (!die.isKept) {
+        if (die.body) {
+          this.world.removeBody(die.body);
+          die.body = null;
+        }
+        // 전달받은 진짜 최종값 적용
+        if (finalValues && finalValues[index]) {
+          die.value = finalValues[index];
+        } else {
+          die.value = this.calculateDieValue(die.mesh.quaternion, die.config);
+        }
+      }
+    });
+    this.isRollSettling = true;
+    if (this.observingResolve) {
+      this.observingResolve();
+      this.observingResolve = null;
+    }
+  }
+
+  // 외부(네트워크)에서 수신한 위치 데이터로 렌더링 강제 업데이트
+  applyPhysicsUpdate(transforms) {
+    if (this.physicsActive) return; // 내가 굴리는 중이면 무시
+    
+    transforms.forEach((t, i) => {
+      const die = this.diceArray[i];
+      if (die && !die.isKept) {
+        die.mesh.position.set(t.px, t.py, t.pz);
+        die.mesh.quaternion.set(t.qx, t.qy, t.qz, t.qw);
+      }
     });
   }
 
@@ -1034,7 +1075,8 @@ export class DiceEngine {
         this.arrangeAll(false, die);
         
         if (this.onDieClick) {
-          this.onDieClick(die.value, die.isKept);
+          const dieIndex = this.diceArray.indexOf(die);
+          this.onDieClick(die.value, die.isKept, dieIndex);
         }
       }
     }
@@ -1152,12 +1194,22 @@ export class DiceEngine {
     if (this.physicsActive) {
       this.world.step(1/60, Math.min(dt, 0.1), 10);
       
+      const transforms = [];
       this.diceArray.forEach(die => {
         if (!die.isKept && die.body) {
           die.mesh.position.copy(die.body.position);
           die.mesh.quaternion.copy(die.body.quaternion);
+          transforms.push({
+            px: die.body.position.x, py: die.body.position.y, pz: die.body.position.z,
+            qx: die.body.quaternion.x, qy: die.body.quaternion.y, qz: die.body.quaternion.z, qw: die.body.quaternion.w
+          });
+        } else {
+          transforms.push(null);
         }
       });
+      if (this.onPhysicsUpdate) {
+        this.onPhysicsUpdate(transforms);
+      }
     } else {
       // 개별 주사위 애니메이션 처리
       this.diceArray.forEach(die => {

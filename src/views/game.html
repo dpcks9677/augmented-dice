@@ -49,6 +49,10 @@
 
       <!-- 증강 (Augment) 섹션 (좌측 20%, 게임 중 표시) -->
       <section id="augment-section">
+        <div class="sidebar-tabs hidden-in-normal">
+          <button class="tab-btn active" id="tab-augment-view">증강 보기</button>
+          <button class="tab-btn" id="tab-match-info-view-from-aug">매치 로그</button>
+        </div>
         <h2>Augments</h2>
         <div id="augment-list">
           <!-- 증강 카드 슬롯 3개 -->
@@ -85,6 +89,36 @@
         </div>
       </section>
 
+      <!-- 매치 정보 (Match Info) 섹션 (게임 진행 중 프로필 섹션 대체) -->
+      <section id="match-info-section" class="hidden">
+        <div class="sidebar-tabs hidden-in-normal">
+          <button class="tab-btn" id="tab-augment-view-from-match">증강 보기</button>
+          <button class="tab-btn active" id="tab-match-info-view">매치 로그</button>
+        </div>
+        
+        <!-- 매치 프로필 요약 (VS) -->
+        <h2 style="text-align: center; margin-bottom: 10px;">Match</h2>
+        <div class="match-profile">
+          <div class="match-player-box" id="match-p1-box">
+            <div class="match-avatar" id="match-p1-avatar" style="background-image: none; background-color: #ccc;"></div>
+            <div class="match-nickname" id="match-p1-name">Player 1</div>
+          </div>
+          <div class="match-vs-text">VS</div>
+          <div class="match-player-box" id="match-p2-box">
+            <div class="match-avatar" id="match-p2-avatar" style="background-image: none; background-color: #ccc;"></div>
+            <div class="match-nickname" id="match-p2-name">Player 2</div>
+          </div>
+        </div>
+
+        <!-- 게임 로그 영역 -->
+        <h2 style="text-align: center; margin-bottom: 10px;">Play Log</h2>
+        <div class="match-log">
+          <div id="game-log-container">
+            <div class="log-empty-text">게임 로그가 없습니다.</div>
+          </div>
+        </div>
+      </section>
+
       <!-- 플레이어블 섹션 (중앙 45%) -->
       <section id="playable-section">
         <div class="controls-area">
@@ -108,12 +142,77 @@
         <div class="play-menu-card">
           <h2>Play Augmented Dice</h2>
           <button class="btn-play-menu" id="btn-aug-online" disabled>증강 요트 다이스 / 온라인 플레이</button>
-          <button class="btn-play-menu" id="btn-aug-lobby" disabled>증강 요트 다이스 / 로비 플레이</button>
+          <button class="btn-play-menu" id="btn-aug-lobby">증강 요트 다이스 / 로비 플레이</button>
           <button class="btn-play-menu" id="btn-aug-hotseat">증강 요트 다이스 / 핫시트 플레이</button>
           <hr class="menu-divider" />
           <button class="btn-play-menu" id="btn-norm-online" disabled>요트 다이스 / 온라인 플레이</button>
-          <button class="btn-play-menu" id="btn-norm-lobby" disabled>요트 다이스 / 로비 플레이</button>
+          <button class="btn-play-menu" id="btn-norm-lobby">요트 다이스 / 로비 플레이</button>
           <button class="btn-play-menu" id="btn-norm-hotseat">요트 다이스 / 핫시트 플레이</button>
+        </div>
+      </section>
+
+      <!-- 로비 선택 섹션 (우측 40%, 로비 생성/참가 선택) -->
+      <section id="lobby-select-section" style="position: relative;">
+        <button id="btn-lobby-select-back" class="icon-btn" title="뒤로가기" style="position: absolute; top: 40px; left: 40px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+        </button>
+        <div class="lobby-card">
+          <h2>로비 플레이</h2>
+          <button id="btn-lobby-create" class="btn-play-menu" style="margin-bottom: 20px;">방 만들기 (Host)</button>
+          
+          <hr class="menu-divider" style="margin: 10px 0 20px 0;" />
+          
+          <h3 style="text-align: center; margin-bottom: 10px;">참여 코드로 참가</h3>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="input-lobby-join-code" class="game-input" placeholder="코드 6자리" maxlength="6" style="flex: 1; text-transform: uppercase; text-align: center; font-size: 1.2rem; letter-spacing: 2px;" />
+            <button id="btn-lobby-join" class="btn-play-menu" style="padding: 0 20px;">참가</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 로비 섹션 (우측 40%, 로비 플레이 시 표시) -->
+      <section id="lobby-section" style="position: relative;">
+        <button id="btn-lobby-back" class="icon-btn" title="뒤로가기" style="position: absolute; top: 40px; left: 40px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+        </button>
+        <div class="lobby-card">
+          <h2 id="lobby-mode-text">증강 요트 다이스</h2>
+          <div class="lobby-code-box">
+            <span>참여 코드: </span>
+            <strong id="lobby-code-display">ABC123</strong>
+          </div>
+          
+          <div class="lobby-players">
+            <!-- 최대 4인 표시 -->
+            <div class="lobby-player-slot host">
+              <div class="player-avatar"></div>
+              <div class="player-name">Player 1</div>
+              <div class="player-status">✓</div>
+            </div>
+            <div class="lobby-player-slot empty">
+              <div class="player-avatar"></div>
+              <div class="player-name">Waiting...</div>
+              <div class="player-status"></div>
+            </div>
+            <div class="lobby-player-slot empty">
+              <div class="player-avatar"></div>
+              <div class="player-name">Waiting...</div>
+              <div class="player-status"></div>
+            </div>
+            <div class="lobby-player-slot empty">
+              <div class="player-avatar"></div>
+              <div class="player-name">Waiting...</div>
+              <div class="player-status"></div>
+            </div>
+          </div>
+          
+          <button id="btn-lobby-start" class="game-btn">게임 시작</button>
         </div>
       </section>
 

@@ -1,4 +1,5 @@
 import PartySocket from "partysocket";
+import { networkEngine } from "./networkEngine.js";
 import { calculateScores, mutationDefinitions } from "./scoreEngine.js";
 import { DiceEngine } from "./DiceEngine.js";
 import { getDiceSvg, getSpecialSvg, getVariantSvg } from "./svgIcons.js";
@@ -28,9 +29,33 @@ const els = {
   profileNickname: document.getElementById('profile-nickname'),
   augmentSection: document.getElementById('augment-section'),
   
+  matchInfoSection: document.getElementById('match-info-section'),
+  tabAugmentView: document.getElementById('tab-augment-view'),
+  tabMatchInfoViewFromAug: document.getElementById('tab-match-info-view-from-aug'),
+  tabAugmentViewFromMatch: document.getElementById('tab-augment-view-from-match'),
+  tabMatchInfoView: document.getElementById('tab-match-info-view'),
+  
+  matchP1Avatar: document.getElementById('match-p1-avatar'),
+  matchP2Avatar: document.getElementById('match-p2-avatar'),
+  matchP1Name: document.getElementById('match-p1-name'),
+  matchP2Name: document.getElementById('match-p2-name'),
+  gameLogContainer: document.getElementById('game-log-container'),
+  
   playMenuSection: document.getElementById('play-menu-section'),
   btnPlayNormal: document.getElementById('btn-norm-hotseat'),
   btnPlayAugmented: document.getElementById('btn-aug-hotseat'),
+  btnPlayNormalLobby: document.getElementById('btn-norm-lobby'),
+  btnPlayAugmentedLobby: document.getElementById('btn-aug-lobby'),
+  lobbySelectSection: document.getElementById('lobby-select-section'),
+  btnLobbySelectBack: document.getElementById('btn-lobby-select-back'),
+  btnLobbyCreate: document.getElementById('btn-lobby-create'),
+  btnLobbyJoin: document.getElementById('btn-lobby-join'),
+  inputLobbyJoinCode: document.getElementById('input-lobby-join-code'),
+  lobbySection: document.getElementById('lobby-section'),
+  lobbyModeText: document.getElementById('lobby-mode-text'),
+  lobbyCodeDisplay: document.getElementById('lobby-code-display'),
+  btnLobbyBack: document.getElementById('btn-lobby-back'),
+  btnLobbyStart: document.getElementById('btn-lobby-start'),
   lobbyOverlay: document.getElementById('lobby-overlay'),
   myNickname: document.getElementById('my-nickname'),
   btnSingleplayer: document.getElementById('btn-singleplayer'),
@@ -118,8 +143,87 @@ let destroyedStrangeDice = { 1: false, 2: false };
 let promotionConsumed = { 1: false, 2: false };
 let questProgress = { 1: {}, 2: {} };
 
-
 let landingDiceEngine = null;
+
+function getPlayerLabel(playerIndex) {
+  let name = `Player ${playerIndex}`;
+  const pName = playerIndex === 1 ? els.matchP1Name : els.matchP2Name;
+  if (pName && pName.textContent !== `Player ${playerIndex}`) {
+    name = pName.textContent;
+  } else {
+    const fallback = playerIndex === 1 ? els.p1Name : els.p2Name;
+    if (fallback) {
+      const textEl = fallback.querySelector('.name-text');
+      if (textEl) name = textEl.textContent;
+    }
+  }
+  return `P${playerIndex} (${name})`;
+}
+function addGameLog(message, type = 'normal', sync = false, player = 0) {
+  if (!els.gameLogContainer) return;
+  const emptyText = els.gameLogContainer.querySelector('.log-empty-text');
+  if (emptyText) emptyText.remove();
+  
+  const entry = document.createElement('div');
+  entry.className = `game-log-entry ${type} fade-in`;
+  if (player === 1) entry.classList.add('log-p1');
+  else if (player === 2) entry.classList.add('log-p2');
+  
+  const textSpan = document.createElement('span');
+  textSpan.textContent = message;
+  entry.appendChild(textSpan);
+  
+  els.gameLogContainer.appendChild(entry);
+  // 부모 스크롤을 끝으로
+  els.gameLogContainer.parentElement.scrollTop = els.gameLogContainer.parentElement.scrollHeight;
+
+  // 소켓으로 메시지 쏠 경우 (sync가 true일 때)
+  if (sync && window.isMultiplayer) {
+    networkEngine.sendMessage({
+      type: 'sync_log',
+      message: message,
+      logType: type,
+      player: player
+    });
+  }
+}
+
+function setupSidebarTabs() {
+  const showAugment = () => {
+    if (els.augmentSection) {
+      els.augmentSection.classList.remove('hidden');
+      els.augmentSection.style.display = 'flex';
+    }
+    if (els.matchInfoSection) {
+      els.matchInfoSection.classList.add('hidden');
+      els.matchInfoSection.style.display = 'none';
+    }
+    if (els.tabAugmentView) els.tabAugmentView.classList.add('active');
+    if (els.tabAugmentViewFromMatch) els.tabAugmentViewFromMatch.classList.add('active');
+    if (els.tabMatchInfoView) els.tabMatchInfoView.classList.remove('active');
+    if (els.tabMatchInfoViewFromAug) els.tabMatchInfoViewFromAug.classList.remove('active');
+  };
+  const showMatchInfo = () => {
+    if (els.augmentSection) {
+      els.augmentSection.classList.add('hidden');
+      els.augmentSection.style.display = 'none';
+    }
+    if (els.matchInfoSection) {
+      els.matchInfoSection.classList.remove('hidden');
+      els.matchInfoSection.style.display = 'flex';
+    }
+    if (els.tabAugmentView) els.tabAugmentView.classList.remove('active');
+    if (els.tabAugmentViewFromMatch) els.tabAugmentViewFromMatch.classList.remove('active');
+    if (els.tabMatchInfoView) els.tabMatchInfoView.classList.add('active');
+    if (els.tabMatchInfoViewFromAug) els.tabMatchInfoViewFromAug.classList.add('active');
+  };
+  
+  if (els.tabAugmentView) els.tabAugmentView.addEventListener('click', showAugment);
+  if (els.tabAugmentViewFromMatch) els.tabAugmentViewFromMatch.addEventListener('click', showAugment);
+  if (els.tabMatchInfoView) els.tabMatchInfoView.addEventListener('click', showMatchInfo);
+  if (els.tabMatchInfoViewFromAug) els.tabMatchInfoViewFromAug.addEventListener('click', showMatchInfo);
+}
+setupSidebarTabs();
 
 // 로비용 주사위 엔진 초기화
 setTimeout(() => {
@@ -453,6 +557,12 @@ function transitionToPlaying(mode) {
     if (els.p1Name) els.p1Name.querySelector('.name-text').textContent = "Player 1";
     if (els.p2Name) els.p2Name.querySelector('.name-text').textContent = "Player 2";
     
+    if (mode === 'hotseat') {
+      showMatchInfo();
+    } else {
+      showAugment();
+    }
+    
     startHotseatGame();
     
     // 3. 다시 페이드 인
@@ -480,6 +590,271 @@ els.btnPlayAugmented?.addEventListener('click', () => {
   }
 });
 
+// --- Lobby Flow ---
+let lobbyWaitingInterval = null;
+let waitingDotsCount = 3;
+
+function startLobbyWaitingAnimation() {
+  if (lobbyWaitingInterval) clearInterval(lobbyWaitingInterval);
+  lobbyWaitingInterval = setInterval(() => {
+    waitingDotsCount = (waitingDotsCount % 3) + 1;
+    const dots = '.'.repeat(waitingDotsCount);
+    const slots = els.lobbySection.querySelectorAll('.lobby-player-slot.empty');
+    slots.forEach(slot => {
+      const nameElem = slot.querySelector('.player-name');
+      if (nameElem) {
+        nameElem.textContent = `Waiting${dots}`;
+      }
+    });
+  }, 750);
+}
+
+function stopLobbyWaitingAnimation() {
+  if (lobbyWaitingInterval) {
+    clearInterval(lobbyWaitingInterval);
+    lobbyWaitingInterval = null;
+  }
+}
+
+function showLobbySelect(mode) {
+  window.pendingLobbyMode = mode;
+  els.appContainer.classList.remove('mode-select-state', 'playing-state', 'normal-mode', 'lobby-state');
+  els.appContainer.classList.add('lobby-select-state');
+  els.inputLobbyJoinCode.value = '';
+}
+
+function showLobby(isHost, joinCode = null) {
+  els.appContainer.classList.remove('lobby-select-state');
+  els.appContainer.classList.add('lobby-state');
+  startLobbyWaitingAnimation();
+  
+  if (window.pendingLobbyMode === 'normal') {
+    els.lobbyModeText.textContent = '요트 다이스';
+  } else {
+    els.lobbyModeText.textContent = '증강 요트 다이스';
+  }
+
+  const myName = els.profileNickname?.textContent || "Player 1";
+  const slots = els.lobbySection.querySelectorAll('.lobby-player-slot');
+  if (slots.length > 0) {
+    const p1NameElem = slots[0].querySelector('.player-name');
+    if (p1NameElem) p1NameElem.textContent = myName;
+
+    const p1AvatarElem = slots[0].querySelector('.player-avatar');
+    if (p1AvatarElem && window.myPlayerInfo && window.myPlayerInfo.avatarUrl) {
+      p1AvatarElem.style.backgroundImage = `url(${window.myPlayerInfo.avatarUrl})`;
+      p1AvatarElem.style.backgroundSize = 'cover';
+      p1AvatarElem.style.backgroundPosition = 'center';
+    } else if (p1AvatarElem) {
+      p1AvatarElem.style.backgroundImage = 'none';
+      p1AvatarElem.style.backgroundColor = '#ccc';
+    }
+  }
+  
+  if (isHost) {
+    // 랜덤 로비 코드 생성 (6자리 대문자)
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    els.lobbyCodeDisplay.textContent = code;
+    els.btnLobbyStart.textContent = '게임 시작';
+    networkEngine.connectToLobby(code);
+  } else {
+    els.lobbyCodeDisplay.textContent = joinCode.toUpperCase();
+    els.btnLobbyStart.textContent = '준비 (Ready)';
+    networkEngine.connectToLobby(joinCode);
+  }
+
+  // 로비 상태 초기화
+  window.isReady = false;
+  els.btnLobbyStart.classList.remove('ready');
+}
+
+// 네트워크 이벤트 리스너 등록
+networkEngine.on('lobby_state', (data) => {
+  const players = data.players || [];
+  window.lobbyPlayers = players;
+  const slots = els.lobbySection.querySelectorAll('.lobby-player-slot');
+  
+  // 모든 슬롯 초기화
+  slots.forEach(slot => {
+    slot.className = 'lobby-player-slot empty';
+    const nameElem = slot.querySelector('.player-name');
+    if (nameElem) nameElem.textContent = `Waiting${'.'.repeat(waitingDotsCount)}`;
+    const avatarElem = slot.querySelector('.player-avatar');
+    if (avatarElem) {
+      avatarElem.style.backgroundImage = 'none';
+      avatarElem.style.backgroundColor = '#ccc';
+    }
+    const statusElem = slot.querySelector('.player-status');
+    if (statusElem) {
+      statusElem.textContent = '';
+      statusElem.className = 'player-status';
+    }
+  });
+
+  // 서버에서 받은 유저 정보로 채우기
+  players.forEach((p, index) => {
+    if (index >= slots.length) return;
+    const slot = slots[index];
+    slot.className = 'lobby-player-slot' + (p.isHost ? ' host' : '') + (p.isReady ? ' ready-state' : '');
+    
+    const nameElem = slot.querySelector('.player-name');
+    if (nameElem) {
+      nameElem.textContent = p.nickname;
+    }
+    
+    const avatarElem = slot.querySelector('.player-avatar');
+    if (avatarElem) {
+      if (p.avatarUrl) {
+        avatarElem.style.backgroundImage = `url(${p.avatarUrl})`;
+        avatarElem.style.backgroundSize = 'cover';
+        avatarElem.style.backgroundPosition = 'center';
+      } else {
+        avatarElem.style.backgroundImage = 'none';
+        avatarElem.style.backgroundColor = '#ccc';
+      }
+    }
+
+    const statusElem = slot.querySelector('.player-status');
+    if (statusElem) {
+      if (p.isHost || p.isReady) {
+        statusElem.textContent = '✓';
+        statusElem.className = 'player-status ready';
+      } else {
+        statusElem.innerHTML = '<span>•</span><span>•</span><span>•</span>';
+        statusElem.className = 'player-status not-ready';
+      }
+    }
+  });
+
+  // 내가 호스트인지 확인하고 버튼 제어
+  const myConnId = networkEngine.socket?.id; // PartySocket id
+  const me = players.find(p => p.connId === myConnId);
+  if (me) {
+    window.myPlayerInfo = me;
+    if (me.isHost) {
+      els.btnLobbyStart.textContent = '게임 시작';
+      const allReady = players.every(p => p.isReady);
+      els.btnLobbyStart.disabled = players.length <= 1 || !allReady; 
+    } else {
+      els.btnLobbyStart.textContent = me.isReady ? '준비 완료 (Cancel)' : '준비 (Ready)';
+      els.btnLobbyStart.disabled = false;
+    }
+  }
+});
+
+networkEngine.on('game_started', () => {
+  stopLobbyWaitingAnimation();
+  // 로비 숨기고 실제 게임 화면으로 이동
+  els.appContainer.classList.remove('lobby-state');
+  
+  if (window.pendingLobbyMode === 'normal') {
+    els.appContainer.classList.add('playing-state', 'normal-mode');
+  } else {
+    els.appContainer.classList.add('playing-state');
+  }
+  
+  window.isMultiplayer = true;
+  startMultiplayerGame();
+});
+
+networkEngine.on('ingame_message', (data) => {
+  if (!window.isMultiplayer || currentPlayer === window.myPlayerIndex) return;
+
+  if (data.type === 'physics_sync') {
+    if (diceEngine) diceEngine.applyPhysicsUpdate(data.transforms);
+  } else if (data.type === 'sync_roll') {
+    rollsLeft = data.rollsLeft;
+    updateRollsUI();
+    clearScorePreviews();
+    if (diceEngine) diceEngine.roll(data.specialConfigs, true);
+  } else if (data.type === 'sync_roll_end') {
+    if (diceEngine) {
+      diceEngine.forceRollEnd(data.finalValues);
+      diceEngine.diceArray.forEach(die => die.isKept = false);
+      keptDice = [];
+      activeDice = diceEngine.diceArray.filter(d => d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
+      diceEngine.arrangeAll(true);
+      updateScorePreviews();
+    }
+  } else if (data.type === 'sync_keep') {
+    if (diceEngine) {
+      const die = diceEngine.diceArray[data.dieIndex];
+      if (die) {
+        die.isKept = data.isKept;
+        if (die.isKept) {
+          const usedSlots = diceEngine.diceArray.filter(d => d.isKept && d !== die).map(d => d.keepSlot);
+          let firstEmpty = 0;
+          for (let i = 0; i < 5; i++) {
+            if (!usedSlots.includes(i)) {
+              firstEmpty = i;
+              break;
+            }
+          }
+          die.keepSlot = firstEmpty;
+        } else {
+          die.keepSlot = null;
+        }
+        diceEngine.arrangeAll(false, die);
+        activeDice = diceEngine.diceArray.filter(d => !d.isKept && d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
+        keptDice = diceEngine.diceArray.filter(d => d.isKept && d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
+        updateScorePreviews();
+      }
+    }
+  } else if (data.type === 'sync_score') {
+    lockScore(data.catId, data.scoreInfo, true);
+  } else if (data.type === 'sync_log') {
+    addGameLog(data.message, data.logType, false, data.player);
+  }
+});
+
+els.btnPlayNormalLobby?.addEventListener('click', () => {
+  showLobbySelect('normal');
+});
+
+els.btnPlayAugmentedLobby?.addEventListener('click', () => {
+  showLobbySelect('augmented');
+});
+
+els.btnLobbySelectBack?.addEventListener('click', () => {
+  els.appContainer.classList.remove('lobby-select-state');
+  els.appContainer.classList.add('mode-select-state');
+});
+
+els.btnLobbyCreate?.addEventListener('click', () => {
+  showLobby(true);
+});
+
+els.btnLobbyJoin?.addEventListener('click', () => {
+  const code = els.inputLobbyJoinCode.value.trim();
+  if (code.length !== 6) {
+    alert('6자리의 참여 코드를 입력해주세요.');
+    return;
+  }
+  showLobby(false, code);
+});
+
+els.btnLobbyBack?.addEventListener('click', () => {
+  networkEngine.disconnect();
+  stopLobbyWaitingAnimation();
+  els.appContainer.classList.remove('lobby-state');
+  els.appContainer.classList.add('lobby-select-state');
+});
+
+els.btnLobbyStart?.addEventListener('click', () => {
+  const myConnId = networkEngine.socket?.id;
+  // players를 직접 알 수는 없지만, UI 상태로 판단
+  if (els.btnLobbyStart.textContent.includes('게임 시작')) {
+    networkEngine.startGame();
+  } else {
+    window.isReady = !window.isReady;
+    networkEngine.setReady(window.isReady);
+  }
+});
+
 els.btnHotseat?.addEventListener('click', () => {
   try {
     gameMode = 'hotseat';
@@ -504,6 +879,52 @@ function startHotseatGame() {
   yachtBankLocked = { 1: false, 2: false };
   destroyedStrangeDice = { 1: false, 2: false };
   promotionConsumed = { 1: false, 2: false };
+  updateScoreboard();
+  startTurn();
+}
+
+function startMultiplayerGame() {
+  // 방장은 1P, 게스트는 2P (현재 2인 대전 기준)
+  window.myPlayerIndex = window.myPlayerInfo?.isHost ? 1 : 2;
+  
+  currentPlayer = 1;
+  currentRound = 1;
+  scores = { 1: {}, 2: {} };
+  activeMutations = { 1: {}, 2: {} };
+  upperBonusThreshold = { 1: 63, 2: 63 };
+  playerYachtBank = { 1: 0, 2: 0 };
+  yachtBankLocked = { 1: false, 2: false };
+  destroyedStrangeDice = { 1: false, 2: false };
+  promotionConsumed = { 1: false, 2: false };
+  
+  const isNormalMode = window.pendingLobbyMode === 'normal';
+  gameMode = isNormalMode ? 'normal' : 'augmented';
+  
+  if (gameMode === 'normal') {
+    showMatchInfo();
+  } else {
+    showAugment();
+  }
+
+  // VS 프로필 초기화
+  if (window.lobbyPlayers && window.lobbyPlayers.length >= 2) {
+    const p1 = window.lobbyPlayers.find(p => p.isHost);
+    const p2 = window.lobbyPlayers.find(p => !p.isHost);
+    if (p1 && els.matchP1Name) els.matchP1Name.textContent = p1.nickname;
+    if (p1 && els.matchP1Avatar) {
+      els.matchP1Avatar.style.backgroundImage = p1.avatarUrl ? `url(${p1.avatarUrl})` : 'none';
+    }
+    if (p2 && els.matchP2Name) els.matchP2Name.textContent = p2.nickname;
+    if (p2 && els.matchP2Avatar) {
+      els.matchP2Avatar.style.backgroundImage = p2.avatarUrl ? `url(${p2.avatarUrl})` : 'none';
+    }
+  }
+
+  // 게임 로그 초기화
+  if (els.gameLogContainer) {
+    els.gameLogContainer.innerHTML = '';
+  }
+
   updateScoreboard();
   startTurn();
 }
@@ -553,8 +974,19 @@ function startTurn() {
   els.gameStatus.textContent = `P${currentPlayer}의 턴 (라운드 ${currentRound}/12)`;
   els.p1Name.classList.toggle('active-turn', currentPlayer === 1);
   els.p2Name.classList.toggle('active-turn', currentPlayer === 2);
+  
+  const isMyTurnForLog = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
+  if (isMyTurnForLog) {
+    if (currentRound === 1 && currentPlayer === 1) {
+      addGameLog('게임 시작!', 'turn-start', true);
+    }
+    addGameLog(`${getPlayerLabel(currentPlayer)}의 턴 (${currentRound} 라운드)`, 'turn-start', true, currentPlayer);
+  }
   els.p1Profile.classList.toggle('active-turn', currentPlayer === 1);
   els.p2Profile.classList.toggle('active-turn', currentPlayer === 2);
+  
+  // 멀티플레이어 권한 잠금
+  const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
   
   if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(currentPlayer);
   
@@ -574,18 +1006,20 @@ function startTurn() {
             if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(2);
             showAugmentSelectionModal(2, () => {
               if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(1);
-              if (diceBoxReady) els.btnRoll.disabled = false;
+              if (diceBoxReady) els.btnRoll.disabled = !isMyTurn;
             });
             return;
           }
         }
-        if (diceBoxReady) els.btnRoll.disabled = false;
+        if (diceBoxReady) els.btnRoll.disabled = !isMyTurn;
       });
       return;
     }
   }
   
-  if (diceBoxReady) els.btnRoll.disabled = false;
+  if (diceBoxReady) {
+    els.btnRoll.disabled = !isMyTurn;
+  }
 }
 
 function updateRollsUI() {
@@ -597,7 +1031,8 @@ function updateRollsUI() {
     const totalDiceAllowed = baseDiceCount + (activeMuts.includes('strange-die') && !destroyedStrangeDice[currentPlayer] ? 1 : 0) + (activeMuts.includes('promotion-die') && !promotionConsumed[currentPlayer] ? 1 : 0);
     
     // 주사위 굴리기 기회가 남았거나, 고를 수 있는 주사위가 5개를 초과할 때(5개를 선택해야 하므로) 킵을 허용
-    diceEngine.allowKeep = (rollsLeft > 0) || (totalDiceAllowed > 5);
+    const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
+    diceEngine.allowKeep = isMyTurn && ((rollsLeft > 0) || (totalDiceAllowed > 5));
   }
 }
 
@@ -681,16 +1116,37 @@ els.btnRoll.addEventListener('click', async () => {
 
   // Custom Dice Engine Roll
   diceEngine.cleanUpDeadDice();
+  
+  const rolledCount = specialConfigs.length;
+  if (keptConfigs.length === 0) {
+    addGameLog(`주사위 ${rolledCount}개를 굴렸습니다.`, 'roll-action', window.isMultiplayer, currentPlayer);
+  } else {
+    const keptValues = diceEngine.diceArray.filter(d => d.isKept).map(d => d.value).sort((a,b)=>a-b);
+    addGameLog(`주사위 [${keptValues.join(', ')}]를 킵하고 ${rolledCount}개를 다시 굴렸습니다.`, 'roll-action', window.isMultiplayer, currentPlayer);
+  }
+  
+  if (window.isMultiplayer) {
+    networkEngine.sendMessage({ type: 'sync_roll', specialConfigs, rollsLeft });
+  }
+  
   const results = await diceEngine.roll(specialConfigs);
+  
+  if (window.isMultiplayer) {
+    const finalValues = diceEngine.diceArray.map(d => d.value);
+    networkEngine.sendMessage({ type: 'sync_roll_end', finalValues });
+  }
   
   // Arrange them after a short delay
   setTimeout(() => {
     // 리롤 시 모든 주사위를 버건디 매트(중앙)에 함께 정렬하기 위해 킵 상태 초기화
     diceEngine.diceArray.forEach(die => die.isKept = false);
     
+    
     // 로컬 상태 동기화
     keptDice = [];
     activeDice = diceEngine.diceArray.filter(d => d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
+    
+    addGameLog(`주사위의 값이 나왔습니다. [${activeDice.join(', ')}]`, 'roll-result', window.isMultiplayer, currentPlayer);
     
     diceEngine.arrangeAll(true);
     
@@ -766,7 +1222,10 @@ function previewScores(diceArray) {
     cell.classList.add('suggested');
     
     // 클릭 시 확정
-    cell.onclick = () => lockScore(cat.id, potentialScores[cat.id]);
+    const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
+    if (isMyTurn) {
+      cell.onclick = () => lockScore(cat.id, potentialScores[cat.id]);
+    }
   });
 }
 
@@ -801,12 +1260,24 @@ function getUpperSum(player) {
   }, 0);
 }
 
-function lockScore(catId, scoreInfo) {
+function lockScore(catId, scoreInfo, isSync = false) {
   if (rollsLeft === 3 && activeDice.length === 0 && keptDice.length === 0) return;
+  
+  if (window.isMultiplayer && !isSync) {
+    networkEngine.sendMessage({ type: 'sync_score', catId, scoreInfo });
+  }
   
   // scoreInfo might be an object { score, bonus } or a number
   let scoreObj = typeof scoreInfo === 'object' ? scoreInfo : { score: scoreInfo, bonus: 0 };
   scores[currentPlayer][catId] = scoreObj;
+  
+  const catNames = {
+    aces: 'Aces', twos: 'Deuces', threes: 'Threes', fours: 'Fours', fives: 'Fives', sixes: 'Sixes',
+    choice: 'Choice', '4oak': '4 of a Kind', fullhouse: 'Full House', 's-straight': 'S. Straight', 'l-straight': 'L. Straight', yacht: 'Yacht'
+  };
+  const cName = catNames[catId] || catId;
+  addGameLog(`[${cName}] 족보에 ${scoreObj.score}점을 기록했습니다.`, 'score-record', false, currentPlayer);
+
 
   // 이상한 주사위 파괴 체크 (굴려서 6이 나오면 무조건 파괴)
   diceEngine.diceArray.forEach(d => {
@@ -942,6 +1413,9 @@ els.btnReturnLobby.addEventListener('click', () => {
     if (els.appContainer) {
       els.appContainer.classList.remove('playing-state', 'normal-mode');
       els.appContainer.classList.add('mode-select-state');
+    }
+    if (els.matchInfoSection) {
+      els.matchInfoSection.classList.add('hidden');
     }
     
     // 멀티플레이 관련 로비 UI 원복
@@ -1118,7 +1592,7 @@ let diceEngine;
 setTimeout(() => {
   diceEngine = new DiceEngine("#dice-board-area");
   
-  diceEngine.onDieClick = (val, isKept) => {
+  diceEngine.onDieClick = (val, isKept, dieIndex) => {
     // 로비 화면일 경우 점수 연산 생략 (클릭/킵만 작동)
     if (els.appContainer?.classList.contains('mode-select-state')) return;
 
@@ -1126,8 +1600,18 @@ setTimeout(() => {
     activeDice = diceEngine.diceArray.filter(d => !d.isKept && d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
     keptDice = diceEngine.diceArray.filter(d => d.isKept && d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
     
+    if (window.isMultiplayer) {
+      networkEngine.sendMessage({ type: 'sync_keep', dieIndex, isKept });
+    }
+    
     const allDice = [...keptDice, ...activeDice];
     updateScorePreviews();
+  };
+
+  diceEngine.onPhysicsUpdate = (transforms) => {
+    if (window.isMultiplayer && currentPlayer === window.myPlayerIndex) {
+      networkEngine.sendMessage({ type: 'physics_sync', transforms });
+    }
   };
   
   diceBoxReady = true;
@@ -1296,6 +1780,8 @@ window.applyMutation = function(player, mutationId) {
     const augInfo = augmentData.find(a => a.name.includes(mut.name) || (a.mark && mut.enName && a.mark === mut.enName)) || {};
     const svgIcon = augInfo.icon || getVariantSvg(mutationId);
     targetTh.innerHTML = `${svgIcon} ${mut.enName}`;
+    
+    addGameLog(`[${augInfo.name || mut.name}] 증강을 획득했습니다.`, 'augment-action', window.isMultiplayer, player);
 
     targetTh.style.backgroundColor = '#87CEEB'; // Sky Blue
     targetTh.style.color = '#222';
@@ -1364,19 +1850,26 @@ setupDebugTools({
 });
 
 function renderAvatar(url, cropData) {
+  const container = document.getElementById('profile-avatar-container');
+  if (!container || !url || !cropData) return;
   const canvas = document.getElementById('profile-avatar-canvas');
-  if (!canvas || !url || !cropData) return;
-  const ctx = canvas.getContext('2d');
+  if (canvas) canvas.style.display = 'none'; // 캔버스는 이제 사용 안 함 (정지된 이미지 방지)
+
+  const containerWidth = 120; // CSS 사이즈 기준
+  
   const img = new Image();
   img.crossOrigin = "Anonymous";
   img.onload = () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(
-      img,
-      cropData.x, cropData.y, cropData.width, cropData.height,
-      0, 0, canvas.width, canvas.height
-    );
-    canvas.style.display = 'block';
+    const scale = containerWidth / cropData.width;
+    const bgWidth = img.width * scale;
+    const bgHeight = img.height * scale;
+    const bgPosX = -cropData.x * scale;
+    const bgPosY = -cropData.y * scale;
+    
+    container.style.backgroundImage = `url(${url})`;
+    container.style.backgroundSize = `${bgWidth}px ${bgHeight}px`;
+    container.style.backgroundPosition = `${bgPosX}px ${bgPosY}px`;
+    container.style.backgroundRepeat = 'no-repeat';
   };
   img.src = url;
 }
