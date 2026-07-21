@@ -34,7 +34,7 @@
               <input type="text" id="profile-status-input" class="game-input hidden" maxlength="30" style="margin-top: 8px; width: 100%; font-size: 0.9rem; text-align: center; padding: 4px;" />
             </div>
             <div class="profile-user-detail">
-              <div class="detail-item"><span>가입일</span><span class="detail-val">2026.07.18</span></div>
+              <div class="detail-item"><span>가입일</span><span id="profile-date" class="detail-val">-</span></div>
               <div class="detail-item"><span>플레이 횟수</span><span class="detail-val">0</span></div>
               <div class="detail-item"><span>조회수</span><span class="detail-val">0</span></div>
             </div>
@@ -98,15 +98,29 @@
         
         <!-- 매치 프로필 요약 (VS) -->
         <h2 style="text-align: center; margin-bottom: 10px;">Match</h2>
-        <div class="match-profile">
-          <div class="match-player-box" id="match-p1-box">
-            <div class="match-avatar" id="match-p1-avatar" style="background-image: none; background-color: #ccc;"></div>
-            <div class="match-nickname" id="match-p1-name">Player 1</div>
+        <div class="match-profile vertical-match-layout">
+          <div class="match-player-box match-my-box" id="match-my-box">
+            <div class="match-avatar-container" style="position: relative; display: inline-block;">
+              <div class="match-avatar" id="match-my-avatar" style="background-image: none; background-color: #ccc;"></div>
+              <div class="disconnect-overlay hidden" id="match-my-disconnect">
+                <svg class="unplug-svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="overflow: visible;">
+                  <path d="m19 5 3-3"></path>
+                  <path d="m2 22 3-3"></path>
+                  <path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z"></path>
+                  <path d="M7.5 13.5 10 11"></path>
+                  <path d="M10.5 16.5 13 14"></path>
+                  <path d="m17.7 3.7-2.3 2.3 6 6 2.3-2.3a2.4 2.4 0 0 0 0-3.4l-2.6-2.6a2.4 2.4 0 0 0-3.4 0Z"></path>
+                </svg>
+                <span class="disconnect-timer-text" id="match-my-disconnect-timer">60s</span>
+              </div>
+            </div>
+            <div class="match-nickname" id="match-my-name">Player</div>
           </div>
+          
           <div class="match-vs-text">VS</div>
-          <div class="match-player-box" id="match-p2-box">
-            <div class="match-avatar" id="match-p2-avatar" style="background-image: none; background-color: #ccc;"></div>
-            <div class="match-nickname" id="match-p2-name">Player 2</div>
+          
+          <div class="match-opponents-container" id="match-opponents-container">
+            <!-- JS 동적 생성 -->
           </div>
         </div>
 
@@ -123,6 +137,15 @@
       <section id="playable-section">
         <div class="controls-area">
           <span id="game-status">상대 대기 중...</span>
+          <span id="turn-timer" class="turn-timer">
+            <svg class="hourglass-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 22h14"></path>
+              <path d="M5 2h14"></path>
+              <path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"></path>
+              <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"></path>
+            </svg>
+            <span id="turn-timer-text">45s</span>
+          </span>
           <span id="rolls-left">남은 굴림: 3</span>
         </div>
         
@@ -220,18 +243,7 @@
       <section id="scorecard-section">
           <table id="score-table" class="game-table">
             <thead>
-              <!-- Row 1: Profile Pictures -->
-              <tr>
-                <th class="col-cat border-none"></th>
-                <th id="p1-profile" class="col-player profile-row">
-                  <div class="profile-pic"></div>
-                </th>
-                <th id="p2-profile" class="col-player profile-row">
-                  <div class="profile-pic"></div>
-                </th>
-                <th class="col-cat border-none"></th>
-              </tr>
-              <!-- Row 2: Categories and Names -->
+              <!-- Row: Categories and Names -->
               <tr>
                 <th class="col-cat highlight-dark">Categories</th>
                 <th id="p1-name" class="col-player">
@@ -250,3 +262,15 @@
       </section>
       
     </main>
+
+    <!-- 진행 중인 게임 재접속 모달 -->
+    <div id="reconnect-modal" class="modal-overlay hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 9999;">
+      <div class="modal-card" style="background: #fff; padding: 24px; border-radius: 12px; width: 340px; text-align: center; box-shadow: var(--shadow-lg);">
+        <h2 style="margin-bottom: 12px; font-size: 1.2rem; color: #111;">진행 중인 게임 감지</h2>
+        <p id="reconnect-modal-text" style="margin-bottom: 20px; font-size: 0.95rem; color: #555; line-height: 1.4;">이전에 진행 중이던 로비 게임 세션이 존재합니다.<br>재접속하시겠습니까?</p>
+        <div class="modal-buttons" style="display: flex; gap: 10px; justify-content: center;">
+          <button id="btn-reconnect-join" class="game-btn primary-btn" style="flex: 1;">재접속</button>
+          <button id="btn-reconnect-cancel" class="game-btn secondary-btn" style="flex: 1; background: #e0e0e0; color: #333;">포기하기</button>
+        </div>
+      </div>
+    </div>

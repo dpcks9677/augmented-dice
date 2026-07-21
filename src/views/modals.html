@@ -1,22 +1,13 @@
     <!-- 게임 종료 모달 -->
     <div id="endgame-modal" class="overlay hidden">
-      <div class="lobby-card game-card" style="text-align: center;">
+      <div class="lobby-card game-card" style="text-align: center; max-width: 540px; width: 90vw;">
         <h1 id="endgame-title">게임 종료!</h1>
-        <div class="score-summary" style="margin: 20px 0; font-size: 1.2rem; line-height: 1.6; display: flex; justify-content: space-around;">
-          <div>
-            <h3>Player 1</h3>
-            <p>기본 점수: <span id="endgame-p1-base">0</span></p>
-            <p>증강 보너스: <span id="endgame-p1-bonus" style="color: #27ae60;">0</span></p>
-            <p style="font-size: 1.5rem; font-weight: bold; margin-top: 10px;">최종: <strong id="endgame-p1-score">0</strong></p>
-          </div>
-          <div>
-            <h3>Player 2</h3>
-            <p>기본 점수: <span id="endgame-p2-base">0</span></p>
-            <p>증강 보너스: <span id="endgame-p2-bonus" style="color: #27ae60;">0</span></p>
-            <p style="font-size: 1.5rem; font-weight: bold; margin-top: 10px;">최종: <strong id="endgame-p2-score">0</strong></p>
-          </div>
+        <h2 id="endgame-winner" style="color: #f1c40f; margin: 15px 0 20px 0; font-size: 2rem;">P1 승리!</h2>
+        
+        <div id="endgame-scores-container" class="endgame-scores-container" style="margin: 15px 0 25px 0; display: flex; flex-direction: column; gap: 10px;">
+          <!-- JS에서 동적 렌더링 -->
         </div>
-        <h2 id="endgame-winner" style="color: #f1c40f; margin-bottom: 30px; font-size: 2rem;">P1 승리!</h2>
+        
         <button id="btn-return-lobby" class="game-btn">로비로 돌아가기</button>
       </div>
     </div>

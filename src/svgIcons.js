@@ -304,3 +304,56 @@ export function getVariantSvg(id) {
     ${inner}
   </svg>`;
 }
+
+export function getDicesIconSvg() {
+  return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="lucide-icon custom-dices-icon" style="flex-shrink: 0;">
+    <path d="M 11.5 9.5 H 19.5 A 2.5 2.5 0 0 1 22 12 V 19.5 A 2.5 2.5 0 0 1 19.5 22 H 12 A 2.5 2.5 0 0 1 9.5 19.5 V 12.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <circle cx="12.5" cy="12.5" r="1.1" fill="currentColor"/>
+    <circle cx="18.5" cy="12.5" r="1.1" fill="currentColor"/>
+    <circle cx="15.5" cy="15.5" r="1.1" fill="currentColor"/>
+    <circle cx="12.5" cy="18.5" r="1.1" fill="currentColor"/>
+    <circle cx="18.5" cy="18.5" r="1.1" fill="currentColor"/>
+    <g transform="rotate(-15 8 8)">
+      <rect x="2" y="2" width="12" height="12" rx="2.5" stroke="currentColor" stroke-width="2" fill="#ffffff"/>
+      <circle cx="5" cy="5" r="1.1" fill="#333333"/>
+      <circle cx="8" cy="8" r="1.1" fill="#333333"/>
+      <circle cx="11" cy="11" r="1.1" fill="#333333"/>
+    </g>
+  </svg>`;
+}
+
+export function getAugmentedDicesIconSvg() {
+  return `<div class="mode-icon-augmented-wrapper" style="display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="lucide-icon custom-dices-icon" style="flex-shrink: 0;">
+      <path d="M 11.5 9.5 H 19.5 A 2.5 2.5 0 0 1 22 12 V 19.5 A 2.5 2.5 0 0 1 19.5 22 H 12 A 2.5 2.5 0 0 1 9.5 19.5 V 12.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+      <circle cx="12.5" cy="12.5" r="1.1" fill="currentColor"/>
+      <circle cx="18.5" cy="12.5" r="1.1" fill="currentColor"/>
+      <circle cx="15.5" cy="15.5" r="1.1" fill="currentColor"/>
+      <circle cx="12.5" cy="18.5" r="1.1" fill="currentColor"/>
+      <circle cx="18.5" cy="18.5" r="1.1" fill="currentColor"/>
+      <g transform="rotate(-15 8 8)">
+        <rect x="2" y="2" width="12" height="12" rx="2.5" stroke="currentColor" stroke-width="2" fill="#ffffff"/>
+        <circle cx="5" cy="5" r="1.1" fill="#333333"/>
+        <circle cx="8" cy="8" r="1.1" fill="#333333"/>
+        <circle cx="11" cy="11" r="1.1" fill="#333333"/>
+      </g>
+    </svg>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon lucide-arrow-big-up" style="color: #27ae60; flex-shrink: 0;"><path d="M9 18v-6H5l7-7 7 7h-4v6H9z" fill="rgba(39, 174, 96, 0.2)"/></svg>
+  </div>`;
+}
+
+export function getCirclePlusIconSvg() {
+  return `<svg width="16" height="16" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon lucide-circle-plus" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>`;
+}
+
+export function getCircleMinusIconSvg() {
+  return `<svg width="16" height="16" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon lucide-circle-minus" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>`;
+}
+
+export function getFlagIconSvg() {
+  return `<svg width="24" height="24" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon lucide-flag" style="transform: rotate(-25deg); flex-shrink: 0; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>`;
+}
+
+export function getUnplugIconSvg() {
+  return `<svg width="22" height="22" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" fill="none" stroke="#ff6b6b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon lucide-unplug" style="flex-shrink: 0; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));"><path d="m19 5 3-3"/><path d="m2 22 3-3"/><path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z"/><path d="M7.5 13.5 10 11"/><path d="M10.5 16.5 13 14"/><path d="m17.7 3.7-2.3 2.3 6 6 2.3-2.3a2.4 2.4 0 0 0 0-3.4l-2.6-2.6a2.4 2.4 0 0 0-3.4 0Z"/></svg>`;
+}

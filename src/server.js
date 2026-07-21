@@ -5,13 +5,13 @@ export default class DiceServer {
     this.players = {}; 
     this.gameState = 'lobby'; // 'lobby', 'playing'
     this.gameSessionData = {
-      scores: { 1: {}, 2: {} },
-      activeMutations: { 1: {}, 2: {} },
+      scores: { 1: {}, 2: {}, 3: {}, 4: {} },
+      activeMutations: { 1: {}, 2: {}, 3: {}, 4: {} },
       currentRound: 1,
       currentPlayer: 1,
       rollsLeft: 3,
       turnTimeRemaining: 45,
-      disconnectGrace: { 1: 60, 2: 60 },
+      disconnectGrace: { 1: 60, 2: 60, 3: 60, 4: 60 },
       activeDice: [],
       keptDice: [],
       matchLogHistory: []
@@ -152,13 +152,13 @@ export default class DiceServer {
         if (this.players[conn.id] && this.players[conn.id].isHost) {
           this.gameState = 'playing';
           this.gameSessionData = {
-            scores: { 1: {}, 2: {} },
-            activeMutations: { 1: {}, 2: {} },
+            scores: { 1: {}, 2: {}, 3: {}, 4: {} },
+            activeMutations: { 1: {}, 2: {}, 3: {}, 4: {} },
             currentRound: 1,
             currentPlayer: 1,
             rollsLeft: 3,
             turnTimeRemaining: 45,
-            disconnectGrace: { 1: 60, 2: 60 },
+            disconnectGrace: { 1: 60, 2: 60, 3: 60, 4: 60 },
             matchLogHistory: []
           };
           this.room.broadcast(JSON.stringify({ type: 'game_started' }));
@@ -178,8 +178,9 @@ export default class DiceServer {
           if (!this.gameSessionData.scores[p]) this.gameSessionData.scores[p] = {};
           this.gameSessionData.scores[p][data.catId] = data.scoreInfo;
           
-          if (p === 1) {
-            this.gameSessionData.currentPlayer = 2;
+          const totalPlayers = Object.keys(this.players).length || 2;
+          if (p < totalPlayers) {
+            this.gameSessionData.currentPlayer = p + 1;
           } else {
             this.gameSessionData.currentPlayer = 1;
             this.gameSessionData.currentRound++;

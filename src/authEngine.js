@@ -1,5 +1,5 @@
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, updateProfile } from "firebase/auth";
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { app, db } from "./firebaseConfig.js";
 
 const auth = getAuth(app);
@@ -97,5 +97,61 @@ export async function updateUserAvatar(uid, avatarUrl, cropData) {
   } catch (error) {
     console.error("Avatar Update Error:", error);
     return false;
+  }
+}
+
+export async function updateUserActiveGame(uid, roomId, mode) {
+  try {
+    const userRef = doc(db, "users", uid);
+    await setDoc(userRef, { activeRoomId: roomId, activeGameMode: mode }, { merge: true });
+    return true;
+  } catch (error) {
+    console.error("Active Game Update Error:", error);
+    return false;
+  }
+}
+
+export async function clearUserActiveGame(uid) {
+  try {
+    const userRef = doc(db, "users", uid);
+    await setDoc(userRef, { activeRoomId: null, activeGameMode: null }, { merge: true });
+    return true;
+  } catch (error) {
+    console.error("Clear Active Game Error:", error);
+    return false;
+  }
+}
+
+export async function getUserMatchesFromDB(uid) {
+  if (!uid) return [];
+  try {
+    const matchesRef = collection(db, "matches");
+    let q;
+    try {
+      q = query(matchesRef, where("playerUids", "array-contains", uid), orderBy("timestamp", "desc"), limit(20));
+      const querySnapshot = await getDocs(q);
+      const list = [];
+      querySnapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      return list;
+    } catch (indexErr) {
+      console.warn("Firestore index missing, falling back to client sort:", indexErr);
+      q = query(matchesRef, where("playerUids", "array-contains", uid), limit(30));
+      const querySnapshot = await getDocs(q);
+      const list = [];
+      querySnapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      list.sort((a, b) => {
+        const tA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp || 0);
+        const tB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp || 0);
+        return tB - tA;
+      });
+      return list.slice(0, 20);
+    }
+  } catch (error) {
+    console.error("Fetch Matches Error:", error);
+    return [];
   }
 }

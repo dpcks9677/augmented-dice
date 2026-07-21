@@ -799,25 +799,32 @@ export class DiceEngine {
     });
   }
 
-  // 디버그용: 애니메이션 없이 즉각적으로 주사위 값을 강제 설정
-  forceValues(valuesArray) {
+  // 디버그 및 재접속용: 애니메이션 없이 즉각적으로 주사위 3D 렌더링 및 킵 상태 강제 복원
+  forceValues(valuesArray, keptIndexes = []) {
     this.clearAll();
     this.physicsActive = false;
     this.isAnimating = false;
     
-    const size = 1.26;
     const geometry = this.diceGeometry;
     
-    for (let i = 0; i < 5; i++) {
-      const mesh = new THREE.Mesh(geometry, getMaterialForDie({ type: 'normal' }));
+    for (let i = 0; i < valuesArray.length; i++) {
+      const val = valuesArray[i];
+      const config = { type: 'normal' };
+      const mesh = new THREE.Mesh(geometry, getMaterialForDie(config));
       mesh.castShadow = true;
       mesh.receiveShadow = true;
+      
+      const rot = this.getTargetRotationForValue(val, new THREE.Vector3(0, 0, 0), config);
+      if (rot) mesh.quaternion.copy(rot);
+
       this.scene.add(mesh);
       
-      this.diceArray.push({ mesh, body: null, value: valuesArray[i], isKept: false, config: {type:'normal'} });
+      const isKept = keptIndexes.includes(i);
+      this.diceArray.push({ mesh, body: null, value: val, isKept: isKept, config: config });
     }
     
     this.arrangeAll(true);
+    this.startRenderLoop();
     return this.diceArray.map(d => d.value);
   }
 

@@ -86,6 +86,16 @@ class NetworkEngine {
         this.emit('lobby_state', data);
       } else if (data.type === 'game_started') {
         this.emit('game_started', data);
+      } else if (data.type === 'full_game_sync') {
+        this.emit('full_game_sync', data);
+      } else if (data.type === 'player_disconnected') {
+        this.emit('player_disconnected', data);
+      } else if (data.type === 'player_reconnected') {
+        this.emit('player_reconnected', data);
+      } else if (data.type === 'player_forfeited') {
+        this.emit('player_forfeited', data);
+      } else if (data.type === 'game_already_ended') {
+        this.emit('game_already_ended', data);
       } else {
         // 기타 인게임 동기화용 메시지 (주사위 등)
         this.emit('ingame_message', data);
