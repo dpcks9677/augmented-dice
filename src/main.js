@@ -1006,9 +1006,10 @@ function showLobby(isHost, joinCode = null) {
     els.btnLobbyStart.textContent = '게임 시작';
     networkEngine.connectToLobby(code);
   } else {
-    els.lobbyCodeDisplay.textContent = joinCode.toUpperCase();
+    const uppercaseCode = String(joinCode || '').trim().toUpperCase();
+    els.lobbyCodeDisplay.textContent = uppercaseCode;
     els.btnLobbyStart.textContent = '준비 (Ready)';
-    networkEngine.connectToLobby(joinCode);
+    networkEngine.connectToLobby(uppercaseCode);
   }
 
   // 로비 상태 초기화
@@ -1330,7 +1331,7 @@ els.btnLobbyCreate?.addEventListener('click', () => {
 });
 
 els.btnLobbyJoin?.addEventListener('click', () => {
-  const code = els.inputLobbyJoinCode.value.trim();
+  const code = els.inputLobbyJoinCode.value.trim().toUpperCase();
   if (code.length !== 6) {
     alert('6자리의 참여 코드를 입력해주세요.');
     return;
@@ -1938,15 +1939,15 @@ function startTurn() {
 
 function updateRollsUI() {
   els.rollsLeft.textContent = `남은 굴리기: ${rollsLeft}`;
-  els.btnRoll.disabled = rollsLeft <= 0 || !diceBoxReady;
+  const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
+  els.btnRoll.disabled = !isMyTurn || rollsLeft <= 0 || !diceBoxReady;
   if (typeof diceEngine !== 'undefined' && diceEngine) {
     const activeMuts = Object.values(activeMutations[currentPlayer] || {});
     let baseDiceCount = 5;
     const totalDiceAllowed = baseDiceCount + (activeMuts.includes('strange-die') && !destroyedStrangeDice[currentPlayer] ? 1 : 0) + (activeMuts.includes('promotion-die') && !promotionConsumed[currentPlayer] ? 1 : 0);
 
-    // 주사위 굴리기 기회가 남았거나, 고를 수 있는 주사위가 5개를 초과할 때(5개를 선택해야 하므로) 킵을 허용
-    const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
-    diceEngine.allowKeep = isMyTurn && ((rollsLeft > 0) || (totalDiceAllowed > 5));
+    // 주사위를 1회 이상 굴렸을 때(rollsLeft < 3) 킵/언킵 조작을 허용
+    diceEngine.allowKeep = isMyTurn && (rollsLeft < 3);
   }
 }
 
@@ -2068,10 +2069,10 @@ els.btnRoll.addEventListener('click', async () => {
 
     diceEngine.arrangeAll(true);
 
-    updateScorePreviews();
-
-    els.btnRoll.disabled = rollsLeft <= 0;
+    const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
+    els.btnRoll.disabled = !isMyTurn || rollsLeft <= 0;
     resumeTurnTimer(); // 롤링 완료 후 타이머 재개
+    updateScorePreviews(); // 롤링 완료 후 족보 미리보기 및 기입 버튼 활성화
   }, 100); // 틱틱거림 방지를 위해 딜레이 대폭 축소
 });
 
@@ -2943,7 +2944,7 @@ window.applyMutation = function (player, mutationId) {
   }
 };
 
-setupDebugTools({
+/* setupDebugTools({
   applyMutation: window.applyMutation,
   prevTurn: () => {
     if (currentPlayer === 2) {
@@ -2952,7 +2953,7 @@ setupDebugTools({
       if (currentRound > 1) {
         currentPlayer = 2;
         currentRound--;
-      } else return; // 더 이상 돌아갈 수 없음
+      } else return;
     }
     startTurn();
   },
@@ -2973,7 +2974,6 @@ setupDebugTools({
   applyDice: (values) => {
     diceEngine.forceValues(values);
 
-    // 디버그로 강제 주입된 주사위 값을 로컬 상태에 동기화
     keptDice = [];
     activeDice = [...values].sort((a, b) => a - b);
 
@@ -2982,7 +2982,6 @@ setupDebugTools({
     if (gameMode !== 'hotseat' && gameMode !== 'augmented-hotseat') {
       triggerOpponentTurn();
     } else {
-      // 핫시트일 때는 다음 사람으로 넘기지 않고 점수 선택 대기
       els.gameStatus.textContent = `P${currentPlayer} 족보 선택 대기 중...`;
       if (rollsLeft <= 0) {
         els.btnRoll.disabled = true;
@@ -2992,7 +2991,7 @@ setupDebugTools({
 
     updateScorePreviews();
   }
-});
+}); */
 
 function resetAvatarUI() {
   const container = document.getElementById('profile-avatar-container');

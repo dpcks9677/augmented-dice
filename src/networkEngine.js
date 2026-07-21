@@ -24,7 +24,8 @@ class NetworkEngine {
   }
 
   async connectToLobby(roomCode) {
-    this.roomCode = roomCode;
+    const normalizedCode = String(roomCode || '').trim().toUpperCase();
+    this.roomCode = normalizedCode;
 
     // 현재 접속 중인 소켓이 있으면 닫기
     if (this.socket) {
@@ -32,14 +33,16 @@ class NetworkEngine {
     }
 
     // PartySocket 초기화
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.') || window.location.hostname.startsWith('10.');
+    const partyHost = import.meta.env?.VITE_PARTYKIT_HOST || (isLocal ? `${window.location.hostname}:1999` : 'augmented-dice-server.partykit.dev');
+
     this.socket = new PartySocket({
-      host: isLocal ? '127.0.0.1:1999' : window.location.host,
-      room: roomCode
+      host: partyHost,
+      room: normalizedCode
     });
 
     this.socket.addEventListener('open', async () => {
-      console.log(`Connected to room: ${roomCode}`);
+      console.log(`Connected to room: ${normalizedCode} (${partyHost})`);
       
       // 내 정보 가져오기
       const user = getCurrentUser();
@@ -71,6 +74,16 @@ class NetworkEngine {
       });
       
       this.emit('connected', { roomCode });
+    });
+
+    this.socket.addEventListener('error', (err) => {
+      console.error("PartySocket connection error:", err);
+      this.emit('socket_error', err);
+    });
+
+    this.socket.addEventListener('close', (event) => {
+      console.warn("PartySocket closed:", event);
+      this.emit('socket_closed', event);
     });
 
     this.socket.addEventListener('message', (event) => {

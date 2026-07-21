@@ -1089,30 +1089,16 @@ body {
 .border-none {
   border-top: none !important;
   border-left: none !important;
-  border-right: none !important;
-  border-bottom: var(--border-width) solid var(--border-color) !important;
-  background-color: transparent !important;
 }
 
-/* 디버그 컨테이너 */
-.debug-panel {
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  background-color: var(--accent-color);
-  border: var(--border-width) solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: var(--shadow-lg);
-  z-index: 9999;
-  width: max-content;
-  max-width: 90vw;
-  overflow: hidden;
-  transition: all 0.3s ease;
-  opacity: 0.8;
+/* 디버그 컨테이너 (배포용 비활성화) */
+.debug-panel, #debug-container {
+  display: none !important;
 }
 
-.debug-panel:hover {
-  opacity: 1;
+/* 증강 요트 다이스 모드 비활성화 (일반 요트 다이스만 제공) */
+#btn-aug-online, #btn-aug-lobby, #btn-aug-hotseat {
+  display: none !important;
 }
 
 .debug-header {
