@@ -1,4 +1,4 @@
-export default class DiceServer {
+export class DiceServer {
   constructor(room) {
     this.room = room;
     // players map: connectionId -> { uid, nickname, avatarUrl, isHost, isReady, disconnected }
@@ -237,3 +237,5 @@ export default class DiceServer {
     this.room.broadcast(JSON.stringify(stateMsg));
   }
 }
+
+export default DiceServer;

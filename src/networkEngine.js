@@ -34,7 +34,7 @@ class NetworkEngine {
 
     // PartySocket 초기화
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.') || window.location.hostname.startsWith('10.');
-    const partyHost = import.meta.env?.VITE_PARTYKIT_HOST || (isLocal ? `${window.location.hostname}:1999` : 'augmented-dice-server.partykit.dev');
+    const partyHost = import.meta.env?.VITE_PARTYKIT_HOST || (isLocal ? `${window.location.hostname}:1999` : 'server.augmented-dice.workers.dev');
 
     this.socket = new PartySocket({
       host: partyHost,

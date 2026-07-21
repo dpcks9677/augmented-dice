@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "server",
+  "main": "src/server.js",
+  "compatibility_date": "2026-07-21",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "DiceServer",
+        "class_name": "DiceServer"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "DiceServer"
+      ]
+    }
+  ]
+}
