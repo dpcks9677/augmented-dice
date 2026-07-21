@@ -1,4 +1,6 @@
 import PartySocket from "partysocket";
+import { db } from "./firebaseConfig.js";
+import { collection, addDoc, doc, runTransaction } from "firebase/firestore";
 import { networkEngine } from "./networkEngine.js";
 import { calculateScores, mutationDefinitions } from "./scoreEngine.js";
 import { DiceEngine } from "./DiceEngine.js";
@@ -6,7 +8,7 @@ import { getDiceSvg, getSpecialSvg, getVariantSvg } from "./svgIcons.js";
 import { setupDebugTools } from "./debugTools.js";
 import { uiManager } from "./UIManager.js";
 import "cropperjs/dist/cropper.css";
-import { subscribeAuthState, signInWithGoogle, setNickname, getCurrentUser, saveUserToDB, getUserFromDB, signOutUser, updateUserStatusMsg, updateUserAvatar } from "./authEngine.js";
+import { subscribeAuthState, signInWithGoogle, setNickname, getCurrentUser, saveUserToDB, getUserFromDB, signOutUser, updateUserStatusMsg, updateUserAvatar, updateUserActiveGame, clearUserActiveGame } from "./authEngine.js";
 import Cropper from "cropperjs";
 let augmentData = [];
 fetch('/src/augments.json').then(r => r.json()).then(d => { augmentData = d; }).catch(e => console.error(e));
@@ -39,6 +41,17 @@ const els = {
   matchP2Avatar: document.getElementById('match-p2-avatar'),
   matchP1Name: document.getElementById('match-p1-name'),
   matchP2Name: document.getElementById('match-p2-name'),
+  matchP1Box: document.getElementById('match-p1-box'),
+  matchP2Box: document.getElementById('match-p2-box'),
+  matchP1Disconnect: document.getElementById('match-p1-disconnect'),
+  matchP1DisconnectTimer: document.getElementById('match-p1-disconnect-timer'),
+  matchP2Disconnect: document.getElementById('match-p2-disconnect'),
+  matchP2DisconnectTimer: document.getElementById('match-p2-disconnect-timer'),
+  turnTimer: document.getElementById('turn-timer'),
+  turnTimerText: document.getElementById('turn-timer-text'),
+  reconnectModal: document.getElementById('reconnect-modal'),
+  btnReconnectJoin: document.getElementById('btn-reconnect-join'),
+  btnReconnectCancel: document.getElementById('btn-reconnect-cancel'),
   gameLogContainer: document.getElementById('game-log-container'),
   
   playMenuSection: document.getElementById('play-menu-section'),
@@ -159,65 +172,134 @@ function getPlayerLabel(playerIndex) {
   }
   return `P${playerIndex} (${name})`;
 }
-function addGameLog(message, type = 'normal', sync = false, player = 0) {
+window.matchLogHistory = [];
+
+function formatLogEntry(log, playerNames = null) {
+  if (log.type === 'system') {
+    if (log.message === 'game-start') return '게임 시작!';
+    return log.message;
+  }
+  
+  let pLabel;
+  if (playerNames && (playerNames[log.player] || playerNames[String(log.player)])) {
+    const name = playerNames[log.player] || playerNames[String(log.player)];
+    pLabel = `P${log.player} (${name})`;
+  } else {
+    pLabel = getPlayerLabel(log.player);
+  }
+  
+  switch (log.type) {
+    case 'turn-start':
+      return `${pLabel}의 턴 (${log.round} 라운드)`;
+    case 'roll-action':
+      const { rolledCount, keptValues } = log.meta;
+      if (!keptValues || keptValues.length === 0) {
+        return `주사위 ${rolledCount}개를 굴렸습니다.`;
+      }
+      return `주사위 [${keptValues.join(', ')}]를 킵하고 ${rolledCount}개를 다시 굴렸습니다.`;
+    case 'roll-result':
+      return `주사위의 값이 나왔습니다. [${log.meta.values.join(', ')}]`;
+    case 'score-record':
+      const catNames = {
+        aces: 'Aces', twos: 'Deuces', threes: 'Threes', fours: 'Fours', fives: 'Fives', sixes: 'Sixes',
+        choice: 'Choice', '4oak': '4 of a Kind', fullhouse: 'Full House', 's-straight': 'S. Straight', 'l-straight': 'L. Straight', yacht: 'Yacht'
+      };
+      const cName = catNames[log.meta.catId] || log.meta.catId;
+      return `[${cName}] 족보에 ${log.meta.score}점을 기록했습니다.`;
+    case 'timeout':
+      return `시간 초과로 인해 [${log.meta.catName}] 족보에 ${log.meta.score}점을 자동으로 기입했습니다.`;
+    case 'augment-action':
+      return `[${log.meta.name}] 증강을 획득했습니다.`;
+    default:
+      return '';
+  }
+}
+
+function addGameLog(logData, type = 'normal', sync = false, player = 0) {
   if (!els.gameLogContainer) return;
   const emptyText = els.gameLogContainer.querySelector('.log-empty-text');
   if (emptyText) emptyText.remove();
   
+  // JSON 객체 정규화 및 저장
+  let normalizedLog;
+  if (typeof logData === 'object' && logData !== null) {
+    normalizedLog = logData;
+  } else {
+    normalizedLog = {
+      type: 'system',
+      message: String(logData),
+      player: player
+    };
+  }
+  
+  window.matchLogHistory.push(normalizedLog);
+  
+  const formattedMessage = formatLogEntry(normalizedLog);
+  
+  const entryType = (normalizedLog.type === 'turn-start' || type === 'turn-start' || normalizedLog.message === '게임 시작!') ? 'turn-start' : type;
+  
   const entry = document.createElement('div');
-  entry.className = `game-log-entry ${type} fade-in`;
+  entry.className = `game-log-entry ${entryType} fade-in`;
   if (player === 1) entry.classList.add('log-p1');
   else if (player === 2) entry.classList.add('log-p2');
   
   const textSpan = document.createElement('span');
-  textSpan.textContent = message;
+  textSpan.textContent = formattedMessage;
+  
+  if (normalizedLog.type === 'timeout') {
+    textSpan.style.textDecoration = 'underline';
+  }
+  
   entry.appendChild(textSpan);
   
   els.gameLogContainer.appendChild(entry);
   // 부모 스크롤을 끝으로
-  els.gameLogContainer.parentElement.scrollTop = els.gameLogContainer.parentElement.scrollHeight;
+  if (els.gameLogContainer.parentElement) {
+    els.gameLogContainer.parentElement.scrollTop = els.gameLogContainer.parentElement.scrollHeight;
+  }
 
   // 소켓으로 메시지 쏠 경우 (sync가 true일 때)
   if (sync && window.isMultiplayer) {
     networkEngine.sendMessage({
       type: 'sync_log',
-      message: message,
+      logData: normalizedLog,
       logType: type,
       player: player
     });
   }
 }
 
+function showAugment() {
+  if (els.augmentSection) {
+    els.augmentSection.classList.remove('hidden');
+    els.augmentSection.style.display = 'flex';
+  }
+  if (els.matchInfoSection) {
+    els.matchInfoSection.classList.add('hidden');
+    els.matchInfoSection.style.display = 'none';
+  }
+  if (els.tabAugmentView) els.tabAugmentView.classList.add('active');
+  if (els.tabAugmentViewFromMatch) els.tabAugmentViewFromMatch.classList.add('active');
+  if (els.tabMatchInfoView) els.tabMatchInfoView.classList.remove('active');
+  if (els.tabMatchInfoViewFromAug) els.tabMatchInfoViewFromAug.classList.remove('active');
+}
+
+function showMatchInfo() {
+  if (els.augmentSection) {
+    els.augmentSection.classList.add('hidden');
+    els.augmentSection.style.display = 'none';
+  }
+  if (els.matchInfoSection) {
+    els.matchInfoSection.classList.remove('hidden');
+    els.matchInfoSection.style.display = 'flex';
+  }
+  if (els.tabAugmentView) els.tabAugmentView.classList.remove('active');
+  if (els.tabAugmentViewFromMatch) els.tabAugmentViewFromMatch.classList.remove('active');
+  if (els.tabMatchInfoView) els.tabMatchInfoView.classList.add('active');
+  if (els.tabMatchInfoViewFromAug) els.tabMatchInfoViewFromAug.classList.add('active');
+}
+
 function setupSidebarTabs() {
-  const showAugment = () => {
-    if (els.augmentSection) {
-      els.augmentSection.classList.remove('hidden');
-      els.augmentSection.style.display = 'flex';
-    }
-    if (els.matchInfoSection) {
-      els.matchInfoSection.classList.add('hidden');
-      els.matchInfoSection.style.display = 'none';
-    }
-    if (els.tabAugmentView) els.tabAugmentView.classList.add('active');
-    if (els.tabAugmentViewFromMatch) els.tabAugmentViewFromMatch.classList.add('active');
-    if (els.tabMatchInfoView) els.tabMatchInfoView.classList.remove('active');
-    if (els.tabMatchInfoViewFromAug) els.tabMatchInfoViewFromAug.classList.remove('active');
-  };
-  const showMatchInfo = () => {
-    if (els.augmentSection) {
-      els.augmentSection.classList.add('hidden');
-      els.augmentSection.style.display = 'none';
-    }
-    if (els.matchInfoSection) {
-      els.matchInfoSection.classList.remove('hidden');
-      els.matchInfoSection.style.display = 'flex';
-    }
-    if (els.tabAugmentView) els.tabAugmentView.classList.remove('active');
-    if (els.tabAugmentViewFromMatch) els.tabAugmentViewFromMatch.classList.remove('active');
-    if (els.tabMatchInfoView) els.tabMatchInfoView.classList.add('active');
-    if (els.tabMatchInfoViewFromAug) els.tabMatchInfoViewFromAug.classList.add('active');
-  };
-  
   if (els.tabAugmentView) els.tabAugmentView.addEventListener('click', showAugment);
   if (els.tabAugmentViewFromMatch) els.tabAugmentViewFromMatch.addEventListener('click', showAugment);
   if (els.tabMatchInfoView) els.tabMatchInfoView.addEventListener('click', showMatchInfo);
@@ -277,26 +359,73 @@ subscribeAuthState(async (user) => {
       
       // 추가 프로필 통계 바인딩
       const profilePlays = document.getElementById('profile-plays');
-      if (profilePlays) profilePlays.textContent = userData.gamesPlayed || 0;
+      if (profilePlays) profilePlays.textContent = (userData.stats?.gamesPlayed) || userData.gamesPlayed || 0;
       
       const profileViews = document.getElementById('profile-views');
       if (profileViews) profileViews.textContent = userData.profileViews || 0;
       
       const profileDate = document.getElementById('profile-date');
-      if (profileDate && userData.createdAt) {
-        // serverTimestamp()를 Date 객체로 변환
-        const dateObj = userData.createdAt.toDate ? userData.createdAt.toDate() : new Date(userData.createdAt);
-        profileDate.textContent = dateObj.toLocaleDateString();
+      if (profileDate) {
+        if (userData.createdAt) {
+          const dateObj = userData.createdAt.toDate ? userData.createdAt.toDate() : new Date(userData.createdAt);
+          const yyyy = dateObj.getFullYear();
+          const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const dd = String(dateObj.getDate()).padStart(2, '0');
+          profileDate.textContent = `${yyyy}.${mm}.${dd}`;
+        } else {
+          profileDate.textContent = '-';
+        }
       }
       
       if (userData.avatarUrl && userData.cropData) {
-        // 호이스팅된 함수라 호출 가능. 혹은 렌더 함수가 하단에 정의되어 있어도 호이스팅됨.
-        // renderAvatar는 main.js 하단에 정의되어 있으므로 setTimeout으로 지연 호출
         setTimeout(() => {
           if (typeof renderAvatar === 'function') {
             renderAvatar(userData.avatarUrl, userData.cropData);
           }
         }, 100);
+      } else {
+        resetAvatarUI();
+      }
+
+      // 진행 중인 게임 재접속 체크
+      if (userData.activeRoomId) {
+        const modal = document.getElementById('reconnect-modal');
+        if (modal) modal.classList.remove('hidden');
+
+        const btnJoin = document.getElementById('btn-reconnect-join');
+        const btnCancel = document.getElementById('btn-reconnect-cancel');
+
+        if (btnJoin) {
+          btnJoin.onclick = () => {
+            modal.classList.add('hidden');
+            window.pendingLobbyMode = userData.activeGameMode || 'normal';
+            window.isMultiplayer = true;
+            
+            // 로비를 거치지 않고 바로 대전 화면으로 이동
+            els.appContainer.className = '';
+            if (window.pendingLobbyMode === 'normal') {
+              els.appContainer.classList.add('playing-state', 'normal-mode');
+            } else {
+              els.appContainer.classList.add('playing-state');
+            }
+            
+            window.currentRoomCode = userData.activeRoomId;
+            if (els.lobbyCodeDisplay) els.lobbyCodeDisplay.textContent = userData.activeRoomId;
+            networkEngine.connectToLobby(userData.activeRoomId);
+            startMultiplayerGame();
+          };
+        }
+
+        if (btnCancel) {
+          btnCancel.onclick = async () => {
+            modal.classList.add('hidden');
+            const user = getCurrentUser();
+            if (user?.uid) {
+              await clearUserActiveGame(user.uid);
+            }
+            networkEngine.disconnect();
+          };
+        }
       }
     } else {
       // DB에 회원정보(닉네임)가 없는 경우: 닉네임 설정 화면
@@ -332,6 +461,37 @@ const btnLogout = document.getElementById('btn-logout');
 if (btnLogout) {
   btnLogout.addEventListener('click', async () => {
     try {
+      // 로그아웃 시 로비 초기화 및 퇴장
+      networkEngine.disconnect();
+      currentRoom = null;
+      isHost = false;
+      
+      // 상태 클래스 초기화 (mode-select-state)
+      if (els.appContainer) {
+        els.appContainer.className = 'mode-select-state';
+      }
+      
+      // 이전 픽스에서 잘못 들어갔던 hidden 제거
+      if (els.waitingRoom) els.waitingRoom.classList.remove('hidden');
+      if (els.lobbySection) els.lobbySection.classList.remove('hidden');
+      if (els.lobbySelectSection) els.lobbySelectSection.classList.remove('hidden');
+      
+      // 프로필 DOM 캐시 초기화
+      if (els.myNickname) els.myNickname.textContent = "Player";
+      if (els.profileNickname) els.profileNickname.textContent = "Player";
+      const statusMsg = document.getElementById('profile-status-msg');
+      if (statusMsg) statusMsg.textContent = "";
+      
+      const profilePlays = document.getElementById('profile-plays');
+      if(profilePlays) profilePlays.textContent = 0;
+      const profileViews = document.getElementById('profile-views');
+      if(profileViews) profileViews.textContent = 0;
+      
+      const profileDate = document.getElementById('profile-date');
+      if (profileDate) profileDate.textContent = "-";
+      
+      resetAvatarUI();
+
       await signOutUser();
       
       const landingView = document.getElementById('landing-view');
@@ -675,6 +835,22 @@ function showLobby(isHost, joinCode = null) {
 // 네트워크 이벤트 리스너 등록
 networkEngine.on('lobby_state', (data) => {
   const players = data.players || [];
+  const oldPlayers = window.lobbyPlayers || [];
+  
+  // 퇴장/입장 감지 알림
+  if (oldPlayers.length > 0) {
+    oldPlayers.forEach(op => {
+      if (!players.some(np => np.uid === op.uid || np.connId === op.connId)) {
+        addGameLog(`${op.nickname} 님이 로비에서 퇴장하셨습니다.`, 'system', false);
+      }
+    });
+    players.forEach(np => {
+      if (!oldPlayers.some(op => op.uid === np.uid || op.connId === np.connId)) {
+        addGameLog(`${np.nickname} 님이 로비에 입장하셨습니다.`, 'system', false);
+      }
+    });
+  }
+
   window.lobbyPlayers = players;
   const slots = els.lobbySection.querySelectorAll('.lobby-player-slot');
   
@@ -748,8 +924,8 @@ networkEngine.on('lobby_state', (data) => {
 
 networkEngine.on('game_started', () => {
   stopLobbyWaitingAnimation();
-  // 로비 숨기고 실제 게임 화면으로 이동
-  els.appContainer.classList.remove('lobby-state');
+  // 모든 기존 상태 클래스를 제거하고 게임 화면으로 이동
+  els.appContainer.className = '';
   
   if (window.pendingLobbyMode === 'normal') {
     els.appContainer.classList.add('playing-state', 'normal-mode');
@@ -807,8 +983,154 @@ networkEngine.on('ingame_message', (data) => {
   } else if (data.type === 'sync_score') {
     lockScore(data.catId, data.scoreInfo, true);
   } else if (data.type === 'sync_log') {
-    addGameLog(data.message, data.logType, false, data.player);
+    // 턴 시작 로그 중복 출력 방지 (이미 로컬에서 출력함)
+    if (data.logData?.type === 'turn-start' || data.logData?.message === '게임 시작!') {
+      // 서버 메모리 저장용 수신이므로 중복 DOM 생성 안 함
+      return;
+    }
+    addGameLog(data.logData, data.logType, false, data.player);
   }
+});
+
+networkEngine.on('full_game_sync', (data) => {
+  if (!data || !data.sessionData) return;
+  const sData = data.sessionData;
+  
+  if (data.players) window.lobbyPlayers = data.players;
+  
+  const myConnId = networkEngine.socket?.id;
+  const myUid = getCurrentUser()?.uid;
+  const me = window.lobbyPlayers?.find(p => p.connId === myConnId || (myUid && p.uid === myUid));
+  if (me) {
+    window.myPlayerInfo = me;
+    window.myPlayerIndex = me.isHost ? 1 : 2;
+  }
+  
+  scores = sData.scores || { 1: {}, 2: {} };
+  activeMutations = sData.activeMutations || { 1: {}, 2: {} };
+  currentRound = sData.currentRound || 1;
+  currentPlayer = sData.currentPlayer || 1;
+  rollsLeft = sData.rollsLeft !== undefined ? sData.rollsLeft : 3;
+  
+  if (sData.matchLogHistory) {
+    window.matchLogHistory = [...sData.matchLogHistory];
+    if (els.gameLogContainer) {
+      els.gameLogContainer.innerHTML = '';
+      sData.matchLogHistory.forEach(log => {
+        const logType = (log.type === 'turn-start' || log.message === '게임 시작!') ? 'turn-start' : (log.type || 'normal');
+        addGameLog(log, logType, false, log.player || 0);
+      });
+    }
+  }
+  
+  if (sData.disconnectGrace) {
+    if (sData.disconnectGrace[1] !== undefined) disconnectGrace[1] = sData.disconnectGrace[1];
+    if (sData.disconnectGrace[2] !== undefined) disconnectGrace[2] = sData.disconnectGrace[2];
+  }
+
+  if (data.players) {
+    data.players.forEach(p => {
+      if (p.disconnected) {
+        const pIdx = p.isHost ? 1 : 2;
+        handlePlayerDisconnect(pIdx);
+      }
+    });
+  }
+
+  activeDice = sData.activeDice || [];
+  keptDice = sData.keptDice || [];
+
+  const allDiceValues = [...keptDice, ...activeDice];
+  if (allDiceValues.length > 0 && diceEngine) {
+    try {
+      const keptIndexes = [];
+      for (let k = 0; k < keptDice.length; k++) {
+        keptIndexes.push(k);
+      }
+      diceEngine.forceValues(allDiceValues, keptIndexes);
+    } catch (e) {
+      console.error("Dice restore error on sync:", e);
+    }
+  }
+
+  updateScoreboard();
+  updateScorePreviews();
+  updateRollsUI();
+  updateMatchProfiles();
+  
+  els.gameStatus.textContent = `P${currentPlayer}의 턴 (라운드 ${currentRound}/12)`;
+  els.p1Name.classList.toggle('active-turn', currentPlayer === 1);
+  els.p2Name.classList.toggle('active-turn', currentPlayer === 2);
+  els.p1Profile.classList.toggle('active-turn', currentPlayer === 1);
+  els.p2Profile.classList.toggle('active-turn', currentPlayer === 2);
+  
+  const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
+  if (diceBoxReady) {
+    els.btnRoll.disabled = !isMyTurn || rollsLeft <= 0;
+  }
+  
+  startTurnTimer(sData.turnTimeRemaining !== undefined ? sData.turnTimeRemaining : 45);
+});
+
+networkEngine.on('player_disconnected', (data) => {
+  let pIndex = null;
+  if (window.lobbyPlayers) {
+    const p = window.lobbyPlayers.find(pl => pl.uid === data.uid || pl.connId === data.connId);
+    if (p) {
+      pIndex = p.isHost ? 1 : 2;
+    }
+  }
+  if (!pIndex) {
+    pIndex = window.myPlayerIndex === 1 ? 2 : 1;
+  }
+  handlePlayerDisconnect(pIndex);
+});
+
+networkEngine.on('player_reconnected', (data) => {
+  let pIndex = null;
+  if (window.lobbyPlayers) {
+    const p = window.lobbyPlayers.find(pl => pl.uid === data.uid || pl.connId === data.connId);
+    if (p) {
+      pIndex = p.isHost ? 1 : 2;
+    }
+  }
+  if (!pIndex) {
+    pIndex = window.myPlayerIndex === 1 ? 2 : 1;
+  }
+  handlePlayerReconnect(pIndex);
+});
+
+networkEngine.on('player_forfeited', (data) => {
+  let pIndex = null;
+  if (window.lobbyPlayers) {
+    const p = window.lobbyPlayers.find(pl => pl.uid === data.uid || pl.connId === data.connId);
+    if (p) {
+      pIndex = p.isHost ? 1 : 2;
+    }
+  }
+  if (!pIndex) {
+    pIndex = window.myPlayerIndex === 1 ? 2 : 1;
+  }
+  
+  if (!window.lobbyPlayers || window.lobbyPlayers.length <= 2) {
+    handleGameForfeit(pIndex);
+  } else {
+    handlePlayerDisconnect(pIndex);
+    if (currentPlayer === pIndex && window.myPlayerIndex === 1) {
+      lockScore(categories[0].id, 0, false);
+    }
+  }
+});
+
+networkEngine.on('game_already_ended', async (data) => {
+  alert(data.message || '이미 완료되거나 종료된 게임 세션입니다.');
+  const user = getCurrentUser();
+  if (user?.uid) {
+    await clearUserActiveGame(user.uid);
+  }
+  stopTurnTimer();
+  networkEngine.disconnect();
+  els.appContainer.className = 'mode-select-state';
 });
 
 els.btnPlayNormalLobby?.addEventListener('click', () => {
@@ -870,6 +1192,7 @@ els.btnHotseat?.addEventListener('click', () => {
 });
 
 function startHotseatGame() {
+  window.matchLogHistory = [];
   currentPlayer = 1;
   currentRound = 1;
   scores = { 1: {}, 2: {} };
@@ -883,7 +1206,28 @@ function startHotseatGame() {
   startTurn();
 }
 
+function updateMatchProfiles() {
+  let p1Name = "Player 1", p2Name = "Player 2";
+  let p1Url = null, p2Url = null;
+  
+  if (window.lobbyPlayers && window.lobbyPlayers.length >= 2) {
+    const p1 = window.lobbyPlayers.find(p => p.isHost) || window.lobbyPlayers[0];
+    const p2 = window.lobbyPlayers.find(p => !p.isHost) || window.lobbyPlayers[1];
+    if (p1) { p1Name = p1.nickname; p1Url = p1.avatarUrl; }
+    if (p2) { p2Name = p2.nickname; p2Url = p2.avatarUrl; }
+  } else {
+    if (window.myPlayerIndex === 1 && window.myPlayerInfo) p1Name = window.myPlayerInfo.nickname;
+    else if (window.myPlayerIndex === 2 && window.myPlayerInfo) p2Name = window.myPlayerInfo.nickname;
+  }
+  
+  if (els.matchP1Name) els.matchP1Name.textContent = p1Name;
+  if (els.matchP1Avatar) els.matchP1Avatar.style.backgroundImage = p1Url ? `url(${p1Url})` : 'none';
+  if (els.matchP2Name) els.matchP2Name.textContent = p2Name;
+  if (els.matchP2Avatar) els.matchP2Avatar.style.backgroundImage = p2Url ? `url(${p2Url})` : 'none';
+}
+
 function startMultiplayerGame() {
+  window.matchLogHistory = [];
   // 방장은 1P, 게스트는 2P (현재 2인 대전 기준)
   window.myPlayerIndex = window.myPlayerInfo?.isHost ? 1 : 2;
   
@@ -900,25 +1244,19 @@ function startMultiplayerGame() {
   const isNormalMode = window.pendingLobbyMode === 'normal';
   gameMode = isNormalMode ? 'normal' : 'augmented';
   
+  const user = getCurrentUser();
+  const roomCode = els.lobbyCodeDisplay?.textContent?.trim() || networkEngine.roomCode || window.currentRoomCode;
+  if (user?.uid && roomCode) {
+    updateUserActiveGame(user.uid, roomCode, gameMode);
+  }
+  
   if (gameMode === 'normal') {
     showMatchInfo();
   } else {
     showAugment();
   }
 
-  // VS 프로필 초기화
-  if (window.lobbyPlayers && window.lobbyPlayers.length >= 2) {
-    const p1 = window.lobbyPlayers.find(p => p.isHost);
-    const p2 = window.lobbyPlayers.find(p => !p.isHost);
-    if (p1 && els.matchP1Name) els.matchP1Name.textContent = p1.nickname;
-    if (p1 && els.matchP1Avatar) {
-      els.matchP1Avatar.style.backgroundImage = p1.avatarUrl ? `url(${p1.avatarUrl})` : 'none';
-    }
-    if (p2 && els.matchP2Name) els.matchP2Name.textContent = p2.nickname;
-    if (p2 && els.matchP2Avatar) {
-      els.matchP2Avatar.style.backgroundImage = p2.avatarUrl ? `url(${p2.avatarUrl})` : 'none';
-    }
-  }
+  updateMatchProfiles();
 
   // 게임 로그 초기화
   if (els.gameLogContainer) {
@@ -964,7 +1302,190 @@ function showAugmentSelectionModal(player, onSelect) {
   modal.classList.remove('hidden');
 }
 
+// === 턴 타임아웃 45초 제어 시스템 ===
+let turnTimerInterval = null;
+let turnTimeRemaining = 45;
+
+function startTurnTimer(overrideTime = null) {
+  stopTurnTimer();
+  turnTimeRemaining = overrideTime !== null ? overrideTime : 45;
+  updateTurnTimerUI();
+
+  turnTimerInterval = setInterval(() => {
+    turnTimeRemaining--;
+    updateTurnTimerUI();
+    if (turnTimeRemaining <= 0) {
+      stopTurnTimer();
+      handleTurnTimeout();
+    }
+  }, 1000);
+}
+
+function stopTurnTimer() {
+  if (turnTimerInterval) {
+    clearInterval(turnTimerInterval);
+    turnTimerInterval = null;
+  }
+}
+
+function updateTurnTimerUI() {
+  if (!els.turnTimer) return;
+  const textEl = document.getElementById('turn-timer-text');
+  if (textEl) textEl.textContent = `${turnTimeRemaining}s`;
+  if (turnTimeRemaining <= 10) {
+    els.turnTimer.classList.add('warning');
+  } else {
+    els.turnTimer.classList.remove('warning');
+  }
+}
+
+async function handleTurnTimeout() {
+  const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
+  const isCurrentPlayerDisconnected = Boolean(disconnectTimers[currentPlayer]);
+  
+  // 내 턴도 아니고, 턴 주인이 끊긴 상태도 아니라면 자동 타임아웃 족보 기입 무시
+  if (!isMyTurn && !isCurrentPlayerDisconnected) return;
+
+  let dice5 = [];
+  if (rollsLeft === 3) {
+    // 한 번도 주사위를 굴리지 않은 상태에서 타임아웃된 경우
+    // 주사위 눈의 합계를 0으로 취급
+    dice5 = [0, 0, 0, 0, 0];
+    
+    keptDice = [];
+    activeDice = [];
+    if (diceEngine) {
+      diceEngine.diceArray.forEach(die => die.isKept = false);
+      diceEngine.arrangeAll(true);
+    }
+  } else {
+    // 최고 점수 족보 선택 및 자동 기입을 위해 굴러진 주사위 정보 획득
+    let availableDice = [...keptDice, ...activeDice];
+    if (availableDice.length === 0 && diceEngine?.diceArray) {
+      availableDice = diceEngine.diceArray.map(d => d.value);
+    }
+    dice5 = availableDice.slice(0, 5);
+    while (dice5.length < 5) dice5.push(1);
+  }
+
+  const fullDiceObjects = diceEngine?.diceArray ? diceEngine.diceArray.map(d => ({ value: d.value, type: d.config.type })) : [];
+  const potentialScores = typeof calculateScores === 'function' ? calculateScores(dice5, activeMutations[currentPlayer] || {}, { bank: playerYachtBank[currentPlayer], fullDice: fullDiceObjects }) : {};
+
+  let bestCatId = null;
+  let maxScoreVal = -1;
+  let bestScoreInfo = 0;
+
+  categories.forEach(cat => {
+    if (cat.isDivider) return;
+    if (scores[currentPlayer][cat.id] !== undefined) return;
+
+    const scoreInfo = potentialScores[cat.id] !== undefined ? potentialScores[cat.id] : 0;
+    let netScore = 0;
+    if (typeof scoreInfo === 'object' && scoreInfo !== null) {
+      netScore = (scoreInfo.score || 0) + (scoreInfo.bonus || 0);
+    } else {
+      netScore = Number(scoreInfo) || 0;
+    }
+
+    if (netScore > maxScoreVal || bestCatId === null) {
+      maxScoreVal = netScore;
+      bestCatId = cat.id;
+      bestScoreInfo = scoreInfo;
+    }
+  });
+
+  if (bestCatId) {
+    const catDisplayNames = {
+      aces: 'Aces', deuces: 'Deuces', threes: 'Threes', fours: 'Fours', fives: 'Fives', sixes: 'Sixes',
+      choice: 'Choice', '4oak': '4 of a Kind', fullhouse: 'Full House', 's-straight': 'S. Straight', 'l-straight': 'L. Straight', yacht: 'Yacht'
+    };
+    const catName = catDisplayNames[bestCatId] || bestCatId;
+    const scoreVal = typeof bestScoreInfo === 'object' ? (bestScoreInfo.score || 0) : (Number(bestScoreInfo) || 0);
+
+    addGameLog({
+      type: 'timeout',
+      player: currentPlayer,
+      round: currentRound,
+      meta: {
+        catId: bestCatId,
+        catName: catName,
+        score: scoreVal
+      }
+    }, 'timeout', window.isMultiplayer, currentPlayer);
+
+    lockScore(bestCatId, bestScoreInfo, false, true);
+  }
+}
+
+// === 네트워크 재접속 유예시간 (60초 누적 타이머) 시스템 ===
+const disconnectGrace = { 1: 60, 2: 60 };
+const disconnectTimers = { 1: null, 2: null };
+
+function handlePlayerDisconnect(playerIndex) {
+  const box = playerIndex === 1 ? els.matchP1Box : els.matchP2Box;
+  const avatarContainer = box?.querySelector('.match-avatar-container');
+  const overlay = playerIndex === 1 ? els.matchP1Disconnect : els.matchP2Disconnect;
+  const timerText = playerIndex === 1 ? els.matchP1DisconnectTimer : els.matchP2DisconnectTimer;
+
+  if (avatarContainer) avatarContainer.classList.add('disconnected');
+  if (overlay) overlay.classList.remove('hidden');
+  if (timerText) timerText.textContent = `${disconnectGrace[playerIndex]}s`;
+
+  if (disconnectTimers[playerIndex]) return;
+
+  disconnectTimers[playerIndex] = setInterval(() => {
+    disconnectGrace[playerIndex]--;
+    if (timerText) timerText.textContent = `${disconnectGrace[playerIndex]}s`;
+
+    if (disconnectGrace[playerIndex] <= 0) {
+      clearInterval(disconnectTimers[playerIndex]);
+      disconnectTimers[playerIndex] = null;
+      handleGameForfeit(playerIndex);
+    }
+  }, 1000);
+}
+
+function handlePlayerReconnect(playerIndex) {
+  if (disconnectTimers[playerIndex]) {
+    clearInterval(disconnectTimers[playerIndex]);
+    disconnectTimers[playerIndex] = null;
+  }
+
+  const box = playerIndex === 1 ? els.matchP1Box : els.matchP2Box;
+  const avatarContainer = box?.querySelector('.match-avatar-container');
+  const overlay = playerIndex === 1 ? els.matchP1Disconnect : els.matchP2Disconnect;
+
+  if (avatarContainer) avatarContainer.classList.remove('disconnected');
+  if (overlay) overlay.classList.add('hidden');
+}
+
+function handleGameForfeit(forfeitedPlayerIndex) {
+  stopTurnTimer();
+  if (window.isMultiplayer) {
+    networkEngine.sendMessage({ type: 'game_ended' });
+  }
+  const user = getCurrentUser();
+  if (user?.uid) {
+    clearUserActiveGame(user.uid);
+  }
+  const winnerIndex = forfeitedPlayerIndex === 1 ? 2 : 1;
+
+  addGameLog(`P${forfeitedPlayerIndex}의 재접속 유예시간이 만료되어 몰수패 처리되었습니다.`, 'system', false);
+
+  const sumObj = (sum, val) => sum + (typeof val === 'object' ? val.score + (val.bonus || 0) : val);
+  const p1Total = Object.values(scores[1] || {}).reduce(sumObj, 0);
+  const p2Total = Object.values(scores[2] || {}).reduce(sumObj, 0);
+
+  if (els.endgameP1Score) els.endgameP1Score.textContent = p1Total;
+  if (els.endgameP2Score) els.endgameP2Score.textContent = p2Total;
+  if (els.endgameWinner) els.endgameWinner.textContent = `P${winnerIndex} 몰수승! (P${forfeitedPlayerIndex} 기권)`;
+  if (els.endgameModal) els.endgameModal.classList.remove('hidden');
+}
+
 function startTurn() {
+  stopTurnTimer();
+  startTurnTimer();
+  
   rollsLeft = 3;
   keptDice = [];
   activeDice = [];
@@ -975,13 +1496,13 @@ function startTurn() {
   els.p1Name.classList.toggle('active-turn', currentPlayer === 1);
   els.p2Name.classList.toggle('active-turn', currentPlayer === 2);
   
-  const isMyTurnForLog = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
-  if (isMyTurnForLog) {
-    if (currentRound === 1 && currentPlayer === 1) {
-      addGameLog('게임 시작!', 'turn-start', true);
-    }
-    addGameLog(`${getPlayerLabel(currentPlayer)}의 턴 (${currentRound} 라운드)`, 'turn-start', true, currentPlayer);
+  // 턴 시작 로그: 호스트만 sync: true로 서버에 전송하여 중복 저장 방지
+  const isHost = !window.isMultiplayer || window.myPlayerIndex === 1;
+  if (currentRound === 1 && currentPlayer === 1) {
+    addGameLog('게임 시작!', 'turn-start', isHost);
   }
+  addGameLog({ type: 'turn-start', player: currentPlayer, round: currentRound }, 'turn-start', isHost, currentPlayer);
+  
   els.p1Profile.classList.toggle('active-turn', currentPlayer === 1);
   els.p2Profile.classList.toggle('active-turn', currentPlayer === 2);
   
@@ -1038,8 +1559,11 @@ function updateRollsUI() {
 
 // 주사위 굴림
 els.btnRoll.addEventListener('click', async () => {
-  // 로비(자유 연습) 모드일 경우 코어 게임 로직을 무시하고 무한 굴리기
-  if (els.appContainer?.classList.contains('mode-select-state')) {
+  // 권한 검증: 본인 턴이 아니면 굴리기 불가
+  const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
+  
+  // 로비(자유 연습) 모드일 경우 코어 게임 로직 무시
+  if (els.appContainer?.classList.contains('mode-select-state') && !els.appContainer?.classList.contains('playing-state')) {
     els.btnRoll.disabled = true;
     
     // 킵된 주사위 외의 나머지만 굴림
@@ -1060,7 +1584,7 @@ els.btnRoll.addEventListener('click', async () => {
   }
 
   // 실제 게임 모드 로직
-  if (rollsLeft <= 0) return;
+  if (!isMyTurn || rollsLeft <= 0) return;
   
   rollsLeft--;
   updateRollsUI();
@@ -1119,10 +1643,10 @@ els.btnRoll.addEventListener('click', async () => {
   
   const rolledCount = specialConfigs.length;
   if (keptConfigs.length === 0) {
-    addGameLog(`주사위 ${rolledCount}개를 굴렸습니다.`, 'roll-action', window.isMultiplayer, currentPlayer);
+    addGameLog({ type: 'roll-action', player: currentPlayer, meta: { rolledCount, keptValues: [] } }, 'roll-action', window.isMultiplayer, currentPlayer);
   } else {
     const keptValues = diceEngine.diceArray.filter(d => d.isKept).map(d => d.value).sort((a,b)=>a-b);
-    addGameLog(`주사위 [${keptValues.join(', ')}]를 킵하고 ${rolledCount}개를 다시 굴렸습니다.`, 'roll-action', window.isMultiplayer, currentPlayer);
+    addGameLog({ type: 'roll-action', player: currentPlayer, meta: { rolledCount, keptValues } }, 'roll-action', window.isMultiplayer, currentPlayer);
   }
   
   if (window.isMultiplayer) {
@@ -1146,7 +1670,7 @@ els.btnRoll.addEventListener('click', async () => {
     keptDice = [];
     activeDice = diceEngine.diceArray.filter(d => d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
     
-    addGameLog(`주사위의 값이 나왔습니다. [${activeDice.join(', ')}]`, 'roll-result', window.isMultiplayer, currentPlayer);
+    addGameLog({ type: 'roll-result', player: currentPlayer, meta: { values: activeDice } }, 'roll-result', window.isMultiplayer, currentPlayer);
     
     diceEngine.arrangeAll(true);
     
@@ -1260,8 +1784,9 @@ function getUpperSum(player) {
   }, 0);
 }
 
-function lockScore(catId, scoreInfo, isSync = false) {
-  if (rollsLeft === 3 && activeDice.length === 0 && keptDice.length === 0) return;
+function lockScore(catId, scoreInfo, isSync = false, force = false) {
+  stopTurnTimer();
+  if (!force && rollsLeft === 3 && activeDice.length === 0 && keptDice.length === 0) return;
   
   if (window.isMultiplayer && !isSync) {
     networkEngine.sendMessage({ type: 'sync_score', catId, scoreInfo });
@@ -1271,12 +1796,10 @@ function lockScore(catId, scoreInfo, isSync = false) {
   let scoreObj = typeof scoreInfo === 'object' ? scoreInfo : { score: scoreInfo, bonus: 0 };
   scores[currentPlayer][catId] = scoreObj;
   
-  const catNames = {
-    aces: 'Aces', twos: 'Deuces', threes: 'Threes', fours: 'Fours', fives: 'Fives', sixes: 'Sixes',
-    choice: 'Choice', '4oak': '4 of a Kind', fullhouse: 'Full House', 's-straight': 'S. Straight', 'l-straight': 'L. Straight', yacht: 'Yacht'
-  };
-  const cName = catNames[catId] || catId;
-  addGameLog(`[${cName}] 족보에 ${scoreObj.score}점을 기록했습니다.`, 'score-record', false, currentPlayer);
+  // 타임아웃에 의한 자동 기입인 경우 일반 족보 기입 로그 작성을 생략 (중복 방지)
+  if (!force) {
+    addGameLog({ type: 'score-record', player: currentPlayer, meta: { catId, score: scoreObj.score } }, 'score-record', false, currentPlayer);
+  }
 
 
   // 이상한 주사위 파괴 체크 (굴려서 6이 나오면 무조건 파괴)
@@ -1370,6 +1893,13 @@ function lockScore(catId, scoreInfo, isSync = false) {
 }
 
 function endGame() {
+  if (window.isMultiplayer) {
+    networkEngine.sendMessage({ type: 'game_ended' });
+  }
+  const user = getCurrentUser();
+  if (user?.uid) {
+    clearUserActiveGame(user.uid);
+  }
   const sumObj = (sum, val) => sum + (typeof val === 'object' ? val.score + (val.bonus || 0) : val);
   const p1Total = Object.values(scores[1]).reduce(sumObj, 0);
   const p2Total = Object.values(scores[2]).reduce(sumObj, 0);
@@ -1386,12 +1916,121 @@ function endGame() {
   }
   
   els.endgameModal.classList.remove('hidden');
+
+  // Firestore에 매치 결과 및 통계 저장
+  if (window.isMultiplayer && window.myPlayerIndex === 1) {
+    saveMatchData(p1Total, p2Total);
+  }
 }
 
-els.btnReturnLobby.addEventListener('click', () => {
+async function saveMatchData(p1Total, p2Total) {
+  if (!window.isMultiplayer || !window.lobbyPlayers || window.lobbyPlayers.length < 2) return;
+  
+  const p1Info = window.lobbyPlayers.find(p => p.isHost);
+  const p2Info = window.lobbyPlayers.find(p => !p.isHost);
+  if (!p1Info || !p2Info) return;
+
+  let winnerUid = 'draw';
+  if (p1Total > p2Total) winnerUid = p1Info.uid;
+  else if (p2Total > p1Total) winnerUid = p2Info.uid;
+
+  const matchDoc = {
+    mode: gameMode,
+    timestamp: new Date(),
+    winnerUid: winnerUid,
+    playerUids: [p1Info.uid, p2Info.uid].filter(id => id && !id.startsWith('guest') && id !== 'undefined'),
+    players: {
+      p1: {
+        uid: p1Info.uid || 'guest_p1',
+        nickname: p1Info.nickname,
+        avatarUrl: p1Info.avatarUrl || null,
+        totalScore: p1Total,
+        isHost: true,
+        scores: Object.fromEntries(
+          Object.entries(scores[1] || {}).map(([k, v]) => [k, typeof v === 'object' ? v.score : v])
+        ),
+        augments: Object.values(activeMutations[1] || {})
+      },
+      p2: {
+        uid: p2Info.uid || 'guest_p2',
+        nickname: p2Info.nickname,
+        avatarUrl: p2Info.avatarUrl || null,
+        totalScore: p2Total,
+        isHost: false,
+        scores: Object.fromEntries(
+          Object.entries(scores[2] || {}).map(([k, v]) => [k, typeof v === 'object' ? v.score : v])
+        ),
+        augments: Object.values(activeMutations[2] || {})
+      }
+    },
+    playLogs: window.matchLogHistory || []
+  };
+
+  try {
+    // 1. matches 컬렉션에 매치 결과 저장
+    await addDoc(collection(db, "matches"), matchDoc);
+    
+    // 2. 각 유저별 stats 데이터 누적 업데이트
+    const updateStats = async (uid, isWin, score, augmentsList) => {
+      if (!uid || uid.startsWith('guest') || uid === 'undefined') return;
+      const userRef = doc(db, "users", uid);
+      
+      try {
+        await runTransaction(db, async (transaction) => {
+          const sfDoc = await transaction.get(userRef);
+          if (!sfDoc.exists()) return;
+
+          const oldData = sfDoc.data();
+          const stats = oldData.stats || {};
+          const gp = (stats.gamesPlayed || 0) + 1;
+          const wins = (stats.wins || 0) + (isWin ? 1 : 0);
+          const losses = (stats.losses || 0) + (!isWin && winnerUid !== 'draw' ? 1 : 0);
+          const highest = Math.max(stats.highestScore || 0, score);
+          const avg = (((stats.averageScore || 0) * (stats.gamesPlayed || 0)) + score) / gp;
+          
+          const fav = stats.favoriteAugments || {};
+          augmentsList.forEach(aug => {
+            fav[aug] = (fav[aug] || 0) + 1;
+          });
+
+          transaction.update(userRef, {
+            stats: {
+              gamesPlayed: gp,
+              wins: wins,
+              losses: losses,
+              highestScore: highest,
+              averageScore: parseFloat(avg.toFixed(1)),
+              favoriteAugments: fav
+            }
+          });
+        });
+      } catch (txErr) {
+        console.error("Stats Transaction failed: ", txErr);
+      }
+    };
+
+    if (p1Info.uid) {
+      await updateStats(p1Info.uid, winnerUid === p1Info.uid, p1Total, Object.values(activeMutations[1] || {}));
+    }
+    if (p2Info.uid) {
+      await updateStats(p2Info.uid, winnerUid === p2Info.uid, p2Total, Object.values(activeMutations[2] || {}));
+    }
+    
+    console.log("Match and stats successfully recorded in Firestore!");
+  } catch (err) {
+    console.error("Failed to save match data: ", err);
+  }
+}
+
+els.btnReturnLobby.addEventListener('click', async () => {
   // 1. 모달 닫기 및 페이드 아웃
   els.endgameModal.classList.add('hidden');
   if (els.appContainer) els.appContainer.style.opacity = '0';
+  
+  const user = getCurrentUser();
+  if (user?.uid) {
+    await clearUserActiveGame(user.uid);
+  }
   
   setTimeout(() => {
     // 2. 상태 및 레이아웃 초기화
@@ -1781,7 +2420,7 @@ window.applyMutation = function(player, mutationId) {
     const svgIcon = augInfo.icon || getVariantSvg(mutationId);
     targetTh.innerHTML = `${svgIcon} ${mut.enName}`;
     
-    addGameLog(`[${augInfo.name || mut.name}] 증강을 획득했습니다.`, 'augment-action', window.isMultiplayer, player);
+    addGameLog({ type: 'augment-action', player, meta: { mutationId, name: augInfo.name || mut.name } }, 'augment-action', window.isMultiplayer, player);
 
     targetTh.style.backgroundColor = '#87CEEB'; // Sky Blue
     targetTh.style.color = '#222';
@@ -1848,6 +2487,17 @@ setupDebugTools({
     updateScorePreviews();
   }
 });
+
+function resetAvatarUI() {
+  const container = document.getElementById('profile-avatar-container');
+  if (container) {
+    container.style.backgroundImage = 'none';
+    container.style.backgroundSize = '';
+    container.style.backgroundPosition = '';
+  }
+  const canvas = document.getElementById('profile-avatar-canvas');
+  if (canvas) canvas.style.display = 'none';
+}
 
 function renderAvatar(url, cropData) {
   const container = document.getElementById('profile-avatar-container');
