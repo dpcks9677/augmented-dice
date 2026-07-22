@@ -2186,5 +2186,130 @@ svg.lucide-icon {
   display: none !important;
 }
 
+/* -------------------------------------------
+   Augment Selection Modal Styling
+------------------------------------------- */
+.augment-modal-card {
+  width: 1120px;
+  max-width: 94vw;
+  height: auto;
+  min-height: 620px;
+  max-height: min(730px, 90vh);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 34px 30px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+#augment-modal-title {
+  font-size: 2.4rem;
+  font-weight: 800;
+  margin: 0 0 6px 0;
+  color: var(--text-color);
+}
+
+#augment-modal-desc {
+  font-size: 1.1rem;
+  color: #666;
+  margin: 2px 0 16px 0;
+}
+
+.augment-options-container {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  width: 100%;
+  flex: 1;
+  justify-content: center;
+  align-items: stretch;
+  margin-top: 8px;
+}
+
+.augment-option {
+  flex: 1;
+  background: #ffffff;
+  border: 2px solid var(--border-color);
+  border-radius: 16px;
+  padding: 28px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+  transition: transform 0.2s cubic-bezier(0.2,0.8,0.2,1), border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.augment-option:hover {
+  transform: translateY(-5px);
+  border-color: var(--primary-color);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+  background: #fafafa;
+}
+
+.aug-slot-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  width: 100%;
+  text-align: center;
+}
+
+.aug-slot-header svg {
+  width: 26px;
+  height: 26px;
+  color: var(--primary-color);
+}
+
+.aug-slot-name {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--text-color);
+  text-align: center;
+}
+
+.aug-slot-desc {
+  font-size: 0.85rem;
+  color: #444;
+  line-height: 1.48;
+  word-break: keep-all;
+  text-align: left;
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* 세로 모니터(Portrait) 최적화: 세로 길어짐 방지 (최대 560px 제한) */
+@media (orientation: portrait), (max-aspect-ratio: 1/1) {
+  .augment-modal-card {
+    min-height: 500px;
+    max-height: 580px;
+    padding: 24px 20px;
+  }
+  .augment-option {
+    padding: 20px 16px;
+  }
+}
+
+/* 가로 모니터(Landscape 16:9 이상) 최적화: 30% 확대 수치 조율 (680px 이상) */
+@media (min-width: 1280px) and (min-height: 720px) {
+  .augment-modal-card {
+    min-height: 680px;
+    max-height: 780px;
+    padding: 36px 30px;
+  }
+}
+
+@media (max-width: 768px) {
+  .augment-options-container {
+    flex-direction: column;
+  }
+}
+
 
 

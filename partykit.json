@@ -2,8 +2,5 @@
   "name": "augmented-dice-server",
   "main": "src/server.js",
   "domain": "augmented-dice.workers.dev",
-  "compatibilityDate": "2026-07-21",
-  "compatibilityFlags": [
-    "sqlite_in_durable_objects"
-  ]
+  "compatibilityDate": "2026-07-21"
 }

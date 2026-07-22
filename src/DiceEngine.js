@@ -608,6 +608,7 @@ export class DiceEngine {
     
     return new Promise((resolve) => {
       this.clearUnkept();
+      this.isObserving = isObserving;
       this.physicsActive = !isObserving;
       this.isAnimating = false;
       this.startRenderLoop();
@@ -765,6 +766,7 @@ export class DiceEngine {
   // 관전자(Guest)용 롤 종료 트리거
   forceRollEnd(finalValues) {
     this.physicsActive = false;
+    this.isObserving = false;
     this.diceArray.forEach((die, index) => {
       if (!die.isKept) {
         if (die.body) {
@@ -788,15 +790,17 @@ export class DiceEngine {
 
   // 외부(네트워크)에서 수신한 위치 데이터로 렌더링 강제 업데이트
   applyPhysicsUpdate(transforms) {
-    if (this.physicsActive) return; // 내가 굴리는 중이면 무시
+    if (this.physicsActive && !this.isObserving) return; // 내가 직접 굴리는 턴일 때만 무시
+    if (!transforms || !this.diceArray) return;
     
     transforms.forEach((t, i) => {
       const die = this.diceArray[i];
-      if (die && !die.isKept) {
+      if (die && !die.isKept && t) {
         die.mesh.position.set(t.px, t.py, t.pz);
         die.mesh.quaternion.set(t.qx, t.qy, t.qz, t.qw);
       }
     });
+    this.startRenderLoop();
   }
 
   // 디버그 및 재접속용: 애니메이션 없이 즉각적으로 주사위 3D 렌더링 및 킵 상태 강제 복원

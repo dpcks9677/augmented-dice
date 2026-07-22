@@ -56,6 +56,7 @@ const els = {
 
   playMenuSection: document.getElementById('play-menu-section'),
   btnPlayNormal: document.getElementById('btn-norm-hotseat'),
+  btnPlayNormalLobby: document.getElementById('btn-norm-lobby'),
   btnAugOnline: document.getElementById('btn-aug-online'),
   btnAugLobby: document.getElementById('btn-aug-lobby'),
   btnAugHotseat: document.getElementById('btn-aug-hotseat'),
@@ -616,15 +617,22 @@ subscribeAuthState(async (user) => {
 
             if (roomToCancel) {
               try {
-                if (networkEngine.socket && networkEngine.roomCode === roomToCancel) {
-                  networkEngine.sendMessage({ type: 'player_forfeited', uid: user?.uid });
-                  networkEngine.disconnect();
-                } else {
-                  networkEngine.connectToLobby(roomToCancel);
+                const sendForfeitAndDisconnect = () => {
+                  const targetUid = window.myUid || user?.uid;
+                  networkEngine.sendMessage({ type: 'player_forfeited', uid: targetUid });
                   setTimeout(() => {
-                    networkEngine.sendMessage({ type: 'player_forfeited', uid: user?.uid });
                     networkEngine.disconnect();
-                  }, 250);
+                  }, 150);
+                };
+
+                if (networkEngine.socket && networkEngine.socket.readyState === WebSocket.OPEN && networkEngine.roomCode === roomToCancel) {
+                  sendForfeitAndDisconnect();
+                } else {
+                  const onConnected = () => {
+                    sendForfeitAndDisconnect();
+                  };
+                  networkEngine.on('connected', onConnected);
+                  networkEngine.connectToLobby(roomToCancel, true);
                 }
               } catch (e) {
                 console.error("Forfeit notify error:", e);
@@ -1123,7 +1131,7 @@ networkEngine.on('lobby_state', (data) => {
 
   // 내가 호스트인지 확인하고 버튼 제어
   const myConnId = networkEngine.socket?.id; // PartySocket id
-  const myUid = getCurrentUser()?.uid || window.myUid;
+  const myUid = window.myUid || getCurrentUser()?.uid;
   const me = players.find(p => (myConnId && p.connId === myConnId) || (myUid && p.uid === myUid));
   if (me) {
     window.myPlayerInfo = me;
@@ -1162,16 +1170,23 @@ networkEngine.on('ingame_message', (data) => {
     rollsLeft = data.rollsLeft;
     updateRollsUI();
     clearScorePreviews();
+    window.lastRollStartTime = Date.now();
     if (diceEngine) diceEngine.roll(data.specialConfigs, true);
   } else if (data.type === 'sync_roll_end') {
-    if (diceEngine) {
-      diceEngine.forceRollEnd(data.finalValues);
-      diceEngine.diceArray.forEach(die => die.isKept = false);
-      keptDice = [];
-      activeDice = diceEngine.diceArray.filter(d => d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
-      diceEngine.arrangeAll(true);
-      updateScorePreviews();
-    }
+    const elapsed = Date.now() - (window.lastRollStartTime || 0);
+    const minAnimTime = 1100;
+    const remainingDelay = Math.max(0, minAnimTime - elapsed);
+
+    setTimeout(() => {
+      if (diceEngine) {
+        diceEngine.forceRollEnd(data.finalValues);
+        diceEngine.diceArray.forEach(die => die.isKept = false);
+        keptDice = [];
+        activeDice = diceEngine.diceArray.filter(d => d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
+        diceEngine.arrangeAll(true);
+        updateScorePreviews();
+      }
+    }, remainingDelay);
   } else if (data.type === 'sync_keep') {
     if (diceEngine) {
       const die = diceEngine.diceArray[data.dieIndex];
@@ -1316,21 +1331,29 @@ networkEngine.on('player_reconnected', (data) => {
 });
 
 networkEngine.on('player_forfeited', (data) => {
-  let pIndex = null;
+  let forfeitPIndex = null;
   if (window.lobbyPlayers) {
     const p = window.lobbyPlayers.find(pl => pl.uid === data.uid || pl.connId === data.connId);
     if (p) {
-      pIndex = window.lobbyPlayers.indexOf(p) + 1;
+      forfeitPIndex = window.lobbyPlayers.indexOf(p) + 1;
     }
   }
-  if (!pIndex && data.pIndex) {
-    pIndex = data.pIndex;
+  if (!forfeitPIndex && data.pIndex) {
+    forfeitPIndex = data.pIndex;
   }
-  if (!pIndex) {
-    pIndex = 2;
+  if (!forfeitPIndex) {
+    forfeitPIndex = window.myPlayerIndex === 1 ? 2 : 1;
   }
 
-  handleGameForfeit(pIndex);
+  if (els.appContainer?.classList.contains('playing-state')) {
+    handleGameForfeit(forfeitPIndex);
+  } else {
+    addGameLog({ type: 'system', message: '상대방이 게임을 포기하여 로비가 해제되었습니다.' }, 'system', false);
+    stopTurnTimer();
+    stopLobbyWaitingAnimation();
+    networkEngine.disconnect();
+    els.appContainer.className = 'mode-select-state';
+  }
 });
 
 networkEngine.on('game_already_ended', async (data) => {

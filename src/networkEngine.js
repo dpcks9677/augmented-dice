@@ -23,7 +23,7 @@ class NetworkEngine {
     }
   }
 
-  async connectToLobby(roomCode) {
+  async connectToLobby(roomCode, isForfeitOnly = false) {
     const normalizedCode = String(roomCode || '').trim().toUpperCase();
     this.roomCode = normalizedCode;
 
@@ -32,9 +32,8 @@ class NetworkEngine {
       this.socket.close();
     }
 
-    // PartySocket 초기화
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.') || window.location.hostname.startsWith('10.');
-    const partyHost = import.meta.env?.VITE_PARTYKIT_HOST || (isLocal ? `${window.location.hostname}:1999` : 'server.augmented-dice.workers.dev');
+    // PartySocket 초기화 (로컬 호스트에서도 배포된 서버 연결)
+    const partyHost = import.meta.env?.VITE_PARTYKIT_HOST || 'server.augmented-dice.workers.dev';
 
     this.socket = new PartySocket({
       host: partyHost,
@@ -45,18 +44,25 @@ class NetworkEngine {
       console.log(`Connected to room: ${normalizedCode} (${partyHost})`);
       
       // 내 정보 가져오기
+      let tabId = sessionStorage.getItem('ad_tab_id');
+      if (!tabId) {
+        tabId = Math.random().toString(36).substring(2, 7);
+        sessionStorage.setItem('ad_tab_id', tabId);
+      }
+
       const user = getCurrentUser();
       let uid = sessionStorage.getItem('ad_guest_uid');
       if (!uid) {
-        uid = "guest-" + Math.random().toString(36).substring(2, 9);
+        uid = `guest-${Math.random().toString(36).substring(2, 9)}_${tabId}`;
         sessionStorage.setItem('ad_guest_uid', uid);
       }
       let nickname = "Guest";
       let avatarUrl = null;
 
       if (user) {
-        uid = user.uid;
-        const dbUser = await getUserFromDB(uid);
+        uid = `${user.uid}_${tabId}`;
+        window.myUid = uid;
+        const dbUser = await getUserFromDB(user.uid);
         if (dbUser) {
           nickname = dbUser.nickname || nickname;
           avatarUrl = dbUser.avatarUrl || null;
@@ -75,15 +81,17 @@ class NetworkEngine {
 
       window.myUid = uid;
 
-      // 서버에 join 메시지 전송
-      this.sendMessage({
-        type: 'join',
-        uid: uid,
-        nickname: nickname,
-        avatarUrl: avatarUrl
-      });
+      // 포기하기(isForfeitOnly) 용 연결일 경우 join 메시지 생략하고 connected만 발생
+      if (!isForfeitOnly) {
+        this.sendMessage({
+          type: 'join',
+          uid: uid,
+          nickname: nickname,
+          avatarUrl: avatarUrl
+        });
+      }
       
-      this.emit('connected', { roomCode });
+      this.emit('connected', { roomCode, isForfeitOnly });
     });
 
     this.socket.addEventListener('error', (err) => {

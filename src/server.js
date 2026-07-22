@@ -59,7 +59,15 @@ export class DiceServer {
     if (!this.room.id) {
       const url = new URL(request.url);
       const parts = url.pathname.split('/').filter(Boolean);
-      const rawRoomId = (parts.length >= 3 && parts[0] === 'parties' ? parts[2] : parts[parts.length - 1]) || 'DEFAULT';
+      const isPartyPath = parts[0] === 'party' || parts[0] === 'parties';
+      let rawRoomId = 'DEFAULT';
+      if (parts.length >= 3 && isPartyPath) {
+        rawRoomId = parts[2];
+      } else if (parts.length >= 2 && isPartyPath) {
+        rawRoomId = parts[1];
+      } else if (parts.length >= 1) {
+        rawRoomId = parts[parts.length - 1];
+      }
       this.room.id = String(rawRoomId).trim().toUpperCase();
     }
 
@@ -141,9 +149,9 @@ export class DiceServer {
     
     switch (data.type) {
       case 'join':
-        // 기존 uid 접속자인지 확인 (재접속)
+        // 기존 uid 접속자인지 확인 (동일 유저의 재연결/재접속 시 기존 소켓 대체 및 호스트 권한/상태 승계)
         let existingConnId = Object.keys(this.players).find(id => this.players[id].uid === data.uid);
-        if (existingConnId) {
+        if (existingConnId && existingConnId !== conn.id) {
           if (this.gameState === 'ended') {
             conn.send(JSON.stringify({
               type: 'game_already_ended',
@@ -155,6 +163,8 @@ export class DiceServer {
           delete this.players[existingConnId];
           pData.connId = conn.id;
           pData.disconnected = false;
+          if (data.nickname) pData.nickname = data.nickname;
+          if (data.avatarUrl) pData.avatarUrl = data.avatarUrl;
           this.players[conn.id] = pData;
 
           this.broadcastState();
@@ -237,9 +247,26 @@ export class DiceServer {
         break;
 
       case 'game_ended':
-      case 'player_forfeited':
         this.gameState = 'ended';
         this.room.broadcast(message, [conn.id]);
+        break;
+
+      case 'player_forfeited':
+        this.gameState = 'ended';
+        let forfeitPlayer = this.players[conn.id];
+        let forfeitPIndex = 1;
+        if (forfeitPlayer) {
+          const playersArr = Object.values(this.players);
+          const idx = playersArr.indexOf(forfeitPlayer);
+          forfeitPIndex = idx >= 0 ? idx + 1 : (forfeitPlayer.isHost ? 1 : 2);
+        }
+        const forfeitPayload = JSON.stringify({
+          type: 'player_forfeited',
+          connId: conn.id,
+          uid: data.uid || forfeitPlayer?.uid,
+          pIndex: forfeitPIndex
+        });
+        this.room.broadcast(forfeitPayload, [conn.id]);
         break;
         
       default:
@@ -314,10 +341,13 @@ export default {
     const url = new URL(request.url);
     const parts = url.pathname.split('/').filter(Boolean);
     
-    // PartySocket path: /parties/:partyName/:roomId or /parties/main/:roomId
+    // PartySocket path: /party/:partyName/:roomId or /parties/:partyName/:roomId
+    const isPartyPath = parts[0] === 'party' || parts[0] === 'parties';
     let roomId = 'DEFAULT';
-    if (parts.length >= 3 && parts[0] === 'parties') {
+    if (parts.length >= 3 && isPartyPath) {
       roomId = parts[2];
+    } else if (parts.length >= 2 && isPartyPath) {
+      roomId = parts[1];
     } else if (parts.length >= 1) {
       roomId = parts[parts.length - 1];
     }

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "party": "partykit dev src/server.js --port 1999",
     "build": "vite build",
     "preview": "vite preview"
   },
