@@ -56,9 +56,10 @@ const els = {
 
   playMenuSection: document.getElementById('play-menu-section'),
   btnPlayNormal: document.getElementById('btn-norm-hotseat'),
-  btnPlayAugmented: document.getElementById('btn-aug-hotseat'),
-  btnPlayNormalLobby: document.getElementById('btn-norm-lobby'),
-  btnPlayAugmentedLobby: document.getElementById('btn-aug-lobby'),
+  btnAugOnline: document.getElementById('btn-aug-online'),
+  btnAugLobby: document.getElementById('btn-aug-lobby'),
+  btnAugHotseat: document.getElementById('btn-aug-hotseat'),
+
   lobbySelectSection: document.getElementById('lobby-select-section'),
   btnLobbySelectBack: document.getElementById('btn-lobby-select-back'),
   btnLobbyCreate: document.getElementById('btn-lobby-create'),
@@ -114,13 +115,15 @@ const isLocalhost = Boolean(
 );
 
 if (isLocalhost) {
-  if (els.btnPlayAugmented) els.btnPlayAugmented.disabled = false;
-  if (els.btnPlayAugmentedLobby) els.btnPlayAugmentedLobby.disabled = false;
+  if (els.btnAugOnline) els.btnAugOnline.disabled = false;
+  if (els.btnAugLobby) els.btnAugLobby.disabled = false;
+  if (els.btnAugHotseat) els.btnAugHotseat.disabled = false;
   const debugContainer = document.getElementById('debug-container');
   if (debugContainer) debugContainer.style.display = 'block';
 } else {
-  if (els.btnPlayAugmented) els.btnPlayAugmented.disabled = true;
-  if (els.btnPlayAugmentedLobby) els.btnPlayAugmentedLobby.disabled = true;
+  if (els.btnAugOnline) els.btnAugOnline.disabled = true;
+  if (els.btnAugLobby) els.btnAugLobby.disabled = true;
+  if (els.btnAugHotseat) els.btnAugHotseat.disabled = true;
   const debugContainer = document.getElementById('debug-container');
   if (debugContainer) debugContainer.style.display = 'none';
 }
@@ -947,7 +950,7 @@ els.btnPlayNormal?.addEventListener('click', () => {
   }
 });
 
-els.btnPlayAugmented?.addEventListener('click', () => {
+els.btnAugHotseat?.addEventListener('click', () => {
   try {
     transitionToPlaying('augmented-hotseat');
   } catch (err) {
@@ -1345,7 +1348,7 @@ els.btnPlayNormalLobby?.addEventListener('click', () => {
   showLobbySelect('normal');
 });
 
-els.btnPlayAugmentedLobby?.addEventListener('click', () => {
+els.btnAugLobby?.addEventListener('click', () => {
   showLobbySelect('augmented');
 });
 
