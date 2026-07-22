@@ -28,9 +28,13 @@
           <input type="text" id="nickname-input" placeholder="Nickname" class="game-input" style="width: 100%; box-sizing: border-box; text-align: left;" />
         </div>
         
-        <!-- Google reCAPTCHA v3는 보이지 않으므로 별도의 DOM 위젯을 그리지 않습니다. -->
-        <div style="margin: 20px auto;"></div>
+        <!-- Google reCAPTCHA v3 법적 안내 문구 (구글 공식 가이드) -->
+        <p class="recaptcha-terms">
+          이 사이트는 reCAPTCHA에 의해 보호되며 Google 
+          <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">개인정보처리방침</a> 및 
+          <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer">서비스 약관</a>이 적용됩니다.
+        </p>
         
-        <button id="btn-submit-nickname" class="btn-login-primary">시작하기</button>
+        <button id="btn-submit-nickname" class="btn-login-primary" style="margin-top: 15px;">시작하기</button>
       </div>
     </div>

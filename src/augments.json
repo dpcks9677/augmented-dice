@@ -272,7 +272,7 @@
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><circle cx=\"12\" cy=\"13\" r=\"8\" fill=\"none\" stroke=\"#222\" stroke-width=\"2\"/><path d=\"M12 5 v-3 M9 2 h6 M12 13 l3 -3\" stroke=\"#222\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg>",
     "target": "q2",
     "type": "Quest",
-    "reward": "남은 게임 동안 내 모든 최종 획득 점수에 +3점 영구 추가",
+    "reward": "달성 즉시 보너스 +15점 획득",
     "description": "<strong><u>퀘스트</strong></u>: 앞으로 3턴 간 리롤없이 바로 족보를 기입합니다.<br><br>퀘스트 완료 시, 추가로 15점을 획득합니다.",
     "mutationId": "no-time-to-waste"
   },
@@ -352,7 +352,7 @@
     "name": "추진력",
     "en-name": "Momentum",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path d=\"M12 2 l4 8 v8 l-4 -2 l-4 2 v-8 z\" fill=\"#222\" stroke-linejoin=\"round\"/></svg>",
-    "description": "<strong><u>족보에 처음으로 0점(스크래치)을 기록했을 때 발동</strong></u>합니다.<br><br>다음 턴에 '하단 구역' 족보를 완성하여 기입하면 획득 점수가 1.5배로 증가합니다.<br><br>(소수점은 버리며, 단 1회 발동합니다.)",
+    "description": "<strong><u>족보에 처음으로 0점(스크래치)을 기록했을 때 발동</strong></u>합니다.<br><br>다음 턴에 족보를 기입하여 점수를 획득하면 해당 획득 점수(보너스 포함)가 1.5배로 증가합니다.<br><br>(소수점은 버리며, 단 1회 발동합니다.)",
     "mutationId": "momentum"
   },
   {

@@ -1,6 +1,8 @@
 export class DiceServer {
-  constructor(room) {
-    this.room = room;
+  constructor(state, env) {
+    this.state = state;
+    this.env = env;
+    this.connections = new Map();
     // players map: connectionId -> { uid, nickname, avatarUrl, isHost, isReady, disconnected }
     this.players = {}; 
     this.gameState = 'lobby'; // 'lobby', 'playing'
@@ -15,6 +17,22 @@ export class DiceServer {
       activeDice: [],
       keptDice: [],
       matchLogHistory: []
+    };
+
+    // room 객체: broadcast 기능을 제공하는 어댑터
+    this.room = {
+      id: null,
+      broadcast: (msg, excludeIds = []) => {
+        this.connections.forEach((ws, id) => {
+          if (!excludeIds.includes(id)) {
+            try {
+              ws.send(msg);
+            } catch (e) {
+              // 전송 실패한 소켓은 무시
+            }
+          }
+        });
+      }
     };
 
     // 1초 주기 서버 타이머 (턴 시간 및 재접속 유예시간 추적)
@@ -34,6 +52,59 @@ export class DiceServer {
         });
       }
     }, 1000);
+  }
+
+  async fetch(request) {
+    // 첫 요청에서 룸 ID 추출
+    if (!this.room.id) {
+      const url = new URL(request.url);
+      const parts = url.pathname.split('/').filter(Boolean);
+      const rawRoomId = (parts.length >= 3 && parts[0] === 'parties' ? parts[2] : parts[parts.length - 1]) || 'DEFAULT';
+      this.room.id = String(rawRoomId).trim().toUpperCase();
+    }
+
+    if (request.headers.get("Upgrade") === "websocket") {
+      const pair = new WebSocketPair();
+      const [client, server] = Object.values(pair);
+
+      const connId = "conn_" + Math.random().toString(36).substring(2, 9);
+      server.accept();
+
+      this.connections.set(connId, server);
+
+      const connObj = {
+        id: connId,
+        send: (msg) => { try { server.send(msg); } catch(e) {} }
+      };
+
+      if (typeof this.onConnect === 'function') {
+        this.onConnect(connObj);
+      }
+
+      server.addEventListener("message", (event) => {
+        if (typeof this.onMessage === 'function') {
+          this.onMessage(event.data, connObj);
+        }
+      });
+
+      server.addEventListener("close", () => {
+        this.connections.delete(connId);
+        if (typeof this.onClose === 'function') {
+          this.onClose(connObj);
+        }
+      });
+
+      server.addEventListener("error", () => {
+        this.connections.delete(connId);
+        if (typeof this.onClose === 'function') {
+          this.onClose(connObj);
+        }
+      });
+
+      return new Response(null, { status: 101, webSocket: client });
+    }
+
+    return new Response("WebSocket server is running.", { status: 200 });
   }
 
   onConnect(conn, ctx) {
@@ -238,4 +309,27 @@ export class DiceServer {
   }
 }
 
-export default DiceServer;
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    const parts = url.pathname.split('/').filter(Boolean);
+    
+    // PartySocket path: /parties/:partyName/:roomId or /parties/main/:roomId
+    let roomId = 'DEFAULT';
+    if (parts.length >= 3 && parts[0] === 'parties') {
+      roomId = parts[2];
+    } else if (parts.length >= 1) {
+      roomId = parts[parts.length - 1];
+    }
+    roomId = String(roomId).trim().toUpperCase();
+
+    const namespace = env.DiceServer || env.main;
+    if (namespace) {
+      const id = namespace.idFromName(roomId);
+      const stub = namespace.get(id);
+      return stub.fetch(request);
+    }
+
+    return new Response("Not Found", { status: 404 });
+  }
+};

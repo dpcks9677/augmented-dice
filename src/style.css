@@ -1236,6 +1236,7 @@ body {
 /* --- App Container States & Transitions --- */
 #profile-section,
 #augment-section,
+#match-info-section,
 #playable-section,
 #play-menu-section,
 #lobby-select-section,
@@ -1255,7 +1256,8 @@ body {
   opacity: 1;
 }
 
-#app-container.mode-select-state #augment-section {
+#app-container.mode-select-state #augment-section,
+#app-container.mode-select-state #match-info-section {
   width: 0;
   flex: 0 0 0;
   padding: 0;
@@ -1306,7 +1308,8 @@ body {
   border-right: none;
 }
 
-#app-container.playing-state:not(.normal-mode) #augment-section {
+#app-container.playing-state:not(.normal-mode) #augment-section,
+#app-container.playing-state:not(.normal-mode) #match-info-section {
   width: calc(22.5% + 60px);
   flex: 0 0 calc(22.5% + 60px);
   opacity: 1;
@@ -1363,7 +1366,8 @@ body {
   padding: 24px;
   opacity: 1;
 }
-#app-container.lobby-select-state #augment-section {
+#app-container.lobby-select-state #augment-section,
+#app-container.lobby-select-state #match-info-section {
   width: 0;
   flex: 0 0 0;
   padding: 0;
@@ -1401,7 +1405,8 @@ body {
   padding: 24px;
   opacity: 1;
 }
-#app-container.lobby-state #augment-section {
+#app-container.lobby-state #augment-section,
+#app-container.lobby-state #match-info-section {
   width: 0;
   flex: 0 0 0;
   padding: 0;
@@ -2167,4 +2172,10 @@ svg.lucide-icon {
 .endgame-score-card.winner-card .endgame-score-val {
   color: #27ae60;
 }
+
+/* Google reCAPTCHA v3 배지 숨김 (하단 약관 문구로 대체 표기) */
+.grecaptcha-badge {
+  visibility: hidden !important;
+}
+
 

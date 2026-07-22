@@ -46,7 +46,11 @@ class NetworkEngine {
       
       // 내 정보 가져오기
       const user = getCurrentUser();
-      let uid = "guest-" + Math.random().toString(36).substring(2, 9);
+      let uid = sessionStorage.getItem('ad_guest_uid');
+      if (!uid) {
+        uid = "guest-" + Math.random().toString(36).substring(2, 9);
+        sessionStorage.setItem('ad_guest_uid', uid);
+      }
       let nickname = "Guest";
       let avatarUrl = null;
 
@@ -58,12 +62,18 @@ class NetworkEngine {
           avatarUrl = dbUser.avatarUrl || null;
         }
       } else {
-        // 프로필 캔버스는 더 이상 사용 안 함
         const profileNick = document.getElementById('profile-nickname');
         if (profileNick && profileNick.textContent !== "Player") {
           nickname = profileNick.textContent;
         }
+        const profileAvatarContainer = document.getElementById('profile-avatar-container');
+        const bgImg = profileAvatarContainer?.style?.backgroundImage;
+        if (bgImg && bgImg.includes('url(')) {
+          avatarUrl = bgImg.replace(/^url\(['"]?/, '').replace(/['"]?\)$/, '');
+        }
       }
+
+      window.myUid = uid;
 
       // 서버에 join 메시지 전송
       this.sendMessage({

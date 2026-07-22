@@ -18,7 +18,7 @@ export class DiceEngine {
     this.initCannon();
     this.initAudio();
         
-    this.clock = new THREE.Clock();
+    this.lastTime = performance.now();
     this.animate = this.animate.bind(this);
     
     // Set initial size and walls after Cannon is initialized
@@ -85,7 +85,7 @@ export class DiceEngine {
   startRenderLoop() {
     if (!this.isRendering) {
       this.isRendering = true;
-      this.clock.getDelta(); // reset delta
+      this.lastTime = performance.now(); // reset delta
       this.animate();
     }
   }
@@ -1196,7 +1196,9 @@ export class DiceEngine {
     }
 
     this.animationFrameId = requestAnimationFrame(this.animate);
-    const dt = this.clock.getDelta();
+    const now = performance.now();
+    const dt = (now - this.lastTime) / 1000;
+    this.lastTime = now;
 
     if (this.physicsActive) {
       this.world.step(1/60, Math.min(dt, 0.1), 10);

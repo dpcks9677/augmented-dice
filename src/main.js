@@ -106,6 +106,26 @@ const els = {
   btnReturnLobby: document.getElementById('btn-return-lobby')
 };
 
+// 환경 제어 (로컬호스트인 경우만 증강 모드 및 디버그 툴 사용 허용)
+const isLocalhost = Boolean(
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1' ||
+  window.location.hostname === '[::1]'
+);
+
+if (isLocalhost) {
+  if (els.btnPlayAugmented) els.btnPlayAugmented.disabled = false;
+  if (els.btnPlayAugmentedLobby) els.btnPlayAugmentedLobby.disabled = false;
+  const debugContainer = document.getElementById('debug-container');
+  if (debugContainer) debugContainer.style.display = 'block';
+} else {
+  if (els.btnPlayAugmented) els.btnPlayAugmented.disabled = true;
+  if (els.btnPlayAugmentedLobby) els.btnPlayAugmentedLobby.disabled = true;
+  const debugContainer = document.getElementById('debug-container');
+  if (debugContainer) debugContainer.style.display = 'none';
+}
+
+
 // 화면 스케일링 로직
 function handleAppScaling() {
   if (!els.appContainer) return;
@@ -152,6 +172,8 @@ let yachtBankLocked = { 1: false, 2: false, 3: false, 4: false };
 let destroyedStrangeDice = { 1: false, 2: false, 3: false, 4: false };
 let promotionConsumed = { 1: false, 2: false, 3: false, 4: false };
 let questProgress = { 1: {}, 2: {}, 3: {}, 4: {} };
+let momentumState = { 1: 'ready', 2: 'ready', 3: 'ready', 4: 'ready' };
+let momentumGainedScore = { 1: 0, 2: 0, 3: 0, 4: 0 };
 
 let landingDiceEngine = null;
 
@@ -206,7 +228,7 @@ function formatLogEntry(log, playerNames = null) {
     case 'timeout':
       return `시간 초과로 인해 [${log.meta.catName}] 족보에 ${log.meta.score}점을 자동으로 기입했습니다.`;
     case 'augment-action':
-      return `[${log.meta.name}] 증강을 획득했습니다.`;
+      return `${pLabel}이 [${log.meta.name}] 증강을 획득했습니다.`;
     default:
       return '';
   }
@@ -907,7 +929,7 @@ function transitionToPlaying(mode) {
       showAugment();
     }
 
-    startHotseatGame();
+    startHotseatGame(mode);
 
     // 3. 다시 페이드 인
     requestAnimationFrame(() => {
@@ -978,6 +1000,7 @@ function showLobby(isHost, joinCode = null) {
     els.lobbyModeText.textContent = '증강 요트 다이스';
   }
 
+  const user = getCurrentUser();
   const myName = els.profileNickname?.textContent || "Player 1";
   const slots = els.lobbySection.querySelectorAll('.lobby-player-slot');
   if (slots.length > 0) {
@@ -985,13 +1008,17 @@ function showLobby(isHost, joinCode = null) {
     if (p1NameElem) p1NameElem.textContent = myName;
 
     const p1AvatarElem = slots[0].querySelector('.player-avatar');
-    if (p1AvatarElem && window.myPlayerInfo && window.myPlayerInfo.avatarUrl) {
-      p1AvatarElem.style.backgroundImage = `url(${window.myPlayerInfo.avatarUrl})`;
+    const profileAvatarContainer = document.getElementById('profile-avatar-container');
+    const currentBg = profileAvatarContainer?.style?.backgroundImage;
+
+    if (p1AvatarElem && currentBg && currentBg !== 'none') {
+      p1AvatarElem.style.backgroundImage = currentBg;
       p1AvatarElem.style.backgroundSize = 'cover';
       p1AvatarElem.style.backgroundPosition = 'center';
-    } else if (p1AvatarElem) {
-      p1AvatarElem.style.backgroundImage = 'none';
-      p1AvatarElem.style.backgroundColor = '#ccc';
+    } else if (p1AvatarElem && window.myPlayerInfo && window.myPlayerInfo.avatarUrl) {
+      p1AvatarElem.style.backgroundImage = `url('${window.myPlayerInfo.avatarUrl}')`;
+      p1AvatarElem.style.backgroundSize = 'cover';
+      p1AvatarElem.style.backgroundPosition = 'center';
     }
   }
 
@@ -1093,7 +1120,8 @@ networkEngine.on('lobby_state', (data) => {
 
   // 내가 호스트인지 확인하고 버튼 제어
   const myConnId = networkEngine.socket?.id; // PartySocket id
-  const me = players.find(p => p.connId === myConnId);
+  const myUid = getCurrentUser()?.uid || window.myUid;
+  const me = players.find(p => (myConnId && p.connId === myConnId) || (myUid && p.uid === myUid));
   if (me) {
     window.myPlayerInfo = me;
     if (me.isHost) {
@@ -1438,6 +1466,8 @@ function resetGameSession() {
   yachtBankLocked[1] = false; yachtBankLocked[2] = false; yachtBankLocked[3] = false; yachtBankLocked[4] = false;
   destroyedStrangeDice[1] = false; destroyedStrangeDice[2] = false; destroyedStrangeDice[3] = false; destroyedStrangeDice[4] = false;
   promotionConsumed[1] = false; promotionConsumed[2] = false; promotionConsumed[3] = false; promotionConsumed[4] = false;
+  momentumState[1] = 'ready'; momentumState[2] = 'ready'; momentumState[3] = 'ready'; momentumState[4] = 'ready';
+  momentumGainedScore[1] = 0; momentumGainedScore[2] = 0; momentumGainedScore[3] = 0; momentumGainedScore[4] = 0;
   if (typeof disconnectGrace !== 'undefined') {
     disconnectGrace[1] = 60; disconnectGrace[2] = 60; disconnectGrace[3] = 60; disconnectGrace[4] = 60;
   }
@@ -1638,24 +1668,48 @@ function startMultiplayerGame() {
   startTurn();
 }
 
+let augmentTimerInterval = null;
+
 function showAugmentSelectionModal(player, onSelect) {
   const modal = document.getElementById('augment-selection-modal');
   const title = document.getElementById('augment-modal-title');
   const optionsContainer = document.getElementById('augment-options');
+  const timerElem = document.getElementById('augment-timer');
+  const timerText = document.getElementById('augment-timer-text');
 
   if (!modal || !title || !optionsContainer) return;
+
+  if (augmentTimerInterval) {
+    clearInterval(augmentTimerInterval);
+    augmentTimerInterval = null;
+  }
 
   title.textContent = `Player ${player} 증강 선택`;
   optionsContainer.innerHTML = '';
 
+  let timeLeft = 30;
+  if (timerText) timerText.textContent = `${timeLeft}s`;
+  if (timerElem) {
+    timerElem.classList.remove('warning', 'paused');
+  }
+
   const shuffled = [...augmentData].sort(() => 0.5 - Math.random());
   const selectedAugments = shuffled.slice(0, 3);
+
+  const cleanupAndSelect = (aug) => {
+    if (augmentTimerInterval) {
+      clearInterval(augmentTimerInterval);
+      augmentTimerInterval = null;
+    }
+    modal.classList.add('hidden');
+    if (window.applyMutation) window.applyMutation(player, aug.mutationId);
+    if (onSelect) onSelect();
+  };
 
   selectedAugments.forEach(aug => {
     const btn = document.createElement('div');
     btn.className = 'augment-option';
     let desc = aug.description || aug.name + ' 증강이 적용됩니다.';
-    // removed <br> replacement
 
     const icon = aug.icon || getVariantSvg(aug.mutationId) || '';
     btn.innerHTML = `
@@ -1663,12 +1717,27 @@ function showAugmentSelectionModal(player, onSelect) {
       <div class="aug-slot-desc">${desc}</div>
     `;
     btn.addEventListener('click', () => {
-      modal.classList.add('hidden');
-      if (window.applyMutation) window.applyMutation(player, aug.mutationId);
-      if (onSelect) onSelect();
+      cleanupAndSelect(aug);
     });
     optionsContainer.appendChild(btn);
   });
+
+  augmentTimerInterval = setInterval(() => {
+    timeLeft--;
+    if (timerText) timerText.textContent = `${timeLeft}s`;
+    if (timerElem) {
+      if (timeLeft <= 10) timerElem.classList.add('warning');
+      else timerElem.classList.remove('warning');
+    }
+
+    if (timeLeft <= 0) {
+      clearInterval(augmentTimerInterval);
+      augmentTimerInterval = null;
+      // 3개 옵션 중 첫 번째 무작위 자동 선택
+      const autoPick = selectedAugments[Math.floor(Math.random() * selectedAugments.length)];
+      cleanupAndSelect(autoPick);
+    }
+  }, 1000);
 
   modal.classList.remove('hidden');
 }
@@ -1882,7 +1951,6 @@ function handlePlayerReconnect(playerIndex) {
 
 function startTurn() {
   stopTurnTimer();
-  startTurnTimer();
 
   rollsLeft = 3;
   keptDice = [];
@@ -1892,18 +1960,26 @@ function startTurn() {
 
   els.gameStatus.textContent = `P${currentPlayer}의 턴 (라운드 ${currentRound}/12)`;
 
-  if (currentRound === 1 && currentPlayer === 1) {
-    addGameLog('게임 시작!', 'turn-start', false, 0);
-  }
-  addGameLog({ type: 'turn-start', player: currentPlayer, round: currentRound }, 'turn-start', false, currentPlayer);
-  
   updateMatchProfiles();
   updateTurnHighlights();
 
-  // 멀티플레이어 권한 잠금
   const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
 
   if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(currentPlayer);
+
+  // 게임 최선두 1라운드 P1 시작 시 '게임 시작!' 로그 기록
+  if (currentRound === 1 && currentPlayer === 1 && (!window.matchLogHistory || window.matchLogHistory.length === 0)) {
+    addGameLog('게임 시작!', 'turn-start', false, 0);
+  }
+
+  const proceedTurnStart = () => {
+    startTurnTimer();
+    addGameLog({ type: 'turn-start', player: currentPlayer, round: currentRound }, 'turn-start', false, currentPlayer);
+
+    if (diceBoxReady) {
+      els.btnRoll.disabled = !isMyTurn;
+    }
+  };
 
   if (gameMode === 'augmented-hotseat') {
     const currentAugCount = Object.keys(activeMutations[currentPlayer] || {}).length;
@@ -1913,6 +1989,11 @@ function startTurn() {
     if (currentRound >= 9) expectedCount = 3;
 
     if (currentAugCount < expectedCount) {
+      // P1이 증강 선택을 처음 시작할 때 페이즈 안내 로그 출력
+      if (currentPlayer === 1) {
+        addGameLog(`${expectedCount}페이즈 증강 선택`, 'turn-start', false, 0);
+      }
+
       els.btnRoll.disabled = true;
       showAugmentSelectionModal(currentPlayer, () => {
         if (currentPlayer === 1) {
@@ -1921,20 +2002,18 @@ function startTurn() {
             if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(2);
             showAugmentSelectionModal(2, () => {
               if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(1);
-              if (diceBoxReady) els.btnRoll.disabled = !isMyTurn;
+              proceedTurnStart();
             });
             return;
           }
         }
-        if (diceBoxReady) els.btnRoll.disabled = !isMyTurn;
+        proceedTurnStart();
       });
       return;
     }
   }
 
-  if (diceBoxReady) {
-    els.btnRoll.disabled = !isMyTurn;
-  }
+  proceedTurnStart();
 }
 
 function updateRollsUI() {
@@ -1944,7 +2023,7 @@ function updateRollsUI() {
   if (typeof diceEngine !== 'undefined' && diceEngine) {
     const activeMuts = Object.values(activeMutations[currentPlayer] || {});
     let baseDiceCount = 5;
-    const totalDiceAllowed = baseDiceCount + (activeMuts.includes('strange-die') && !destroyedStrangeDice[currentPlayer] ? 1 : 0) + (activeMuts.includes('promotion-die') && !promotionConsumed[currentPlayer] ? 1 : 0);
+    const totalDiceAllowed = baseDiceCount + (activeMuts.includes('strange-die') && !destroyedStrangeDice[currentPlayer] ? 1 : 0);
 
     // 주사위를 1회 이상 굴렸을 때(rollsLeft < 3) 킵/언킵 조작을 허용
     diceEngine.allowKeep = isMyTurn && (rollsLeft < 3);
@@ -2028,7 +2107,7 @@ els.btnRoll.addEventListener('click', async () => {
   for (let i = 0; i < coupleCount; i++) specialConfigs.push({ type: 'couple' });
   for (let i = 0; i < sevensCount; i++) specialConfigs.push({ type: 'sevens' });
 
-  const totalDiceAllowed = baseDiceCount + (activeMuts.includes('strange-die') && !destroyedStrangeDice[currentPlayer] ? 1 : 0) + (activeMuts.includes('promotion-die') && !promotionConsumed[currentPlayer] ? 1 : 0);
+  const totalDiceAllowed = baseDiceCount + (activeMuts.includes('strange-die') && !destroyedStrangeDice[currentPlayer] ? 1 : 0);
   const normalCountToRoll = totalDiceAllowed - keptConfigs.length - specialConfigs.length;
 
   for (let i = 0; i < normalCountToRoll; i++) specialConfigs.push({ type: 'normal' });
@@ -2141,13 +2220,23 @@ function previewScores(diceArray) {
 
   categories.forEach(cat => {
     if (cat.isDivider) return;
-    const cellId = `p${currentPlayer}-${cat.id}`;
-    const cell = document.getElementById(cellId);
-
-    // 이미 확정된 점수면 건너뜀
     if (scores[currentPlayer] && scores[currentPlayer][cat.id] !== undefined) return;
 
-    const scoreObj = typeof potentialScores[cat.id] === 'object' ? potentialScores[cat.id] : { score: potentialScores[cat.id], bonus: 0 };
+    const cellId = `p${currentPlayer}-${cat.id}`;
+    const cell = document.getElementById(cellId);
+    if (!cell) return;
+
+    const scoreObj = typeof potentialScores[cat.id] === 'object' ? { ...potentialScores[cat.id] } : { score: potentialScores[cat.id], bonus: 0 };
+    
+    // 추진력 발동 준비(active) 상태 시 예상 점수에 1.5배 가산분 미리보기 추가
+    const playerMuts = Object.values(activeMutations[currentPlayer] || {});
+    if (playerMuts.includes('momentum') && momentumState[currentPlayer] === 'active' && scoreObj.score > 0) {
+      const origTotal = scoreObj.score + (scoreObj.bonus || 0);
+      const newTotal = Math.floor(origTotal * 1.5);
+      const mBonus = newTotal - origTotal;
+      scoreObj.bonus = (scoreObj.bonus || 0) + mBonus;
+    }
+
     let scoreText = scoreObj.score.toString();
     if (scoreObj.bonus > 0) {
       scoreText += ` <span style="color: #D4AF37;">+${scoreObj.bonus}</span>`;
@@ -2215,7 +2304,33 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
   }
 
   // scoreInfo might be an object { score, bonus } or a number
-  let scoreObj = typeof scoreInfo === 'object' ? scoreInfo : { score: scoreInfo, bonus: 0 };
+  let scoreObj = typeof scoreInfo === 'object' ? scoreInfo : { score: scoreInfo, bonus: 0, bonusDetails: [] };
+
+  // 추진력 (momentum) 증강 처리 로직
+  const playerMutations = Object.values(activeMutations[currentPlayer] || {});
+  if (playerMutations.includes('momentum')) {
+    if (!momentumState[currentPlayer]) momentumState[currentPlayer] = 'ready';
+
+    if (momentumState[currentPlayer] === 'ready' && scoreObj.score === 0) {
+      momentumState[currentPlayer] = 'active';
+      addGameLog({ type: 'system', message: `${getPlayerLabel(currentPlayer)}의 [추진력] 증강이 발동 준비되었습니다! (다음 턴 점수 획득 시 1.5배)` }, 'system', window.isMultiplayer, currentPlayer);
+    } else if (momentumState[currentPlayer] === 'active' && scoreObj.score > 0) {
+      const originalScore = scoreObj.score;
+      const totalOriginal = originalScore + (scoreObj.bonus || 0);
+      const newTotal = Math.floor(totalOriginal * 1.5);
+      const momentumBonus = newTotal - totalOriginal;
+
+      scoreObj.bonus = (scoreObj.bonus || 0) + momentumBonus;
+      if (!scoreObj.bonusDetails) scoreObj.bonusDetails = [];
+      scoreObj.bonusDetails.push({ value: momentumBonus, color: '#D4AF37' }); // 노란색 표기
+
+      momentumState[currentPlayer] = 'used';
+      momentumGainedScore[currentPlayer] = newTotal;
+
+      addGameLog({ type: 'system', message: `${getPlayerLabel(currentPlayer)}의 [추진력] 증강이 발동하여 획득 점수가 1.5배로 증가했습니다! (${newTotal}점 획득)` }, 'system', window.isMultiplayer, currentPlayer);
+    }
+  }
+
   scores[currentPlayer][catId] = scoreObj;
 
   // 타임아웃에 의한 자동 기입인 경우 일반 족보 기입 로그 작성을 생략 (중복 방지)
@@ -2231,11 +2346,12 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
     }
   });
 
-  // 프로모션 주사위 소모 체크 (족보에 최종 기입된 5개의 주사위에 포함되었을 때만 소모)
+  // 프로모션 주사위 소모 체크 (프로모션 주사위 눈금이 6인 상태에서 족보 기입 완료 시 소모)
   const usedDice = diceEngine.diceArray.length > 5 ? diceEngine.diceArray.filter(d => d.isKept) : diceEngine.diceArray;
   usedDice.forEach(d => {
-    if (d.config.type === 'promotion') {
+    if (d.config.type === 'promotion' && d.value === 6) {
       promotionConsumed[currentPlayer] = true;
+      addGameLog({ type: 'system', message: `${getPlayerLabel(currentPlayer)}의 프로모션 주사위가 소모되어 일반 주사위로 복구되었습니다.` }, 'system', window.isMultiplayer, currentPlayer);
     }
   });
 
@@ -2297,6 +2413,8 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
       }
     }
   }
+
+  updateQuestProgress(currentPlayer, catId, scoreObj);
 
   clearScorePreviews();
   updateScoreboard();
@@ -2662,12 +2780,13 @@ function updateScoreboard() {
           const isUpperComplete = upperCats.every(c => scores[p] && scores[p][c] !== undefined);
           const threshold = upperBonusThreshold[p] || 63;
 
+          const bonusVal = (questProgress[p]?.stepRewarded) ? 55 : 35;
           if (pUpper >= threshold) {
-            cell.innerHTML = `<span style="color: #D4AF37; font-weight: bold;">+35</span>`;
+            cell.innerHTML = `<span style="color: #D4AF37; font-weight: bold;">+${bonusVal}</span>`;
           } else if (isUpperComplete) {
-            cell.innerHTML = `<span style="text-decoration: line-through; color: #888; font-weight: bold;">+35</span>`;
+            cell.innerHTML = `<span style="text-decoration: line-through; color: #888; font-weight: bold;">+${bonusVal}</span>`;
           } else {
-            cell.innerHTML = `<span style="color: #888; font-weight: bold;">+35</span>`;
+            cell.innerHTML = `<span style="color: #888; font-weight: bold;">+${bonusVal}</span>`;
           }
         }
       }
@@ -2721,9 +2840,17 @@ function updateScoreboard() {
       pTotal += (playerYachtBank[p] || 0);
     }
 
+    // 퀘스트 완수 보너스 점수 합산
+    const qBonus = questProgress[p]?.questBonus || 0;
+    pTotal += qBonus;
+
     const pTotalEl = document.getElementById(`p${p}-total`);
     if (pTotalEl) {
-      pTotalEl.textContent = pTotal;
+      if (qBonus > 0) {
+        pTotalEl.innerHTML = `${pTotal} <span style="color: #D4AF37; font-size: 0.85em;">(+${qBonus})</span>`;
+      } else {
+        pTotalEl.textContent = pTotal;
+      }
     }
   }
 }
@@ -2772,7 +2899,7 @@ setTimeout(() => {
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     console.log("Debug mode: Auto-starting hotseat game");
     gameMode = 'hotseat';
-    els.lobbyOverlay.classList.add('hidden');
+    els.lobbyOverlay?.classList.add('hidden');
     els.p1Name.querySelector('.name-text').textContent = "Player 1";
     els.p2Name.querySelector('.name-text').textContent = "Player 2";
     startHotseatGame();
@@ -2785,6 +2912,108 @@ setTimeout(() => {
   }
 }, 100);
 
+function updateQuestProgress(player, catId, scoreObj) {
+  if (!questProgress[player]) questProgress[player] = {};
+  const prog = questProgress[player];
+  const s = scores[player] || {};
+  const myMutations = Object.values(activeMutations[player] || {});
+
+  const addReward = (questName, bonusAmount) => {
+    prog.questBonus = (prog.questBonus || 0) + bonusAmount;
+    addGameLog({ type: 'system', message: `${getPlayerLabel(player)}이 [${questName}] 퀘스트를 달성하여 보너스 +${bonusAmount}점을 획득했습니다!` }, 'system', window.isMultiplayer, player);
+  };
+
+  // 1. 티끌 모아 태산 (every-little): 1의 눈이 1개 이상 포함된 족보 기입 (+15점)
+  if (myMutations.includes('every-little') && !prog.everyLittleRewarded) {
+    const allDice = [...keptDice, ...activeDice];
+    const finalDice = allDice.length >= 5 ? allDice.slice(0, 5) : (diceEngine?.diceArray ? diceEngine.diceArray.map(d => d.value) : []);
+    if (finalDice.includes(1) || catId === 'aces') {
+      prog.everyLittleCount = (prog.everyLittleCount || 0) + 1;
+      if (prog.everyLittleCount >= 7) {
+        prog.everyLittleRewarded = true;
+        addReward('티끌 모아 태산', 15);
+      }
+    }
+  }
+
+  // 2. 재빠른 스트레이트 (fast-straight): 8턴 안에 S.Straight 및 L.Straight 모두 점수 기입 (+15점)
+  if (myMutations.includes('fast-straight') && !prog.fastStraightRewarded) {
+    if (currentRound <= 8) {
+      if (s['s-straight']?.score > 0 && s['l-straight']?.score > 0) {
+        prog.fastStraightRewarded = true;
+        addReward('재빠른 스트레이트', 15);
+      }
+    }
+  }
+
+  // 3. 낭비할 시간 없다 (no-time-to-waste): 리롤 없이(첫 굴림 후 바로 기입, rollsLeft === 2) 족보 기입 (+15점)
+  if (myMutations.includes('no-time-to-waste') && !prog.noTimeRewarded) {
+    if (rollsLeft === 2) {
+      prog.noTimeCount = (prog.noTimeCount || 0) + 1;
+      if (prog.noTimeCount >= 3) {
+        prog.noTimeRewarded = true;
+        addReward('낭비할 시간 없다', 15);
+      }
+    }
+  }
+
+  // 4. 차근차근 (step-by-step): Aces부터 Sixes까지 순서대로 기입 (상단 보너스 +55점 강화)
+  if (myMutations.includes('step-by-step') && !prog.stepRewarded && !prog.stepFailed) {
+    const upperOrder = ['aces', 'deuces', 'threes', 'fours', 'fives', 'sixes'];
+    if (upperOrder.includes(catId)) {
+      const stepCount = prog.stepCount || 0;
+      const expectedCat = upperOrder[stepCount];
+      if (catId === expectedCat) {
+        prog.stepCount = stepCount + 1;
+        if (prog.stepCount >= 6) {
+          prog.stepRewarded = true;
+          addGameLog({ type: 'system', message: `${getPlayerLabel(player)}이 [차근차근] 퀘스트를 달성하여 상단 보너스가 +55점으로 강화되었습니다!` }, 'system', window.isMultiplayer, player);
+        }
+      } else {
+        prog.stepFailed = true;
+      }
+    }
+  }
+
+  // 5. 두 집 살림 (two-households): Choice를 Full House 모양으로, Full House 족보 기입 (+10점)
+  if (myMutations.includes('two-households') && !prog.twoHouseholdsRewarded) {
+    if (catId === 'choice') {
+      const allDice = [...keptDice, ...activeDice];
+      const finalDice = allDice.length >= 5 ? allDice.slice(0, 5) : (diceEngine?.diceArray ? diceEngine.diceArray.map(d => d.value) : []);
+      const counts = {};
+      finalDice.forEach(v => counts[v] = (counts[v] || 0) + 1);
+      const cVals = Object.values(counts).sort((a, b) => b - a);
+      if ((cVals[0] >= 3 && cVals[1] >= 2) || cVals[0] >= 5) {
+        prog.twoHouseholdsChoiceDone = true;
+      }
+    }
+    if (prog.twoHouseholdsChoiceDone && s['fullhouse']?.score > 0) {
+      prog.twoHouseholdsRewarded = true;
+      addReward('두 집 살림', 10);
+    }
+  }
+
+  // 6. 알박기 (holdout): 9턴 이후에 Full House 기입 (+7점)
+  if (myMutations.includes('holdout') && !prog.holdoutRewarded) {
+    if (catId === 'fullhouse') {
+      if (currentRound >= 9) {
+        prog.holdoutRewarded = true;
+        addReward('알박기', 7);
+      }
+    }
+  }
+
+  // 7. 신중한 스트레이트 (cautious-straight): S.Straight를 L.Straight보다 먼저 기입 (+7점)
+  if (myMutations.includes('cautious-straight') && !prog.cautiousRewarded && !prog.cautiousFailed) {
+    if (catId === 'l-straight' && s['s-straight'] === undefined) {
+      prog.cautiousFailed = true;
+    } else if (catId === 'l-straight' && s['s-straight'] !== undefined && !prog.cautiousFailed) {
+      prog.cautiousRewarded = true;
+      addReward('신중한 스트레이트', 7);
+    }
+  }
+}
+
 // -----------------------------------------------------
 // 5. 디버그 도구
 // -----------------------------------------------------
@@ -2795,63 +3024,66 @@ function getQuestProgressText(player, mutId) {
   let questLines = [];
   let status = 'in-progress';
 
-  const line = (text, isDone) => {
-    if (isDone) return `<div style="margin-top: 8px;"><span style="text-decoration: line-through; opacity: 0.7;"><strong><u>퀘스트</u></strong>: ${text}</span></div>`;
-    return `<div style="margin-top: 8px;"><strong><u>퀘스트</u></strong>: ${text}</div>`;
+  const line = (text, isDone, isFailed = false) => {
+    if (isFailed || status === 'failed') return `<div style="margin-top: 4px;"><span style="text-decoration: line-through; opacity: 0.6;"><strong><u>퀘스트</u></strong>: ${text}</span></div>`;
+    if (isDone) return `<div style="margin-top: 4px;"><span style="text-decoration: line-through; opacity: 0.7;"><strong><u>퀘스트</u></strong>: ${text}</span></div>`;
+    return `<div style="margin-top: 4px;"><strong><u>퀘스트</u></strong>: ${text}</div>`;
   };
 
   switch (mutId) {
     case 'fast-straight':
-      questLines.push(line('8턴 안에 S. Straight 기입', s['s-straight']?.score > 0));
-      questLines.push(line('8턴 안에 L. Straight 기입', s['l-straight']?.score > 0));
       if (prog.fastStraightRewarded) status = 'completed';
       else if (currentRound > 8 && !(s['s-straight']?.score > 0 && s['l-straight']?.score > 0)) status = 'failed';
+      questLines.push(line('8턴 안에 S. Straight 기입', s['s-straight']?.score > 0));
+      questLines.push(line('8턴 안에 L. Straight 기입', s['l-straight']?.score > 0));
       break;
 
     case 'no-time-to-waste':
       const count = prog.noTimeCount || 0;
-      questLines.push(line(`리롤 없이 족보 기입 (${count}/3)`, count >= 3));
       if (prog.noTimeRewarded) status = 'completed';
+      questLines.push(line(`리롤 없이 족보 기입 (${count}/3)`, count >= 3));
       break;
 
     case 'step-by-step':
-      questLines.push(line('상단 족보 모두 채우기', prog.stepRewarded));
+      const stepCount = prog.stepCount || 0;
       if (prog.stepRewarded) status = 'completed';
+      else if (prog.stepFailed) status = 'failed';
+      questLines.push(line(`Aces부터 Sixes까지 순서대로 기입 (${stepCount}/6)`, stepCount >= 6));
       break;
 
     case 'two-households':
+      if (prog.twoHouseholdsRewarded && s['fullhouse']?.score > 0) status = 'completed';
       questLines.push(line('Choice 족보를 Full House 형태로 기입', prog.twoHouseholdsRewarded));
       questLines.push(line('Full House 족보 기입', s['fullhouse']?.score > 0));
-      if (prog.twoHouseholdsRewarded && s['fullhouse']?.score > 0) status = 'completed';
       break;
 
     case 'holdout':
-      questLines.push(line('9턴 이후에 Full House 기입', prog.holdoutRewarded));
       if (prog.holdoutRewarded) status = 'completed';
       else if (s['fullhouse'] !== undefined && !prog.holdoutRewarded) status = 'failed';
+      questLines.push(line('9턴 이후에 Full House 기입', prog.holdoutRewarded));
       break;
 
     case 'cautious-straight':
-      questLines.push(line('S. Straight를 L. Straight 보다 먼저 기입', s['s-straight'] !== undefined && !prog.cautiousFailed));
-      questLines.push(line('L. Straight 기입', prog.cautiousRewarded));
       if (prog.cautiousRewarded) status = 'completed';
       else if (prog.cautiousFailed) status = 'failed';
+      questLines.push(line('S. Straight를 L. Straight 보다 먼저 기입', s['s-straight'] !== undefined && !prog.cautiousFailed));
+      questLines.push(line('L. Straight 기입', prog.cautiousRewarded));
       break;
 
     case 'every-little':
       const elCount = prog.everyLittleCount || 0;
-      questLines.push(line(`1의 눈을 포함하여 족보 기입 (${elCount}/7)`, elCount >= 7));
       if (prog.everyLittleRewarded) status = 'completed';
+      questLines.push(line(`1의 눈을 포함하여 족보 기입 (${elCount}/7)`, elCount >= 7));
       break;
   }
 
   let resultHTML = '';
   if (status === 'completed') {
-    resultHTML += '<div style="color: #D4AF37; font-weight: bold; margin-top: 5px;">퀘스트 성공</div>';
+    resultHTML += '<div style="color: #D4AF37; font-weight: bold; margin-top: 2px;">퀘스트 성공</div>';
   } else if (status === 'failed') {
-    resultHTML += '<div style="color: #e74c3c; font-weight: bold; margin-top: 5px;">퀘스트 실패</div>';
+    resultHTML += '<div style="color: #e74c3c; font-weight: bold; margin-top: 2px;">퀘스트 실패</div>';
   } else {
-    resultHTML += '<div style="color: #3498db; font-weight: bold; margin-top: 5px;">퀘스트 진행 중</div>';
+    resultHTML += '<div style="color: #3498db; font-weight: bold; margin-top: 2px;">퀘스트 진행 중</div>';
   }
 
   resultHTML += '<hr style="margin: 4px 0 8px 0; border: none; border-top: 1px dashed #ccc;">';
@@ -2878,17 +3110,31 @@ window.updateAugmentSidebar = function (player) {
       const svgIcon = augInfo.icon || getVariantSvg(mutationId);
       let description = augInfo.description || mut.name + ' 증강이 적용되었습니다.';
 
-      let questHTML = '';
+      let extraHTML = '';
       if (mut.isQuest && typeof getQuestProgressText === 'function') {
-        questHTML = `<div class="aug-slot-desc" style="margin-top: auto; width: 100%; padding-bottom: 0;">${getQuestProgressText(player, mutationId)}</div>`;
+        extraHTML = `<div class="aug-quest-container" style="margin-top: auto; width: 100%; padding-top: 6px;">${getQuestProgressText(player, mutationId)}</div>`;
+      } else if (mutationId === 'momentum') {
+        const mState = momentumState[player] || 'ready';
+        if (mState === 'active') {
+          extraHTML = `<div style="margin-top: auto; width: 100%; padding-top: 6px; color: #27ae60; font-weight: bold; text-align: left;">이번 턴에 발동합니다!</div>`;
+        } else if (mState === 'used') {
+          const gained = momentumGainedScore[player] || 0;
+          extraHTML = `<div style="margin-top: auto; width: 100%; padding-top: 6px; color: #888; font-size: 0.85em; font-style: italic; text-align: left;">이 증강은 소모되었습니다 (${gained}점 획득함)</div>`;
+        }
       }
 
       slot.classList.add('filled');
+      if (mutationId === 'momentum' && momentumState[player] === 'used') {
+        slot.style.opacity = '0.65';
+      } else {
+        slot.style.opacity = '1';
+      }
+
       slot.innerHTML = `
-        <div class="aug-slot-filled" style="display: flex; flex-direction: column; height: 100%;">
+        <div class="aug-slot-filled" style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
           <div class="aug-slot-header">${svgIcon} <span class="aug-slot-name">${augInfo.name || mut.name}</span></div>
-          <div class="aug-slot-desc">${description}</div>
-          ${questHTML}
+          <div class="aug-slot-desc" style="flex: 1; overflow-y: auto; min-height: 0;">${description}</div>
+          ${extraHTML}
         </div>
       `;
     } else {
@@ -2914,6 +3160,9 @@ window.applyMutation = function (player, mutationId) {
 
   activeMutations[player][mut.target] = mutationId;
 
+  const augInfo = augmentData.find(a => a.name.includes(mut.name) || (a.mark && mut.enName && a.mark === mut.enName)) || {};
+  addGameLog({ type: 'augment-action', player, meta: { mutationId, name: augInfo.name || mut.name } }, 'augment-action', window.isMultiplayer, player);
+
   // 더블 라지 스트레이트 등 특수 효과 즉시 적용
   if (mutationId === 'double-large-straight') {
     upperBonusThreshold[player] = 60;
@@ -2923,12 +3172,8 @@ window.applyMutation = function (player, mutationId) {
   const targetTh = document.getElementById(player === 1 ? `cat-title-left-${mut.target}` : `cat-title-right-${mut.target}`);
 
   if (targetTh) {
-    const augInfo = augmentData.find(a => a.name.includes(mut.name) || (a.mark && mut.enName && a.mark === mut.enName)) || {};
     const svgIcon = augInfo.icon || getVariantSvg(mutationId);
     targetTh.innerHTML = `${svgIcon} ${mut.enName}`;
-
-    addGameLog({ type: 'augment-action', player, meta: { mutationId, name: augInfo.name || mut.name } }, 'augment-action', window.isMultiplayer, player);
-
     targetTh.style.backgroundColor = '#87CEEB'; // Sky Blue
     targetTh.style.color = '#222';
   }
@@ -2944,7 +3189,7 @@ window.applyMutation = function (player, mutationId) {
   }
 };
 
-/* setupDebugTools({
+setupDebugTools({
   applyMutation: window.applyMutation,
   prevTurn: () => {
     if (currentPlayer === 2) {
@@ -2991,7 +3236,7 @@ window.applyMutation = function (player, mutationId) {
 
     updateScorePreviews();
   }
-}); */
+});
 
 function resetAvatarUI() {
   const container = document.getElementById('profile-avatar-container');

@@ -45,6 +45,17 @@
     <div id="augment-selection-modal" class="overlay hidden">
       <div class="lobby-card game-card augment-modal-card">
         <h1 id="augment-modal-title">증강 선택</h1>
+        <div style="margin: 10px 0;">
+          <span id="augment-timer" class="turn-timer">
+            <svg class="hourglass-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 22h14"></path>
+              <path d="M5 2h14"></path>
+              <path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"></path>
+              <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"></path>
+            </svg>
+            <span id="augment-timer-text">30s</span>
+          </span>
+        </div>
         <p id="augment-modal-desc">원하는 증강을 하나 선택하세요.</p>
         <div id="augment-options" class="augment-options-container">
           <!-- JS에서 동적 생성 -->
