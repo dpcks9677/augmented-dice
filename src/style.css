@@ -1096,15 +1096,15 @@ body {
   display: none !important;
 }
 
-/* 증강 요트 다이스 모드 비활성화 (버튼은 보여주되 상호작용만 방지) */
-.btn-play-menu:disabled,
-#btn-aug-online:disabled,
-#btn-aug-lobby:disabled,
-#btn-aug-hotseat:disabled {
+/* 요트 다이스 모드 비활성화 버튼 스타일 (버튼은 보이지만 클릭 불가능) */
+.btn-play-menu:disabled {
   opacity: 0.5 !important;
   cursor: not-allowed !important;
   pointer-events: none !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
+
 
 
 .debug-header {
