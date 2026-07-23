@@ -473,7 +473,10 @@ function renderHistoryCard(container, matches, myUid) {
       }
     });
 
-    let myPlayer = playerList.find(p => p.uid === myUid);
+    const getCleanUidVal = (val) => (!val || typeof val !== 'string') ? val : (val.startsWith('guest') ? val : val.split('_')[0]);
+    const cleanMyUid = getCleanUidVal(myUid);
+
+    let myPlayer = playerList.find(p => p && p.uid && getCleanUidVal(p.uid) === cleanMyUid);
     if (!myPlayer) {
       const curUserObj = getCurrentUser();
       const myNick = curUserObj?.displayName || els.myNickname?.textContent;
@@ -526,7 +529,8 @@ function renderHistoryCard(container, matches, myUid) {
 
     let resultBadgeHtml = '<span class="badge-draw">무승부</span>';
     if (computedWinnerUid && computedWinnerUid !== 'draw' && computedWinnerUid !== 'none') {
-      if (computedWinnerUid === myUid) {
+      const cleanWinnerUid = getCleanUidVal(computedWinnerUid);
+      if (cleanWinnerUid === cleanMyUid) {
         resultBadgeHtml = '<span class="badge-win">승리</span>';
       } else {
         resultBadgeHtml = '<span class="badge-loss">패배</span>';
