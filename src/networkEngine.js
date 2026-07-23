@@ -87,7 +87,8 @@ class NetworkEngine {
           type: 'join',
           uid: uid,
           nickname: nickname,
-          avatarUrl: avatarUrl
+          avatarUrl: avatarUrl,
+          mode: window.pendingLobbyMode || 'normal'
         });
       }
       

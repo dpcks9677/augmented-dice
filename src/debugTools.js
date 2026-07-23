@@ -15,49 +15,48 @@ export function setupDebugTools(api) {
   const debugGroup = document.createElement('div');
   debugGroup.className = 'debug-group';
   debugGroup.innerHTML = `
-    <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start; margin-bottom: 8px;">
-      <span style="color: #222; font-weight: bold; width: 40px;">변형</span>
-      <select id="debug-player-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; margin-left: 0;">
+    <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start; margin-bottom: 8px; white-space: nowrap;">
+      <span style="color: #64b5f6; font-weight: bold; width: 44px; flex-shrink: 0;">변형</span>
+      <select id="debug-player-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; margin-left: 0; flex-shrink: 0;">
         <option value="1">P1</option>
         <option value="2">P2</option>
       </select>
-      <select id="debug-mutation-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; max-width: 200px;">
+      <select id="debug-mutation-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; flex: 1; min-width: 0;">
         ${Object.keys(mutationDefinitions).filter(id => !mutationDefinitions[id].isEnhancement && !mutationDefinitions[id].isQuest).map(id => `<option value="${id}">${mutationDefinitions[id].name} (${mutationDefinitions[id].target})</option>`).join('')}
       </select>
-      <button id="debug-mutation-apply" style="padding: 4px 12px; background: #0f4c81; color: #fff; border: none; cursor: pointer; white-space: nowrap;">적용</button>
+      <button id="debug-mutation-apply" style="padding: 4px 12px; background: #0f4c81; color: #fff; border: none; cursor: pointer; white-space: nowrap; flex-shrink: 0;">적용</button>
     </div>
 
-    <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start; margin-bottom: 8px;">
-      <span style="color: #f1c40f; font-weight: bold; width: 40px;">강화</span>
-      <select id="debug-enhancement-player-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; margin-left: 0;">
+    <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start; margin-bottom: 8px; white-space: nowrap;">
+      <span style="color: #f1c40f; font-weight: bold; width: 44px; flex-shrink: 0;">강화</span>
+      <select id="debug-enhancement-player-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; margin-left: 0; flex-shrink: 0;">
         <option value="1">P1</option>
         <option value="2">P2</option>
       </select>
-      <select id="debug-enhancement-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; max-width: 200px;">
+      <select id="debug-enhancement-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; flex: 1; min-width: 0;">
         ${Object.keys(mutationDefinitions).filter(id => mutationDefinitions[id].isEnhancement).map(id => `<option value="${id}">${mutationDefinitions[id].name}</option>`).join('')}
       </select>
-      <button id="debug-enhancement-apply" style="padding: 4px 12px; background: #f39c12; color: #fff; border: none; cursor: pointer; white-space: nowrap;">적용</button>
+      <button id="debug-enhancement-apply" style="padding: 4px 12px; background: #f39c12; color: #fff; border: none; cursor: pointer; white-space: nowrap; flex-shrink: 0;">적용</button>
     </div>
     
-    <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start;">
-      <span style="color: #27ae60; font-weight: bold; width: 40px;">퀘스트</span>
-      <select id="debug-quest-player-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; margin-left: 0;">
+    <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start; white-space: nowrap;">
+      <span style="color: #27ae60; font-weight: bold; width: 44px; flex-shrink: 0;">퀘스트</span>
+      <select id="debug-quest-player-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; margin-left: 0; flex-shrink: 0;">
         <option value="1">P1</option>
         <option value="2">P2</option>
       </select>
-      <select id="debug-quest-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; max-width: 200px;">
+      <select id="debug-quest-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; flex: 1; min-width: 0;">
         ${Object.keys(mutationDefinitions).filter(id => mutationDefinitions[id].isQuest).map(id => `<option value="${id}">${mutationDefinitions[id].name}</option>`).join('')}
       </select>
-      <button id="debug-quest-apply" style="padding: 4px 12px; background: #27ae60; color: #fff; border: none; cursor: pointer; white-space: nowrap;">적용</button>
+      <button id="debug-quest-apply" style="padding: 4px 12px; background: #27ae60; color: #fff; border: none; cursor: pointer; white-space: nowrap; flex-shrink: 0;">적용</button>
     </div>
 
-    
-    <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start; margin-top: 12px; border-top: 1px solid #444; padding-top: 8px;">
-      <button id="debug-turn-prev" style="padding: 4px 8px; background: #555; color: #fff; border: none; cursor: pointer;">&lt; 턴</button>
-      <button id="debug-turn-next" style="padding: 4px 8px; background: #555; color: #fff; border: none; cursor: pointer;">턴 &gt;</button>
+    <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start; margin-top: 12px; border-top: 1px solid #444; padding-top: 8px; white-space: nowrap;">
+      <button id="debug-turn-prev" style="padding: 4px 8px; background: #555; color: #fff; border: none; cursor: pointer; flex-shrink: 0;">&lt; 턴</button>
+      <button id="debug-turn-next" style="padding: 4px 8px; background: #555; color: #fff; border: none; cursor: pointer; flex-shrink: 0;">턴 &gt;</button>
       
       <input type="text" id="debug-dice-input" placeholder="1,2,3,4,5 또는 합(5~30)" style="flex: 1; min-width: 80px; padding: 4px; background: #333; color: #fff; border: 1px solid #555;" />
-      <button id="debug-dice-apply" style="padding: 4px 12px; background: #0f4c81; color: #fff; border: none; cursor: pointer; white-space: nowrap;">주사위 조작</button>
+      <button id="debug-dice-apply" style="padding: 4px 12px; background: #0f4c81; color: #fff; border: none; cursor: pointer; white-space: nowrap; flex-shrink: 0;">주사위 조작</button>
     </div>
   `;
   if (debugContent) debugContent.appendChild(debugGroup);

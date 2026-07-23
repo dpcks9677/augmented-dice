@@ -197,6 +197,24 @@ function getPlayerLabel(playerIndex) {
 }
 window.matchLogHistory = [];
 
+const DEFAULT_CATEGORY_NAMES = {
+  aces: 'Aces', deuces: 'Deuces', threes: 'Threes', fours: 'Fours', fives: 'Fives', sixes: 'Sixes',
+  choice: 'Choice', '4oak': '4 of a Kind', fullhouse: 'Full House', 's-straight': 'S. Straight', 'l-straight': 'L. Straight', yacht: 'Yacht'
+};
+
+function getCategoryDisplayName(catId, player = 1) {
+  const pMuts = activeMutations[player] || {};
+  const mutId = pMuts[catId];
+  if (mutId && mutationDefinitions[mutId]) {
+    const mut = mutationDefinitions[mutId];
+    if (!mut.isEnhancement && !mut.isQuest) {
+      return mut.enName || mut.name;
+    }
+  }
+
+  return DEFAULT_CATEGORY_NAMES[catId] || catId;
+}
+
 function formatLogEntry(log, playerNames = null) {
   if (log.type === 'system') {
     if (log.message === 'game-start') return '게임 시작!';
@@ -223,11 +241,7 @@ function formatLogEntry(log, playerNames = null) {
     case 'roll-result':
       return `주사위의 값이 나왔습니다. [${log.meta.values.join(', ')}]`;
     case 'score-record':
-      const catNames = {
-        aces: 'Aces', twos: 'Deuces', threes: 'Threes', fours: 'Fours', fives: 'Fives', sixes: 'Sixes',
-        choice: 'Choice', '4oak': '4 of a Kind', fullhouse: 'Full House', 's-straight': 'S. Straight', 'l-straight': 'L. Straight', yacht: 'Yacht'
-      };
-      const cName = catNames[log.meta.catId] || log.meta.catId;
+      const cName = log.meta.catName || getCategoryDisplayName(log.meta.catId, log.player);
       return `[${cName}] 족보에 ${log.meta.score}점을 기록했습니다.`;
     case 'timeout':
       return `시간 초과로 인해 [${log.meta.catName}] 족보에 ${log.meta.score}점을 자동으로 기입했습니다.`;
@@ -1009,6 +1023,31 @@ function showLobby(isHost, joinCode = null) {
     els.lobbyModeText.textContent = '요트 다이스';
   } else {
     els.lobbyModeText.textContent = '증강 요트 다이스';
+  }
+
+  // 모드별 슬롯 개수 동적 구성 (일반 요트: 4인, 증강 요트: 2인)
+  const maxSlots = (window.pendingLobbyMode === 'normal') ? 4 : 2;
+  const lobbyPlayersContainer = els.lobbySection.querySelector('.lobby-players');
+  if (lobbyPlayersContainer) {
+    let slotsHtml = '';
+    for (let i = 0; i < maxSlots; i++) {
+      if (i === 0) {
+        slotsHtml += `
+          <div class="lobby-player-slot host">
+            <div class="player-avatar"></div>
+            <div class="player-name">Player 1</div>
+            <div class="player-status">✓</div>
+          </div>`;
+      } else {
+        slotsHtml += `
+          <div class="lobby-player-slot empty">
+            <div class="player-avatar"></div>
+            <div class="player-name">Waiting...</div>
+            <div class="player-status"></div>
+          </div>`;
+      }
+    }
+    lobbyPlayersContainer.innerHTML = slotsHtml;
   }
 
   const user = getCurrentUser();
@@ -1909,11 +1948,7 @@ async function handleTurnTimeout() {
   });
 
   if (bestCatId) {
-    const catDisplayNames = {
-      aces: 'Aces', deuces: 'Deuces', threes: 'Threes', fours: 'Fours', fives: 'Fives', sixes: 'Sixes',
-      choice: 'Choice', '4oak': '4 of a Kind', fullhouse: 'Full House', 's-straight': 'S. Straight', 'l-straight': 'L. Straight', yacht: 'Yacht'
-    };
-    const catName = catDisplayNames[bestCatId] || bestCatId;
+    const catName = getCategoryDisplayName(bestCatId, currentPlayer);
     const scoreVal = typeof bestScoreInfo === 'object' ? (bestScoreInfo.score || 0) : (Number(bestScoreInfo) || 0);
 
     addGameLog({
@@ -2361,7 +2396,8 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
 
   // 타임아웃에 의한 자동 기입인 경우 일반 족보 기입 로그 작성을 생략 (중복 방지)
   if (!force) {
-    addGameLog({ type: 'score-record', player: currentPlayer, meta: { catId, score: scoreObj.score } }, 'score-record', false, currentPlayer);
+    const catName = getCategoryDisplayName(catId, currentPlayer);
+    addGameLog({ type: 'score-record', player: currentPlayer, meta: { catId, catName, score: scoreObj.score } }, 'score-record', false, currentPlayer);
   }
 
 
@@ -2873,7 +2909,7 @@ function updateScoreboard() {
     const pTotalEl = document.getElementById(`p${p}-total`);
     if (pTotalEl) {
       if (qBonus > 0) {
-        pTotalEl.innerHTML = `${pTotal} <span style="color: #D4AF37; font-size: 0.85em;">(+${qBonus})</span>`;
+        pTotalEl.innerHTML = `${pTotal} <span style="color: #D4AF37;">+${qBonus}</span>`;
       } else {
         pTotalEl.textContent = pTotal;
       }
@@ -3051,9 +3087,12 @@ function getQuestProgressText(player, mutId) {
   let status = 'in-progress';
 
   const line = (text, isDone, isFailed = false) => {
-    if (isFailed || status === 'failed') return `<div style="margin-top: 4px;"><span style="text-decoration: line-through; opacity: 0.6;"><strong><u>퀘스트</u></strong>: ${text}</span></div>`;
-    if (isDone) return `<div style="margin-top: 4px;"><span style="text-decoration: line-through; opacity: 0.7;"><strong><u>퀘스트</u></strong>: ${text}</span></div>`;
-    return `<div style="margin-top: 4px;"><strong><u>퀘스트</u></strong>: ${text}</div>`;
+    const isInactive = isFailed || status === 'failed' || isDone;
+    const opacity = isDone ? '0.7' : '0.6';
+    const content = isInactive 
+      ? `<span style="text-decoration: line-through; opacity: ${opacity};"><strong><u>퀘스트</u></strong>: ${text}</span>` 
+      : `<strong><u>퀘스트</u></strong>: ${text}`;
+    return `<div style="margin-top: 4px;">${content}</div>`;
   };
 
   switch (mutId) {

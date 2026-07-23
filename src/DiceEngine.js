@@ -890,6 +890,18 @@ export class DiceEngine {
     }
   }
 
+  getPhysicalFaceIndex(value, config) {
+    if (!config) return value;
+    if (config.type === 'heavy') {
+      const revMapping = { 4: 1, 5: 3, 6: 5 };
+      return revMapping[value] || 1;
+    }
+    if (config.type === 'sevens') {
+      return value - 1;
+    }
+    return value;
+  }
+
   getTargetRotationForValue(value, targetPos, config) {
     const isOct = config && config.type === 'octahedron';
     let baseQuat = new THREE.Quaternion();
@@ -919,12 +931,7 @@ export class DiceEngine {
        baseQuat.setFromRotationMatrix(rMat);
     } else {
        const euler = new THREE.Euler();
-       let targetVal = value;
-       if (config && config.type === 'heavy') {
-         // Map the requested visual/logical value (4,5,6) back to a physical face (1,3,5) that has that value drawn on it
-         const revMapping = {4: 1, 5: 3, 6: 5};
-         targetVal = revMapping[value] || 1;
-       }
+       let targetVal = this.getPhysicalFaceIndex(value, config);
        switch (targetVal) {
          case 1: euler.set(0, 0, 0); break; // +Y UP
          case 2: euler.set(-Math.PI / 2, 0, 0); break; // +Z UP
@@ -1137,6 +1144,8 @@ export class DiceEngine {
            ];
            localUp = normals[die.value - 1] || normals[0];
         } else {
+           let faceIndex = this.getPhysicalFaceIndex(die.value, die.config);
+           
            localUp = {
              1: new THREE.Vector3(0, 1, 0),
              2: new THREE.Vector3(0, 0, 1),
@@ -1144,7 +1153,7 @@ export class DiceEngine {
              4: new THREE.Vector3(-1, 0, 0),
              5: new THREE.Vector3(0, 0, -1),
              6: new THREE.Vector3(0, -1, 0)
-           }[die.value] || new THREE.Vector3(0, 1, 0);
+           }[faceIndex] || new THREE.Vector3(0, 1, 0);
         }
 
         // XY평면(Normal=+Z)으로 생성된 테두리 선을 주사위의 윗면에 일치시키기 위한 회전 계산

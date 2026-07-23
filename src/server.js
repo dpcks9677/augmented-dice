@@ -185,8 +185,13 @@ export class DiceServer {
           return;
         }
 
-        // 중복 가입 방지 및 최대 4인 제한
-        if (Object.keys(this.players).length >= 4 && !this.players[conn.id]) {
+        if (data.mode) {
+          this.gameMode = data.mode;
+        }
+        const maxAllowed = (this.gameMode === 'augmented') ? 2 : 4;
+
+        // 중복 가입 방지 및 최대 인원 제한 (증강: 2인, 일반: 4인)
+        if (Object.keys(this.players).length >= maxAllowed && !this.players[conn.id]) {
           conn.send(JSON.stringify({ type: 'error', message: 'Room is full' }));
           return;
         }
