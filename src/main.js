@@ -445,6 +445,19 @@ function renderHistoryCard(container, matches, myUid) {
     const myScore = myPlayer?.totalScore ?? (myPlayer?.score ?? 0);
     const oppScore = primaryOpponent?.totalScore ?? (primaryOpponent?.score ?? 0);
 
+    const myForfeited = Boolean(myPlayer?.isForfeited);
+    const oppForfeited = Boolean(primaryOpponent?.isForfeited);
+
+    let myNameHtml = myPlayer?.nickname || '나';
+    if (myForfeited) myNameHtml += ' <span style="font-size:0.75rem; color:#e74c3c;">(기권)</span>';
+
+    if (oppForfeited && !oppHtml.includes('(기권)')) {
+      oppHtml += ` <span style="font-size:0.75rem; color:#e74c3c;">(기권)</span>`;
+    }
+
+    const myScoreStyle = myForfeited ? 'text-decoration: line-through; color: #888;' : '';
+    const oppScoreStyle = oppForfeited ? 'text-decoration: line-through; color: #888;' : '';
+
     // 4. 결과 뱃지 (승리/패배)
     let resultBadgeHtml = '<span class="badge-draw">무승부</span>';
     if (match.winnerUid && match.winnerUid !== 'draw') {
@@ -473,14 +486,18 @@ function renderHistoryCard(container, matches, myUid) {
       restOpponents.forEach(op => {
         const opAvStyle = op.avatarUrl ? `background-image: url('${op.avatarUrl}');` : '';
         const opScore = op?.totalScore ?? (op?.score ?? 0);
+        const isOpForfeited = Boolean(op?.isForfeited);
+        const opScoreStyle = isOpForfeited ? 'text-decoration: line-through; color: #888;' : '';
+        const opForfeitLabel = isOpForfeited ? ' <span style="font-size:0.75rem; color:#e74c3c;">(기권)</span>' : '';
+
         extraPlayersHtml += `
           <div class="history-player-row history-extra-row">
             <div class="history-avatar-mini" style="${opAvStyle}"></div>
-            <span class="history-player-name">${op.nickname || 'Guest'}</span>
+            <span class="history-player-name">${op.nickname || 'Guest'}${opForfeitLabel}</span>
           </div>
         `;
         extraScoresHtml += `
-          <div class="history-score-row history-extra-row">${opScore}</div>
+          <div class="history-score-row history-extra-row" style="${opScoreStyle}">${opScore}</div>
         `;
       });
     }
@@ -494,7 +511,7 @@ function renderHistoryCard(container, matches, myUid) {
         <div class="history-players-col">
           <div class="history-player-row me">
             <div class="history-avatar-mini" style="${myAvatarStyle}"></div>
-            <span class="history-player-name">${myPlayer?.nickname || '나'}</span>
+            <span class="history-player-name">${myNameHtml}</span>
           </div>
           <div class="history-player-row">
             <div class="history-avatar-mini" style="${oppAvatarStyle}"></div>
@@ -503,8 +520,8 @@ function renderHistoryCard(container, matches, myUid) {
           ${extraPlayersHtml}
         </div>
         <div class="history-score-col">
-          <div class="history-score-row me">${myScore}</div>
-          <div class="history-score-row">${oppScore}</div>
+          <div class="history-score-row me" style="${myScoreStyle}">${myScore}</div>
+          <div class="history-score-row" style="${oppScoreStyle}">${oppScore}</div>
           ${extraScoresHtml}
         </div>
         <div class="history-result-col">
@@ -2516,20 +2533,38 @@ function endGame() {
     playerStats.push({ playerIndex: p, nickname, totalScore: tot, avatarUrl, isForfeited: forfeitedPlayers[p] });
   }
 
-  // 점수 내림차순 정렬
-  playerStats.sort((a, b) => b.totalScore - a.totalScore);
+  // 정렬: 기권하지 않은 플레이어(점수 내림차순) -> 기권 플레이어(점수 내림차순)
+  playerStats.sort((a, b) => {
+    if (a.isForfeited !== b.isForfeited) {
+      return a.isForfeited ? 1 : -1; // 기권한 경우 하단 배치
+    }
+    return b.totalScore - a.totalScore;
+  });
+
+  const activePlayers = playerStats.filter(s => !s.isForfeited);
 
   const container = document.getElementById('endgame-scores-container');
   if (container) {
     container.innerHTML = '';
-    playerStats.forEach((stat, rankIdx) => {
-      const isWinner = rankIdx === 0 && stat.totalScore > (playerStats[1]?.totalScore || -1);
+    playerStats.forEach((stat, idx) => {
+      // 순위 계산: 기권 시 "-", 정상 완주 시 기권 미포함 그룹 내 순위
+      let isWinner = false;
+      let rankBadge = '';
+
+      if (stat.isForfeited) {
+        rankBadge = `<span class="endgame-rank-badge" style="color: #888;">-</span>`;
+      } else {
+        const activeRank = activePlayers.findIndex(s => s.playerIndex === stat.playerIndex);
+        isWinner = activeRank === 0 && (activePlayers.length === 1 || stat.totalScore > (activePlayers[1]?.totalScore || -1));
+        rankBadge = isWinner ? '<span class="endgame-rank-badge rank-1">🏆 1위</span>' : `<span class="endgame-rank-badge">${activeRank + 1}위</span>`;
+      }
+
       const card = document.createElement('div');
       card.className = `endgame-score-card ${isWinner ? 'winner-card' : ''}`;
 
       const avatarStyle = stat.avatarUrl ? `background-image: url('${stat.avatarUrl}');` : 'background-color: #ccc;';
-      const rankBadge = isWinner ? '<span class="endgame-rank-badge rank-1">🏆 1위</span>' : `<span class="endgame-rank-badge">${rankIdx + 1}위</span>`;
       const forfeitText = stat.isForfeited ? ' <span style="font-size:0.75rem; color:#e74c3c;">(기권)</span>' : '';
+      const scoreDisplayStyle = stat.isForfeited ? 'text-decoration: line-through; color: #888;' : '';
 
       card.innerHTML = `
         <div class="endgame-player-info">
@@ -2537,7 +2572,7 @@ function endGame() {
           <div class="match-avatar" style="${avatarStyle} width: 32px; height: 32px; flex-shrink: 0;"></div>
           <span>${stat.nickname}${forfeitText}</span>
         </div>
-        <div class="endgame-score-val">${stat.totalScore}점</div>
+        <div class="endgame-score-val" style="${scoreDisplayStyle}">${stat.totalScore}점</div>
       `;
       container.appendChild(card);
     });
@@ -2545,12 +2580,16 @@ function endGame() {
 
   const winnerTitle = document.getElementById('endgame-winner');
   if (winnerTitle && !winnerTitle.textContent.includes('몰수승')) {
-    const topPlayer = playerStats[0];
-    const isDraw = playerStats.length > 1 && playerStats[0].totalScore === playerStats[1].totalScore;
-    if (isDraw) {
-      winnerTitle.textContent = "무승부!";
+    if (activePlayers.length === 0) {
+      winnerTitle.textContent = "게임 종료";
     } else {
-      winnerTitle.textContent = `${topPlayer.nickname} 승리!`;
+      const topPlayer = activePlayers[0];
+      const isDraw = activePlayers.length > 1 && activePlayers[0].totalScore === activePlayers[1].totalScore;
+      if (isDraw) {
+        winnerTitle.textContent = "무승부!";
+      } else {
+        winnerTitle.textContent = `${topPlayer.nickname} 승리!`;
+      }
     }
   }
 
@@ -2576,16 +2615,19 @@ async function saveMatchData() {
     const nickname = pInfo?.nickname || `Player ${p}`;
     const avatarUrl = pInfo?.avatarUrl || null;
     const totScore = Object.values(scores[p] || {}).reduce(sumObj, 0);
+    const isForfeited = Boolean(forfeitedPlayers[p]);
 
     if (pInfo?.uid && !pInfo.uid.startsWith('guest')) {
       playerUids.push(pInfo.uid);
     }
 
-    if (totScore > maxScore) {
-      maxScore = totScore;
-      topUids = [uid];
-    } else if (totScore === maxScore) {
-      topUids.push(uid);
+    if (!isForfeited) {
+      if (totScore > maxScore) {
+        maxScore = totScore;
+        topUids = [uid];
+      } else if (totScore === maxScore) {
+        topUids.push(uid);
+      }
     }
 
     playersData[`p${p}`] = {
@@ -2593,6 +2635,7 @@ async function saveMatchData() {
       nickname: nickname,
       avatarUrl: avatarUrl,
       totalScore: totScore,
+      isForfeited: isForfeited,
       isHost: pInfo ? pInfo.isHost : (p === 1),
       scores: Object.fromEntries(
         Object.entries(scores[p] || {}).map(([k, v]) => [k, typeof v === 'object' ? v.score : v])
@@ -2601,7 +2644,7 @@ async function saveMatchData() {
     };
   }
 
-  const winnerUid = topUids.length === 1 ? topUids[0] : 'draw';
+  const winnerUid = topUids.length === 1 ? topUids[0] : (topUids.length > 1 ? 'draw' : 'none');
 
   const matchDoc = {
     mode: gameMode,
