@@ -306,6 +306,28 @@ body {
   border-bottom: 2px solid var(--border-color);
 }
 
+.btn-history-refresh {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  border-radius: 6px;
+  transition: background-color 0.2s, color 0.2s, transform 0.3s ease;
+}
+
+.btn-history-refresh:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+  color: var(--primary-color, #27ae60);
+}
+
+.btn-history-refresh:active {
+  transform: rotate(180deg);
+}
+
 .history-table-header {
   display: flex;
   align-items: center;
@@ -2124,6 +2146,11 @@ svg.lucide-icon {
 
 .endgame-score-card.winner-card .endgame-score-val {
   color: #27ae60;
+}
+
+.endgame-score-card.forfeit-card {
+  background: #f1f1f1;
+  opacity: 0.75;
 }
 
 /* Google reCAPTCHA v3 배지 완전히 숨김 (하단 약관 문구로 대체 표기) */

@@ -1,6 +1,6 @@
 import PartySocket from "partysocket";
 import { db } from "./firebaseConfig.js";
-import { collection, addDoc, doc, runTransaction } from "firebase/firestore";
+import { collection, addDoc, doc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { networkEngine } from "./networkEngine.js";
 import { calculateScores, mutationDefinitions } from "./scoreEngine.js";
 import { DiceEngine } from "./DiceEngine.js";
@@ -334,6 +334,11 @@ function showMatchInfo() {
   if (els.tabAugmentViewFromMatch) els.tabAugmentViewFromMatch.classList.remove('active');
   if (els.tabMatchInfoView) els.tabMatchInfoView.classList.add('active');
   if (els.tabMatchInfoViewFromAug) els.tabMatchInfoViewFromAug.classList.add('active');
+
+  const curUser = getCurrentUser();
+  if (curUser?.uid) {
+    refreshUserHistory(curUser.uid);
+  }
 }
 
 function setupSidebarTabs() {
@@ -381,16 +386,37 @@ async function refreshUserHistory(uid) {
 function renderHistoryCard(container, matches, myUid) {
   container.innerHTML = '';
 
-  if (!matches || matches.length === 0) {
-    container.innerHTML = `<div class="history-empty-text">게임 기록이 없습니다.</div>`;
-    return;
-  }
+  const matchCount = matches ? matches.length : 0;
 
-  // Header: 경기 기록 (n)
+  // Header: 경기 기록 (n) & 새로고침 버튼
   const header = document.createElement('div');
   header.className = 'history-header';
-  header.innerHTML = `<span>경기 기록 (${matches.length})</span>`;
+  header.innerHTML = `
+    <span>경기 기록 (${matchCount})</span>
+    <button class="btn-history-refresh" id="btn-history-refresh" title="경기 기록 새로고침">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21.5 2v6h-6M2.5 22v-6h6"/>
+        <path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8M2.5 16l1.2 1.2A10 10 0 0 0 22.5 12.5"/>
+      </svg>
+    </button>
+  `;
   container.appendChild(header);
+
+  const btnRefresh = header.querySelector('#btn-history-refresh');
+  if (btnRefresh) {
+    btnRefresh.addEventListener('click', () => {
+      btnRefresh.style.transform = 'rotate(360deg)';
+      refreshUserHistory(myUid);
+    });
+  }
+
+  if (!matches || matches.length === 0) {
+    const emptyElem = document.createElement('div');
+    emptyElem.className = 'history-empty-text';
+    emptyElem.textContent = '게임 기록이 없습니다.';
+    container.appendChild(emptyElem);
+    return;
+  }
 
   // Table Header
   const tableHeader = document.createElement('div');
@@ -412,6 +438,7 @@ function renderHistoryCard(container, matches, myUid) {
     const item = document.createElement('div');
     item.className = 'history-match-item';
 
+
     // 1. 모드 아이콘
     const isAugmented = match.mode === 'augmented' || match.mode === 'augmented-hotseat';
     const modeIconHtml = isAugmented ? getAugmentedDicesIconSvg() : getDicesIconSvg();
@@ -427,7 +454,36 @@ function renderHistoryCard(container, matches, myUid) {
       }
     }
 
-    const myPlayer = playerList.find(p => p.uid === myUid) || playerList[0];
+    // 과거 데이터 호환용 isForfeited 추정 및 playLogs 분석
+    const hasLogForfeit = (match.playLogs || []).some(log => {
+      const msg = typeof log === 'string' ? log : (log?.message || log?.text || '');
+      return msg.includes('기권') || msg.includes('포기') || msg.includes('몰수') || msg.includes('퇴장');
+    });
+
+    // 각 플레이어별 isForfeited 판단 (직접 기록된 isForfeited -> playLogs 기록 -> 완료 족보 수 부족 여부)
+    playerList.forEach(p => {
+      if (p.isForfeited === undefined) {
+        if (hasLogForfeit) {
+          // playLogs에 기권 문구가 있는 경우, 점수가 현저히 적거나 족보 완료 개수가 적은 쪽을 기권자로 추정
+          const filledCatsCount = p.scores ? Object.keys(p.scores).length : 0;
+          if (filledCatsCount < 12) {
+            p.isForfeited = true;
+          }
+        }
+      }
+    });
+
+    let myPlayer = playerList.find(p => p.uid === myUid);
+    if (!myPlayer) {
+      const curUserObj = getCurrentUser();
+      const myNick = curUserObj?.displayName || els.myNickname?.textContent;
+      if (myNick) {
+        myPlayer = playerList.find(p => p.nickname === myNick);
+      }
+    }
+    if (!myPlayer) {
+      myPlayer = playerList[0];
+    }
     const otherPlayers = playerList.filter(p => p !== myPlayer);
     const primaryOpponent = otherPlayers[0] || { nickname: '상대방', avatarUrl: null };
     const extraCount = otherPlayers.length > 1 ? otherPlayers.length - 1 : 0;
@@ -449,24 +505,34 @@ function renderHistoryCard(container, matches, myUid) {
     const oppForfeited = Boolean(primaryOpponent?.isForfeited);
 
     let myNameHtml = myPlayer?.nickname || '나';
-    if (myForfeited) myNameHtml += ' <span style="font-size:0.75rem; color:#e74c3c;">(기권)</span>';
-
-    if (oppForfeited && !oppHtml.includes('(기권)')) {
-      oppHtml += ` <span style="font-size:0.75rem; color:#e74c3c;">(기권)</span>`;
-    }
-
     const myScoreStyle = myForfeited ? 'text-decoration: line-through; color: #888;' : '';
     const oppScoreStyle = oppForfeited ? 'text-decoration: line-through; color: #888;' : '';
 
     // 4. 결과 뱃지 (승리/패배)
+    let computedWinnerUid = match.winnerUid;
+
+    // 기권자가 있는 경우: 과거 데이터에서 winnerUid가 잘못 기록되었을 수 있으므로 항상 재판정
+    if (myForfeited || oppForfeited) {
+      if (myForfeited && !oppForfeited) {
+        computedWinnerUid = primaryOpponent.uid;
+      } else if (!myForfeited && oppForfeited) {
+        computedWinnerUid = myUid;
+      }
+      // 둘 다 기권한 경우는 DB의 winnerUid 유지
+    } else if (!computedWinnerUid || computedWinnerUid === 'none') {
+      // 기권 없이 winnerUid도 없는 과거 데이터 → 무승부 처리
+      computedWinnerUid = 'draw';
+    }
+
     let resultBadgeHtml = '<span class="badge-draw">무승부</span>';
-    if (match.winnerUid && match.winnerUid !== 'draw') {
-      if (match.winnerUid === myUid) {
+    if (computedWinnerUid && computedWinnerUid !== 'draw' && computedWinnerUid !== 'none') {
+      if (computedWinnerUid === myUid) {
         resultBadgeHtml = '<span class="badge-win">승리</span>';
       } else {
         resultBadgeHtml = '<span class="badge-loss">패배</span>';
       }
     }
+
 
     // 5. 날짜 포맷 (YY.MM.DD)
     let dateStr = '-';
@@ -488,7 +554,7 @@ function renderHistoryCard(container, matches, myUid) {
         const opScore = op?.totalScore ?? (op?.score ?? 0);
         const isOpForfeited = Boolean(op?.isForfeited);
         const opScoreStyle = isOpForfeited ? 'text-decoration: line-through; color: #888;' : '';
-        const opForfeitLabel = isOpForfeited ? ' <span style="font-size:0.75rem; color:#e74c3c;">(기권)</span>' : '';
+        const opForfeitLabel = '';
 
         extraPlayersHtml += `
           <div class="history-player-row history-extra-row">
@@ -654,6 +720,13 @@ subscribeAuthState(async (user) => {
                   setTimeout(() => {
                     networkEngine.disconnect();
                   }, 150);
+
+                  // 승자 측에서 saveMatchData를 완료한 후 기권자의 History 카드도 정상 갱신되도록 재호출
+                  if (targetUid) {
+                    setTimeout(() => {
+                      refreshUserHistory(targetUid);
+                    }, 1200);
+                  }
                 };
 
                 if (networkEngine.socket && networkEngine.socket.readyState === WebSocket.OPEN && networkEngine.roomCode === roomToCancel) {
@@ -1402,7 +1475,13 @@ networkEngine.on('player_forfeited', (data) => {
   }
 
   if (els.appContainer?.classList.contains('playing-state')) {
-    handleGameForfeit(forfeitPIndex);
+    handleGameForfeit(forfeitPIndex, data.uid);
+    const user = getCurrentUser();
+    if (user?.uid) {
+      setTimeout(() => {
+        refreshUserHistory(user.uid);
+      }, 1500);
+    }
   } else {
     addGameLog({ type: 'system', message: '상대방이 게임을 포기하여 로비가 해제되었습니다.' }, 'system', false);
     stopTurnTimer();
@@ -1488,9 +1567,13 @@ els.btnHotseat?.addEventListener('click', () => {
 });
 
 let forfeitedPlayers = { 1: false, 2: false, 3: false, 4: false };
+let forfeitedPlayerUids = {};
 
-function handleGameForfeit(forfeitedPlayerIndex) {
+function handleGameForfeit(forfeitedPlayerIndex, forfeitUid = null) {
   forfeitedPlayers[forfeitedPlayerIndex] = true;
+  if (forfeitUid) {
+    forfeitedPlayerUids[forfeitedPlayerIndex] = forfeitUid;
+  }
 
   const boxElem = document.getElementById(`match-p${forfeitedPlayerIndex}-box`) || (forfeitedPlayerIndex === 1 ? document.getElementById('match-my-box') : null);
   if (boxElem) {
@@ -2552,7 +2635,7 @@ function endGame() {
       let rankBadge = '';
 
       if (stat.isForfeited) {
-        rankBadge = `<span class="endgame-rank-badge" style="color: #888;">-</span>`;
+        rankBadge = `<span class="endgame-rank-badge rank-forfeit" style="background: #e0e0e0; color: #888; font-weight: bold;">-</span>`;
       } else {
         const activeRank = activePlayers.findIndex(s => s.playerIndex === stat.playerIndex);
         isWinner = activeRank === 0 && (activePlayers.length === 1 || stat.totalScore > (activePlayers[1]?.totalScore || -1));
@@ -2560,11 +2643,11 @@ function endGame() {
       }
 
       const card = document.createElement('div');
-      card.className = `endgame-score-card ${isWinner ? 'winner-card' : ''}`;
+      card.className = `endgame-score-card ${isWinner ? 'winner-card' : ''} ${stat.isForfeited ? 'forfeit-card' : ''}`;
 
       const avatarStyle = stat.avatarUrl ? `background-image: url('${stat.avatarUrl}');` : 'background-color: #ccc;';
-      const forfeitText = stat.isForfeited ? ' <span style="font-size:0.75rem; color:#e74c3c;">(기권)</span>' : '';
-      const scoreDisplayStyle = stat.isForfeited ? 'text-decoration: line-through; color: #888;' : '';
+      const forfeitText = '';
+      const scoreDisplayStyle = stat.isForfeited ? 'text-decoration: line-through !important; color: #888 !important;' : '';
 
       card.innerHTML = `
         <div class="endgame-player-info">
@@ -2595,8 +2678,11 @@ function endGame() {
 
   els.endgameModal?.classList.remove('hidden');
 
-  if (window.isMultiplayer && window.myPlayerIndex === 1) {
-    saveMatchData();
+  if (window.isMultiplayer) {
+    const saverPlayer = activePlayers[0] ? activePlayers[0].playerIndex : 1;
+    if (window.myPlayerIndex === saverPlayer) {
+      saveMatchData();
+    }
   }
 }
 
@@ -2609,17 +2695,46 @@ async function saveMatchData() {
   let maxScore = -1;
   let topUids = [];
 
+  const cleanUid = (raw) => {
+    if (!raw || typeof raw !== 'string') return raw;
+    if (raw.startsWith('guest')) return raw;
+    return raw.split('_')[0];
+  };
+
+  const addUidToPlayerUids = (raw) => {
+    if (!raw || typeof raw !== 'string') return;
+    const cUid = cleanUid(raw);
+    if (cUid && !cUid.startsWith('guest')) {
+      if (!playerUids.includes(cUid)) playerUids.push(cUid);
+    }
+  };
+
+  if (window.lobbyPlayers && Array.isArray(window.lobbyPlayers)) {
+    window.lobbyPlayers.forEach(pl => {
+      addUidToPlayerUids(pl?.uid);
+    });
+  }
+  const curUser = getCurrentUser();
+  if (curUser?.uid) {
+    addUidToPlayerUids(curUser.uid);
+  }
+
   for (let p = 1; p <= count; p++) {
     const pInfo = window.lobbyPlayers ? window.lobbyPlayers[p - 1] : null;
-    const uid = pInfo?.uid || `guest_p${p}`;
+    let rawUid = pInfo?.uid || forfeitedPlayerUids[p];
+    if (!rawUid && p === window.myPlayerIndex && curUser?.uid) {
+      rawUid = curUser.uid;
+    }
+    let uid = cleanUid(rawUid);
+    if (!uid) {
+      uid = `guest_p${p}`;
+    }
     const nickname = pInfo?.nickname || `Player ${p}`;
     const avatarUrl = pInfo?.avatarUrl || null;
     const totScore = Object.values(scores[p] || {}).reduce(sumObj, 0);
     const isForfeited = Boolean(forfeitedPlayers[p]);
 
-    if (pInfo?.uid && !pInfo.uid.startsWith('guest')) {
-      playerUids.push(pInfo.uid);
-    }
+    addUidToPlayerUids(rawUid);
 
     if (!isForfeited) {
       if (totScore > maxScore) {
@@ -2648,7 +2763,7 @@ async function saveMatchData() {
 
   const matchDoc = {
     mode: gameMode,
-    timestamp: new Date(),
+    timestamp: serverTimestamp(),
     winnerUid: winnerUid,
     playerUids: playerUids,
     players: playersData,

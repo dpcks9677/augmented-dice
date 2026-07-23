@@ -126,9 +126,11 @@ export async function getUserMatchesFromDB(uid) {
   if (!uid) return [];
   try {
     const matchesRef = collection(db, "matches");
+    const cleanUid = (typeof uid === 'string' && !uid.startsWith('guest')) ? uid.split('_')[0] : uid;
+
     let q;
     try {
-      q = query(matchesRef, where("playerUids", "array-contains", uid), orderBy("timestamp", "desc"), limit(20));
+      q = query(matchesRef, where("playerUids", "array-contains", cleanUid), orderBy("timestamp", "desc"), limit(20));
       const querySnapshot = await getDocs(q);
       const list = [];
       querySnapshot.forEach((docSnap) => {
@@ -137,7 +139,7 @@ export async function getUserMatchesFromDB(uid) {
       return list;
     } catch (indexErr) {
       console.warn("Firestore index missing, falling back to client sort:", indexErr);
-      q = query(matchesRef, where("playerUids", "array-contains", uid), limit(30));
+      q = query(matchesRef, where("playerUids", "array-contains", cleanUid), limit(100));
       const querySnapshot = await getDocs(q);
       const list = [];
       querySnapshot.forEach((docSnap) => {
