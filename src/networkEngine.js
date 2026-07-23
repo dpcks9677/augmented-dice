@@ -79,6 +79,15 @@ class NetworkEngine {
         }
       }
 
+      let idToken = null;
+      if (user && typeof user.getIdToken === 'function') {
+        try {
+          idToken = await user.getIdToken();
+        } catch (e) {
+          console.warn("Failed to get ID token:", e);
+        }
+      }
+
       window.myUid = uid;
 
       // 포기하기(isForfeitOnly) 용 연결일 경우 join 메시지 생략하고 connected만 발생
@@ -86,6 +95,7 @@ class NetworkEngine {
         this.sendMessage({
           type: 'join',
           uid: uid,
+          idToken: idToken,
           nickname: nickname,
           avatarUrl: avatarUrl,
           mode: window.pendingLobbyMode || 'normal'

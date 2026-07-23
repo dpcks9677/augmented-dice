@@ -13,6 +13,20 @@ import Cropper from "cropperjs";
 let augmentData = [];
 fetch('/src/augments.json').then(r => r.json()).then(d => { augmentData = d; }).catch(e => console.error(e));
 
+export function escapeHtml(str) {
+  if (!str || typeof str !== 'string') return str || '';
+  return str.replace(/[&<>"']/g, (m) => {
+    switch (m) {
+      case '&': return '&amp;';
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '"': return '&quot;';
+      case "'": return '&#39;';
+      default: return m;
+    }
+  });
+}
+
 uiManager.mountAllViews();
 
 // DOM 요소 캐싱
@@ -494,7 +508,7 @@ function renderHistoryCard(container, matches, myUid) {
     const myAvatarStyle = myPlayer?.avatarUrl ? `background-image: url('${myPlayer.avatarUrl}');` : '';
     const oppAvatarStyle = primaryOpponent?.avatarUrl ? `background-image: url('${primaryOpponent.avatarUrl}');` : '';
 
-    let oppHtml = `<span class="history-player-name">${primaryOpponent.nickname || 'Guest'}</span>`;
+    let oppHtml = `<span class="history-player-name">${escapeHtml(primaryOpponent.nickname || 'Guest')}</span>`;
 
     if (extraCount > 0) {
       oppHtml += ` <span class="history-player-extra" title="플레이어 목록 펼치기">+${extraCount}</span>`;

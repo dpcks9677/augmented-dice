@@ -55,6 +55,18 @@ export class DiceServer {
   }
 
   async fetch(request) {
+    // Origin 검증 (보안 대책)
+    const origin = request.headers.get("Origin");
+    if (origin) {
+      const isAllowedOrigin = origin.includes("localhost") || 
+                              origin.includes("127.0.0.1") || 
+                              origin.includes("augmented-dice.web.app") || 
+                              origin.includes("firebaseapp.com");
+      if (!isAllowedOrigin) {
+        return new Response("Unauthorized Origin", { status: 403 });
+      }
+    }
+
     // 첫 요청에서 룸 ID 추출
     if (!this.room.id) {
       const url = new URL(request.url);
@@ -82,7 +94,9 @@ export class DiceServer {
 
       const connObj = {
         id: connId,
-        send: (msg) => { try { server.send(msg); } catch(e) {} }
+        send: (msg) => { try { server.send(msg); } catch(e) {} },
+        lastRateCheck: Date.now(),
+        messageCount: 0
       };
 
       if (typeof this.onConnect === 'function') {
@@ -145,7 +159,27 @@ export class DiceServer {
   }
 
   onMessage(message, conn) {
-    const data = JSON.parse(message);
+    // Rate Limiting (도배/DoS 방지: 1초당 최대 15개 메시지)
+    const now = Date.now();
+    if (!conn.lastRateCheck || now - conn.lastRateCheck > 1000) {
+      conn.lastRateCheck = now;
+      conn.messageCount = 0;
+    }
+    conn.messageCount = (conn.messageCount || 0) + 1;
+    if (conn.messageCount > 15) {
+      console.warn(`Rate limit exceeded for connection ${conn.id}`);
+      return;
+    }
+
+    let data;
+    try {
+      data = typeof message === 'string' ? JSON.parse(message) : message;
+    } catch (e) {
+      console.error("Invalid JSON received:", e);
+      return;
+    }
+
+    if (!data || !data.type) return;
     
     switch (data.type) {
       case 'join':
