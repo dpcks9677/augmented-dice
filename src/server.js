@@ -293,8 +293,8 @@ export class DiceServer {
       case 'player_forfeited':
         this.gameState = 'ended';
         let forfeitPlayer = this.players[conn.id];
-        let forfeitPIndex = 1;
-        if (forfeitPlayer) {
+        let forfeitPIndex = forfeitPlayer?.playerIndex || 1;
+        if (forfeitPlayer && !forfeitPlayer.playerIndex) {
           const playersArr = Object.values(this.players);
           const idx = playersArr.indexOf(forfeitPlayer);
           forfeitPIndex = idx >= 0 ? idx + 1 : (forfeitPlayer.isHost ? 1 : 2);

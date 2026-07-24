@@ -726,9 +726,7 @@ subscribeAuthState(async (user) => {
             const roomToCancel = userData.activeRoomId;
             const user = getCurrentUser();
 
-            if (user?.uid) {
-              await clearUserActiveGame(user.uid);
-            }
+            await resetUserSessionState();
 
             if (roomToCancel) {
               try {
@@ -739,7 +737,6 @@ subscribeAuthState(async (user) => {
                     networkEngine.disconnect();
                   }, 150);
 
-                  // 승자 측에서 saveMatchData를 완료한 후 기권자의 History 카드도 정상 갱신되도록 재호출
                   if (targetUid) {
                     setTimeout(() => {
                       refreshUserHistory(targetUid);
@@ -747,15 +744,11 @@ subscribeAuthState(async (user) => {
                   }
                 };
 
-                if (networkEngine.socket && networkEngine.socket.readyState === WebSocket.OPEN && networkEngine.roomCode === roomToCancel) {
+                const onConnected = () => {
                   sendForfeitAndDisconnect();
-                } else {
-                  const onConnected = () => {
-                    sendForfeitAndDisconnect();
-                  };
-                  networkEngine.on('connected', onConnected);
-                  networkEngine.connectToLobby(roomToCancel, true);
-                }
+                };
+                networkEngine.once('connected', onConnected);
+                networkEngine.connectToLobby(roomToCancel, true);
               } catch (e) {
                 console.error("Forfeit notify error:", e);
                 networkEngine.disconnect();
@@ -1115,7 +1108,33 @@ function stopLobbyWaitingAnimation() {
   }
 }
 
+export async function resetUserSessionState() {
+  networkEngine.disconnect();
+  networkEngine.removeAllListeners('connected');
+  window.currentRoomCode = null;
+  window.lobbyPlayers = [];
+  window.myPlayerIndex = null;
+  window.gameSessionStarted = false;
+  window.isMultiplayer = false;
+  window.isReady = false;
+  
+  currentPlayer = 1;
+  currentRound = 1;
+  rollsLeft = 3;
+  activeDice = [];
+  keptDice = [];
+  scores = { 1: {}, 2: {} };
+  activeMutations = { 1: {}, 2: {} };
+  forfeitedPlayers = { 1: false, 2: false, 3: false, 4: false };
+
+  const user = getCurrentUser();
+  if (user?.uid) {
+    await clearUserActiveGame(user.uid);
+  }
+}
+
 function showLobbySelect(mode) {
+  resetUserSessionState();
   window.pendingLobbyMode = mode;
   els.appContainer.classList.remove('mode-select-state', 'playing-state', 'normal-mode', 'lobby-state');
   els.appContainer.classList.add('lobby-select-state');
@@ -1475,35 +1494,54 @@ networkEngine.on('player_reconnected', (data) => {
   handlePlayerReconnect(pIndex);
 });
 
+function cleanUid(raw) {
+  if (!raw || typeof raw !== 'string') return raw;
+  if (raw.startsWith('guest')) return raw;
+  return raw.split('_')[0];
+}
+
 networkEngine.on('player_forfeited', (data) => {
+  console.log("[DEBUG-1] player_forfeited event received:", data);
+  if (!els.appContainer?.classList.contains('playing-state')) {
+    console.log("[DEBUG-1.1] Ignored player_forfeited in non-playing state:", data);
+    return;
+  }
+
   let forfeitPIndex = null;
-  if (window.lobbyPlayers) {
-    const p = window.lobbyPlayers.find(pl => pl.uid === data.uid || pl.connId === data.connId);
-    if (p) {
-      forfeitPIndex = window.lobbyPlayers.indexOf(p) + 1;
+  const cleanSenderUid = cleanUid(data?.uid);
+
+  if (window.lobbyPlayers && Array.isArray(window.lobbyPlayers)) {
+    const foundIdx = window.lobbyPlayers.findIndex(pl => {
+      const plUid = cleanUid(pl?.uid);
+      return (plUid && cleanSenderUid && plUid === cleanSenderUid) || (pl?.connId && data?.connId && pl.connId === data.connId);
+    });
+    if (foundIdx !== -1) {
+      forfeitPIndex = foundIdx + 1;
     }
   }
-  if (!forfeitPIndex && data.pIndex) {
-    forfeitPIndex = data.pIndex;
+
+  if (!forfeitPIndex && data?.pIndex) {
+    const pIdx = Number(data.pIndex);
+    // 만약 전달받은 pIndex가 나(수신자)의 인덱스와 일치하고, 내가 기권을 부르지 않은 상태라면 수신받은 상대방 인덱스로 보정
+    const myUid = cleanUid(getCurrentUser()?.uid || window.myUid);
+    if (pIdx === window.myPlayerIndex && cleanSenderUid !== myUid) {
+      forfeitPIndex = window.myPlayerIndex === 1 ? 2 : 1;
+    } else {
+      forfeitPIndex = pIdx;
+    }
   }
+
   if (!forfeitPIndex) {
     forfeitPIndex = window.myPlayerIndex === 1 ? 2 : 1;
   }
 
-  if (els.appContainer?.classList.contains('playing-state')) {
-    handleGameForfeit(forfeitPIndex, data.uid);
-    const user = getCurrentUser();
-    if (user?.uid) {
-      setTimeout(() => {
-        refreshUserHistory(user.uid);
-      }, 1500);
-    }
-  } else {
-    addGameLog({ type: 'system', message: '상대방이 게임을 포기하여 로비가 해제되었습니다.' }, 'system', false);
-    stopTurnTimer();
-    stopLobbyWaitingAnimation();
-    networkEngine.disconnect();
-    els.appContainer.className = 'mode-select-state';
+  console.log("[DEBUG-1.2] Calling handleGameForfeit with forfeitPIndex:", forfeitPIndex, "uid:", data.uid);
+  handleGameForfeit(forfeitPIndex, data.uid);
+  const user = getCurrentUser();
+  if (user?.uid) {
+    setTimeout(() => {
+      refreshUserHistory(user.uid);
+    }, 1500);
   }
 });
 
@@ -1586,6 +1624,7 @@ let forfeitedPlayers = { 1: false, 2: false, 3: false, 4: false };
 let forfeitedPlayerUids = {};
 
 function handleGameForfeit(forfeitedPlayerIndex, forfeitUid = null) {
+  console.log("[DEBUG-2] handleGameForfeit executed. forfeitedPlayerIndex:", forfeitedPlayerIndex, "forfeitUid:", forfeitUid);
   forfeitedPlayers[forfeitedPlayerIndex] = true;
   if (forfeitUid) {
     forfeitedPlayerUids[forfeitedPlayerIndex] = forfeitUid;
@@ -1626,6 +1665,7 @@ function handleGameForfeit(forfeitedPlayerIndex, forfeitUid = null) {
     if (winnerTitle) {
       winnerTitle.textContent = `${winnerName} 몰수승!`;
     }
+    console.log("[DEBUG-2.1] Forfeit triggered endGame()");
     endGame();
   }
 }
@@ -2617,6 +2657,7 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
 }
 
 function endGame() {
+  console.log("[DEBUG-3] endGame executed. gameMode:", gameMode, "isMultiplayer:", window.isMultiplayer, "myPlayerIndex:", window.myPlayerIndex);
   if (window.isMultiplayer) {
     networkEngine.sendMessage({ type: 'game_ended' });
   }
@@ -2698,15 +2739,35 @@ function endGame() {
 
   els.endgameModal?.classList.remove('hidden');
 
-  if (window.isMultiplayer) {
-    const saverPlayer = activePlayers[0] ? activePlayers[0].playerIndex : 1;
-    if (window.myPlayerIndex === saverPlayer) {
+  const myIdx = window.myPlayerIndex || 1;
+  const isSurvivingWinner = !forfeitedPlayers[myIdx];
+  const isHostOrSaver = (myIdx === 1) || isSurvivingWinner;
+
+  console.log(`[DEBUG-3.1] Checking saveMatchData trigger. gameMode: "${gameMode}", myIdx: ${myIdx}, isSurvivingWinner: ${isSurvivingWinner}, isHostOrSaver: ${isHostOrSaver}`);
+
+  if (gameMode && gameMode !== 'hotseat' && gameMode !== 'none') {
+    if (isHostOrSaver) {
+      console.log(`[DEBUG-3.2] Triggering saveMatchData() now! (isHostOrSaver: true, myIdx: ${myIdx})`);
       saveMatchData();
+    } else {
+      console.log(`[DEBUG-3.3] Skipping saveMatchData on this client (myIdx: ${myIdx}).`);
     }
+  } else {
+    console.log(`[DEBUG-3.4] gameMode ("${gameMode}") invalid for saving. Skipping saveMatchData.`);
   }
 }
 
+function sanitizeForFirestore(obj) {
+  return JSON.parse(JSON.stringify(obj, (key, value) => (value === undefined ? null : value)));
+}
+
 async function saveMatchData() {
+  console.log("[DEBUG-4] saveMatchData entered. gameMode:", gameMode, "getCurrentUser():", getCurrentUser());
+  if (gameMode === 'hotseat') {
+    console.log("[DEBUG-4.1] saveMatchData returned early because gameMode === 'hotseat'");
+    return;
+  }
+
   const count = getActivePlayerCount();
   const sumObj = (sum, val) => sum + (typeof val === 'object' ? val.score + (val.bonus || 0) : val);
 
@@ -2715,16 +2776,10 @@ async function saveMatchData() {
   let maxScore = -1;
   let topUids = [];
 
-  const cleanUid = (raw) => {
-    if (!raw || typeof raw !== 'string') return raw;
-    if (raw.startsWith('guest')) return raw;
-    return raw.split('_')[0];
-  };
-
   const addUidToPlayerUids = (raw) => {
     if (!raw || typeof raw !== 'string') return;
     const cUid = cleanUid(raw);
-    if (cUid && !cUid.startsWith('guest')) {
+    if (cUid) {
       if (!playerUids.includes(cUid)) playerUids.push(cUid);
     }
   };
@@ -2737,6 +2792,9 @@ async function saveMatchData() {
   const curUser = getCurrentUser();
   if (curUser?.uid) {
     addUidToPlayerUids(curUser.uid);
+  }
+  if (window.myUid) {
+    addUidToPlayerUids(window.myUid);
   }
 
   for (let p = 1; p <= count; p++) {
@@ -2781,8 +2839,8 @@ async function saveMatchData() {
 
   const winnerUid = topUids.length === 1 ? topUids[0] : (topUids.length > 1 ? 'draw' : 'none');
 
-  const matchDoc = {
-    mode: gameMode,
+  const rawMatchDoc = {
+    mode: gameMode || 'normal',
     timestamp: serverTimestamp(),
     winnerUid: winnerUid,
     playerUids: playerUids,
@@ -2790,9 +2848,15 @@ async function saveMatchData() {
     playLogs: window.matchLogHistory || []
   };
 
+  const matchDoc = sanitizeForFirestore(rawMatchDoc);
+  matchDoc.timestamp = serverTimestamp(); // Sentinel 타입 유지
+
+  console.log("[DEBUG-4.2] Prepared sanitized matchDoc:", matchDoc);
+
   try {
     // 1. matches 컬렉션에 매치 결과 저장
-    await addDoc(collection(db, "matches"), matchDoc);
+    const docRef = await addDoc(collection(db, "matches"), matchDoc);
+    console.log("[DEBUG-4.3 SUCCESS] Document created with ID:", docRef.id);
 
     // 2. 각 유저별 stats 데이터 누적 업데이트
     const updateStats = async (uid, isWin, score, augmentsList) => {
@@ -2833,21 +2897,23 @@ async function saveMatchData() {
       }
     };
 
+    const curAuthUser = getCurrentUser();
     for (let p = 1; p <= count; p++) {
       const pData = playersData[`p${p}`];
-      if (pData && pData.uid) {
+      // 본인 계정 통계만 업데이트 (타 유저 문서 수정 시도로 인한 Firestore 403 Forbidden 권한 에러 방지)
+      if (pData && pData.uid && curAuthUser?.uid && cleanUid(pData.uid) === cleanUid(curAuthUser.uid)) {
         const isWin = (winnerUid !== 'draw' && winnerUid === pData.uid);
         await updateStats(pData.uid, isWin, pData.totalScore, pData.augments);
       }
     }
 
-    console.log("Match and stats successfully recorded in Firestore!");
+    console.log("[DEBUG-4.4 SUCCESS] Match and stats successfully recorded in Firestore!");
     const currentUser = getCurrentUser();
     if (currentUser?.uid) {
       refreshUserHistory(currentUser.uid);
     }
   } catch (err) {
-    console.error("Failed to save match data: ", err);
+    console.error("[DEBUG-4.5 ERROR] Failed to save match data:", err);
   }
 }
 
@@ -3131,15 +3197,6 @@ setTimeout(() => {
     diceEngine.allowKeep = true;
   }
 
-  // --- 디버그 모드 자동 시작 ---
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    console.log("Debug mode: Auto-starting hotseat game");
-    gameMode = 'hotseat';
-    els.lobbyOverlay?.classList.add('hidden');
-    els.p1Name.querySelector('.name-text').textContent = "Player 1";
-    els.p2Name.querySelector('.name-text').textContent = "Player 2";
-    startHotseatGame();
-  }
 
   if (gameMode !== 'none') {
     updateRollsUI();

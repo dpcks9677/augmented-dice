@@ -16,10 +16,36 @@ class NetworkEngine {
     this.callbacks[event].push(callback);
   }
 
+  // 이벤트 리스너 해제
+  off(event, callback) {
+    if (this.callbacks[event]) {
+      this.callbacks[event] = this.callbacks[event].filter(cb => cb !== callback);
+    }
+  }
+
+  // 1회성 이벤트 리스너 등록
+  once(event, callback) {
+    const wrapper = (data) => {
+      this.off(event, wrapper);
+      callback(data);
+    };
+    this.on(event, wrapper);
+  }
+
+  // 특정 이벤트의 모든 리스너 제거
+  removeAllListeners(event) {
+    if (event) {
+      this.callbacks[event] = [];
+    } else {
+      this.callbacks = {};
+    }
+  }
+
   // 내부 이벤트 발생
   emit(event, data) {
     if (this.callbacks[event]) {
-      this.callbacks[event].forEach(cb => cb(data));
+      // slice()로 복사본을 만들어 루프 도중 off() 실행 시 인덱스 꼬임 방지
+      this.callbacks[event].slice().forEach(cb => cb(data));
     }
   }
 
