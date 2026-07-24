@@ -1355,6 +1355,10 @@ networkEngine.on('game_started', () => {
   }
 
   window.isMultiplayer = true;
+  if (window.lobbyPlayers && Array.isArray(window.lobbyPlayers)) {
+    window.initialMatchPlayers = JSON.parse(JSON.stringify(window.lobbyPlayers));
+    window.matchTotalPlayers = window.lobbyPlayers.length;
+  }
   startMultiplayerGame();
 });
 
@@ -1534,8 +1538,12 @@ networkEngine.on('player_forfeited', (data) => {
   let forfeitPIndex = null;
   const cleanSenderUid = cleanUid(data?.uid);
 
-  if (window.lobbyPlayers && Array.isArray(window.lobbyPlayers)) {
-    const foundIdx = window.lobbyPlayers.findIndex(pl => {
+  const searchPlayers = (window.initialMatchPlayers && window.initialMatchPlayers.length > 0)
+    ? window.initialMatchPlayers
+    : (window.lobbyPlayers || []);
+
+  if (Array.isArray(searchPlayers)) {
+    const foundIdx = searchPlayers.findIndex(pl => {
       const plUid = cleanUid(pl?.uid);
       return (plUid && cleanSenderUid && plUid === cleanSenderUid) || (pl?.connId && data?.connId && pl.connId === data.connId);
     });
@@ -1545,18 +1553,11 @@ networkEngine.on('player_forfeited', (data) => {
   }
 
   if (!forfeitPIndex && data?.pIndex) {
-    const pIdx = Number(data.pIndex);
-    // 만약 전달받은 pIndex가 나(수신자)의 인덱스와 일치하고, 내가 기권을 부르지 않은 상태라면 수신받은 상대방 인덱스로 보정
-    const myUid = cleanUid(getCurrentUser()?.uid || window.myUid);
-    if (pIdx === window.myPlayerIndex && cleanSenderUid !== myUid) {
-      forfeitPIndex = window.myPlayerIndex === 1 ? 2 : 1;
-    } else {
-      forfeitPIndex = pIdx;
-    }
+    forfeitPIndex = Number(data.pIndex);
   }
 
   if (!forfeitPIndex) {
-    forfeitPIndex = window.myPlayerIndex === 1 ? 2 : 1;
+    forfeitPIndex = 1;
   }
 
   console.log("[DEBUG-1.2] Calling handleGameForfeit with forfeitPIndex:", forfeitPIndex, "uid:", data.uid);
@@ -2498,12 +2499,6 @@ els.btnRoll.addEventListener('click', async () => {
 function updateScorePreviews() {
   clearScorePreviews();
 
-  // 본인 턴이 아니거나 멀티플레이어 상대 턴인 경우 점수 미리보기 연산 생략
-  const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
-  if (!isMyTurn) {
-    return;
-  }
-
   // 아직 주사위를 굴리지 않은 턴 시작 직후인 경우 미리보기 생략
   if (rollsLeft === 3 && activeDice.length === 0 && keptDice.length === 0) {
     return;
@@ -2587,13 +2582,18 @@ function previewScores(diceArray) {
     }
 
     cell.innerHTML = scoreText;
-    cell.style.color = ''; // 인라인 색상 초기화 (suggested 클래스 적용을 위해)
-    cell.classList.add('suggested');
+    cell.style.color = ''; // 인라인 색상 초기화 (suggested/suggested-readonly 클래스 적용을 위해)
 
-    // 클릭 시 확정
+    // 턴 주체 여부에 따라 클래스 구분 (본인 턴: suggested, 상대방 턴: suggested-readonly 호버 무반응)
     const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
     if (isMyTurn) {
+      cell.classList.remove('suggested-readonly');
+      cell.classList.add('suggested');
       cell.onclick = () => lockScore(cat.id, potentialScores[cat.id]);
+    } else {
+      cell.classList.remove('suggested');
+      cell.classList.add('suggested-readonly');
+      cell.onclick = null;
     }
   });
 }
@@ -2608,6 +2608,7 @@ function clearScorePreviews() {
         if (!scores[p] || scores[p][cat.id] === undefined) {
           cell.style.color = ''; // 인라인 색상 초기화
           cell.classList.remove('suggested');
+          cell.classList.remove('suggested-readonly');
           cell.onclick = null; // 이벤트 제거
           cell.title = '';
         }
@@ -2802,10 +2803,12 @@ function endGame() {
   let playerStats = [];
   for (let p = 1; p <= count; p++) {
     const tot = Object.values(scores[p] || {}).reduce(sumObj, 0);
-    const pData = window.lobbyPlayers ? window.lobbyPlayers[p - 1] : null;
+    const pData = (window.initialMatchPlayers && window.initialMatchPlayers[p - 1])
+      ? window.initialMatchPlayers[p - 1]
+      : (window.lobbyPlayers ? window.lobbyPlayers[p - 1] : null);
     const nickname = pData ? pData.nickname : `Player ${p}`;
     const avatarUrl = pData ? pData.avatarUrl : null;
-    playerStats.push({ playerIndex: p, nickname, totalScore: tot, avatarUrl, isForfeited: forfeitedPlayers[p] });
+    playerStats.push({ playerIndex: p, nickname, totalScore: tot, avatarUrl, isForfeited: Boolean(forfeitedPlayers[p]) });
   }
 
   // 정렬: 기권하지 않은 플레이어(점수 내림차순) -> 기권 플레이어(점수 내림차순)
@@ -2915,8 +2918,12 @@ async function saveMatchData() {
     }
   };
 
-  if (window.lobbyPlayers && Array.isArray(window.lobbyPlayers)) {
-    window.lobbyPlayers.forEach(pl => {
+  const playersSource = (window.initialMatchPlayers && window.initialMatchPlayers.length > 0)
+    ? window.initialMatchPlayers
+    : (window.lobbyPlayers || []);
+
+  if (Array.isArray(playersSource)) {
+    playersSource.forEach(pl => {
       addUidToPlayerUids(pl?.uid);
     });
   }
@@ -2929,7 +2936,7 @@ async function saveMatchData() {
   }
 
   for (let p = 1; p <= count; p++) {
-    const pInfo = window.lobbyPlayers ? window.lobbyPlayers[p - 1] : null;
+    const pInfo = playersSource ? playersSource[p - 1] : null;
     let rawUid = pInfo?.uid || forfeitedPlayerUids[p];
     if (!rawUid && p === window.myPlayerIndex && curUser?.uid) {
       rawUid = curUser.uid;
@@ -2944,6 +2951,7 @@ async function saveMatchData() {
     const isForfeited = Boolean(forfeitedPlayers[p]);
 
     addUidToPlayerUids(rawUid);
+    addUidToPlayerUids(pInfo?.uid);
 
     if (!isForfeited) {
       if (totScore > maxScore) {
@@ -3117,6 +3125,9 @@ const categories = [
 ];
 
 function getActivePlayerCount() {
+  if (window.matchTotalPlayers && window.matchTotalPlayers >= 2) {
+    return window.matchTotalPlayers;
+  }
   if (window.isMultiplayer && window.lobbyPlayers && window.lobbyPlayers.length >= 2) {
     return window.lobbyPlayers.length;
   }

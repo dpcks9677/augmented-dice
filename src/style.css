@@ -893,6 +893,14 @@ body {
   background-color: #f0f0f0;
 }
 
+.score-cell.suggested-readonly {
+  cursor: default !important;
+  color: #999999;
+  font-style: italic;
+  background-color: transparent !important;
+  pointer-events: none;
+}
+
 .score-cell.filled {
   cursor: default;
   font-weight: bold;

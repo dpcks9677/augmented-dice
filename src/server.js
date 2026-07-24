@@ -271,6 +271,12 @@ export class DiceServer {
       case 'start_game':
         if (this.players[conn.id] && this.players[conn.id].isHost) {
           this.gameState = 'playing';
+          const pList = Object.values(this.players);
+          pList.forEach((p, idx) => {
+            if (this.players[p.connId]) {
+              this.players[p.connId].playerIndex = idx + 1;
+            }
+          });
           this.gameSessionData = {
             scores: { 1: {}, 2: {}, 3: {}, 4: {} },
             activeMutations: { 1: {}, 2: {}, 3: {}, 4: {} },
@@ -293,11 +299,14 @@ export class DiceServer {
       case 'player_forfeited':
         this.gameState = 'ended';
         let forfeitPlayer = this.players[conn.id];
-        let forfeitPIndex = forfeitPlayer?.playerIndex || 1;
-        if (forfeitPlayer && !forfeitPlayer.playerIndex) {
+        let forfeitPIndex = forfeitPlayer?.playerIndex;
+        if (!forfeitPIndex) {
           const playersArr = Object.values(this.players);
           const idx = playersArr.indexOf(forfeitPlayer);
-          forfeitPIndex = idx >= 0 ? idx + 1 : (forfeitPlayer.isHost ? 1 : 2);
+          forfeitPIndex = idx >= 0 ? idx + 1 : 1;
+        }
+        if (data.pIndex) {
+          forfeitPIndex = Number(data.pIndex);
         }
         const forfeitPayload = JSON.stringify({
           type: 'player_forfeited',
