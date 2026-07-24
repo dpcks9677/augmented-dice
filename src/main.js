@@ -1447,14 +1447,15 @@ networkEngine.on('full_game_sync', (data) => {
   }
 
   if (sData.disconnectGrace) {
-    if (sData.disconnectGrace[1] !== undefined) disconnectGrace[1] = sData.disconnectGrace[1];
-    if (sData.disconnectGrace[2] !== undefined) disconnectGrace[2] = sData.disconnectGrace[2];
+    for (let p = 1; p <= 4; p++) {
+      if (sData.disconnectGrace[p] !== undefined) disconnectGrace[p] = sData.disconnectGrace[p];
+    }
   }
 
   if (data.players) {
-    data.players.forEach(p => {
+    data.players.forEach((p, idx) => {
       if (p.disconnected) {
-        const pIdx = p.isHost ? 1 : 2;
+        const pIdx = p.playerIndex || (idx + 1);
         handlePlayerDisconnect(pIdx);
       }
     });
@@ -1495,28 +1496,36 @@ networkEngine.on('full_game_sync', (data) => {
 
 networkEngine.on('player_disconnected', (data) => {
   let pIndex = null;
-  if (window.lobbyPlayers) {
-    const p = window.lobbyPlayers.find(pl => pl.uid === data.uid || pl.connId === data.connId);
-    if (p) {
-      pIndex = p.isHost ? 1 : 2;
+  const searchPlayers = window.initialMatchPlayers || window.lobbyPlayers;
+  if (searchPlayers) {
+    const foundIdx = searchPlayers.findIndex(pl => pl.uid === data.uid || pl.connId === data.connId);
+    if (foundIdx !== -1) {
+      pIndex = foundIdx + 1;
     }
   }
+  if (!pIndex && data.pIndex) {
+    pIndex = Number(data.pIndex);
+  }
   if (!pIndex) {
-    pIndex = window.myPlayerIndex === 1 ? 2 : 1;
+    pIndex = 1;
   }
   handlePlayerDisconnect(pIndex);
 });
 
 networkEngine.on('player_reconnected', (data) => {
   let pIndex = null;
-  if (window.lobbyPlayers) {
-    const p = window.lobbyPlayers.find(pl => pl.uid === data.uid || pl.connId === data.connId);
-    if (p) {
-      pIndex = p.isHost ? 1 : 2;
+  const searchPlayers = window.initialMatchPlayers || window.lobbyPlayers;
+  if (searchPlayers) {
+    const foundIdx = searchPlayers.findIndex(pl => pl.uid === data.uid || pl.connId === data.connId);
+    if (foundIdx !== -1) {
+      pIndex = foundIdx + 1;
     }
   }
+  if (!pIndex && data.pIndex) {
+    pIndex = Number(data.pIndex);
+  }
   if (!pIndex) {
-    pIndex = window.myPlayerIndex === 1 ? 2 : 1;
+    pIndex = 1;
   }
   handlePlayerReconnect(pIndex);
 });
@@ -1961,9 +1970,9 @@ function startMultiplayerGame() {
   // 방장은 1P, 게스트는 2P (현재 2인 대전 기준)
   if (window.lobbyPlayers && window.myPlayerInfo) {
     const idx = window.lobbyPlayers.indexOf(window.myPlayerInfo);
-    window.myPlayerIndex = idx >= 0 ? idx + 1 : (window.myPlayerInfo.isHost ? 1 : 2);
+    window.myPlayerIndex = idx >= 0 ? idx + 1 : (window.myPlayerInfo.playerIndex || (window.myPlayerInfo.isHost ? 1 : 2));
   } else {
-    window.myPlayerIndex = window.myPlayerInfo?.isHost ? 1 : 2;
+    window.myPlayerIndex = window.myPlayerInfo?.playerIndex || (window.myPlayerInfo?.isHost ? 1 : 2);
   }
 
   currentPlayer = 1;
@@ -2161,6 +2170,12 @@ function updateTurnTimerUI() {
     timerElem.classList.remove('paused');
     if (turnTimeRemaining <= 10) timerElem.classList.add('warning');
     else timerElem.classList.remove('warning');
+
+    const hourglassSvg = timerElem.querySelector('.hourglass-svg');
+    if (hourglassSvg) {
+      const isOdd = (turnTimeRemaining % 2 !== 0);
+      hourglassSvg.classList.toggle('flip', isOdd);
+    }
   }
 }
 
@@ -3172,12 +3187,14 @@ function initScoreboard() {
     let cellsHtml = '';
 
     if (cat.isDivider && cat.id === 'bonus') {
-      cellsHtml += `<th class="col-cat" id="cat-title-left-${cat.id}">Bonus (0/63)</th>`;
+      const bonusTitle = count >= 3 ? 'Bonus (+35)' : 'Bonus (0/63)';
+      cellsHtml += `<th class="col-cat" id="cat-title-left-${cat.id}">${bonusTitle}</th>`;
       for (let i = 1; i <= count; i++) {
-        cellsHtml += `<td id="p${i}-${cat.id}" style="font-weight: bold; color: #888;">+35</td>`;
+        const initText = count >= 3 ? '0/63' : '+35';
+        cellsHtml += `<td id="p${i}-${cat.id}" style="font-weight: bold; color: #888;">${initText}</td>`;
       }
       if (showRight) {
-        cellsHtml += `<th class="col-cat" id="cat-title-right-${cat.id}">Bonus (0/63)</th>`;
+        cellsHtml += `<th class="col-cat" id="cat-title-right-${cat.id}">${bonusTitle}</th>`;
       }
       tr.style.backgroundColor = '#ddd';
     } else {
@@ -3218,8 +3235,13 @@ function updateScoreboard() {
       const p1Upper = getUpperSum(1);
       const p2Upper = getUpperSum(2);
 
-      if (titleLeft) titleLeft.textContent = `Bonus (${p1Upper}/${upperBonusThreshold[1] || 63})`;
-      if (titleRight) titleRight.textContent = `Bonus (${p2Upper}/${upperBonusThreshold[2] || 63})`;
+      if (count >= 3) {
+        if (titleLeft) titleLeft.textContent = `Bonus (+35)`;
+        if (titleRight) titleRight.textContent = `Bonus (+35)`;
+      } else {
+        if (titleLeft) titleLeft.textContent = `Bonus (${p1Upper}/${upperBonusThreshold[1] || 63})`;
+        if (titleRight) titleRight.textContent = `Bonus (${p2Upper}/${upperBonusThreshold[2] || 63})`;
+      }
 
       for (let p = 1; p <= count; p++) {
         const cell = document.getElementById(`p${p}-${cat.id}`);
@@ -3227,14 +3249,24 @@ function updateScoreboard() {
           const pUpper = getUpperSum(p);
           const isUpperComplete = upperCats.every(c => scores[p] && scores[p][c] !== undefined);
           const threshold = upperBonusThreshold[p] || 63;
-
           const bonusVal = (questProgress[p]?.stepRewarded) ? 55 : 35;
-          if (pUpper >= threshold) {
-            cell.innerHTML = `<span style="color: #D4AF37; font-weight: bold;">+${bonusVal}</span>`;
-          } else if (isUpperComplete) {
-            cell.innerHTML = `<span style="text-decoration: line-through; color: #888; font-weight: bold;">+${bonusVal}</span>`;
+
+          if (count >= 3) {
+            if (pUpper >= threshold) {
+              cell.innerHTML = `<span style="color: #D4AF37; font-weight: bold;">+${bonusVal}</span>`;
+            } else if (isUpperComplete) {
+              cell.innerHTML = `<span style="text-decoration: line-through; color: #888; font-weight: bold;">+${bonusVal}</span>`;
+            } else {
+              cell.innerHTML = `<span style="color: #888; font-weight: bold;">${pUpper}/${threshold}</span>`;
+            }
           } else {
-            cell.innerHTML = `<span style="color: #888; font-weight: bold;">+${bonusVal}</span>`;
+            if (pUpper >= threshold) {
+              cell.innerHTML = `<span style="color: #D4AF37; font-weight: bold;">+${bonusVal}</span>`;
+            } else if (isUpperComplete) {
+              cell.innerHTML = `<span style="text-decoration: line-through; color: #888; font-weight: bold;">+${bonusVal}</span>`;
+            } else {
+              cell.innerHTML = `<span style="color: #888; font-weight: bold;">+${bonusVal}</span>`;
+            }
           }
         }
       }

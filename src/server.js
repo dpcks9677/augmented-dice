@@ -42,9 +42,10 @@ export class DiceServer {
           this.gameSessionData.turnTimeRemaining--;
         }
         
-        Object.values(this.players).forEach(p => {
+        const pList = Object.values(this.players);
+        pList.forEach((p, idx) => {
           if (p.disconnected) {
-            const pIdx = p.isHost ? 1 : 2;
+            const pIdx = p.playerIndex || (idx + 1);
             if (this.gameSessionData.disconnectGrace[pIdx] > 0) {
               this.gameSessionData.disconnectGrace[pIdx]--;
             }

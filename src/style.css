@@ -2053,18 +2053,16 @@ body {
 
 .hourglass-svg {
   display: inline-block;
-  animation: rotateHourglass 3s infinite cubic-bezier(0.65, 0, 0.35, 1);
+  transition: transform 0.6s cubic-bezier(0.65, 0, 0.35, 1);
+  transform: rotate(0deg);
+}
+
+.hourglass-svg.flip {
+  transform: rotate(180deg);
 }
 
 .turn-timer.paused .hourglass-svg {
-  animation: none !important;
   transform: rotate(0deg) !important;
-}
-
-@keyframes rotateHourglass {
-  0% { transform: rotate(0deg); }
-  85% { transform: rotate(0deg); }
-  100% { transform: rotate(180deg); }
 }
 
 .turn-timer.warning {
