@@ -597,20 +597,13 @@ export class DiceEngine {
     }
   }
 
-  async roll(configsOrCount, isObserving = false) {
-    let configs = [];
-    if (typeof configsOrCount === 'number') {
-      for(let i=0; i<configsOrCount; i++) configs.push({type: 'normal'});
-    } else {
-      configs = configsOrCount;
-    }
-    
-    
+  async roll(configsOrCount, isObserving = false, remoteSpawnTransforms = null) {
     return new Promise((resolve) => {
       this.clearUnkept();
       this.isObserving = isObserving;
-      this.physicsActive = !isObserving;
+      this.physicsActive = true; 
       this.isAnimating = false;
+      this.currentSpawnTransforms = [];
       this.startRenderLoop();
       
       let configs = [];
@@ -675,41 +668,53 @@ export class DiceEngine {
         body.linearDamping = 0.1;
         body.angularDamping = 0.2;
         
-        // 화면 하단 중앙에서 스폰 (6시 방향)
-        const padding = 1.0; // 스폰 시에는 벽에 끼지 않도록 안쪽으로 1.0 여유를 줌
+        const padding = 1.0;
         const startX = 0; 
         const startZ = matSize3D / 2 - padding; 
-        
-        body.position.set(
-          startX + (Math.random() - 0.5) * 4.0, // X: 중앙 주변
-          2 + (i * 0.5) + Math.random(),        // Y: 보드에 가깝게
-          startZ - (i * 1.5) - Math.random()    // Z: 하단 벽 안쪽
-        );
-        
-        body.quaternion.setFromEuler(
-          Math.random() * Math.PI,
-          Math.random() * Math.PI,
-          Math.random() * Math.PI
-        );
-        
-        // 중앙으로 포물선을 그리며 던져지도록 속도 설정
-        const spread = (i / Math.max(1, count - 1)) - 0.5; // -0.5 ~ 0.5
-        body.velocity.set(
-          (Math.random() - 0.5) * 8 + (spread * 12), // X축 퍼짐
-          10 + Math.random() * 10,                   // Y축 위로 살짝 포물선
-          -10 - Math.random() * 8                    // Z축 앞(중앙)으로 적절히 던지기
-        );
-        
-        body.angularVelocity.set(
-          (Math.random() - 0.5) * 56,
-          (Math.random() - 0.5) * 56,
-          (Math.random() - 0.5) * 56
-        );
+
+        if (remoteSpawnTransforms && remoteSpawnTransforms[i]) {
+          const st = remoteSpawnTransforms[i];
+          body.position.set(st.pos.x, st.pos.y, st.pos.z);
+          body.quaternion.set(st.quat.x, st.quat.y, st.quat.z, st.quat.w);
+          body.velocity.set(st.vel.x, st.vel.y, st.vel.z);
+          body.angularVelocity.set(st.angVel.x, st.angVel.y, st.angVel.z);
+        } else {
+          body.position.set(
+            startX + (Math.random() - 0.5) * 4.0,
+            2 + (i * 0.5) + Math.random(),
+            startZ - (i * 1.5) - Math.random()
+          );
+          
+          body.quaternion.setFromEuler(
+            Math.random() * Math.PI,
+            Math.random() * Math.PI,
+            Math.random() * Math.PI
+          );
+          
+          const spread = (i / Math.max(1, count - 1)) - 0.5;
+          body.velocity.set(
+            (Math.random() - 0.5) * 8 + (spread * 12),
+            10 + Math.random() * 10,
+            -10 - Math.random() * 8
+          );
+          
+          body.angularVelocity.set(
+            (Math.random() - 0.5) * 56,
+            (Math.random() - 0.5) * 56,
+            (Math.random() - 0.5) * 56
+          );
+
+          this.currentSpawnTransforms.push({
+            pos: { x: body.position.x, y: body.position.y, z: body.position.z },
+            quat: { x: body.quaternion.x, y: body.quaternion.y, z: body.quaternion.z, w: body.quaternion.w },
+            vel: { x: body.velocity.x, y: body.velocity.y, z: body.velocity.z },
+            angVel: { x: body.angularVelocity.x, y: body.angularVelocity.y, z: body.angularVelocity.z }
+          });
+        }
 
         // 물리 충돌 이벤트 기반 사운드 재생
         body.addEventListener("collide", (e) => {
           const relativeVelocity = Math.abs(e.contact.getImpactVelocityAlongNormal());
-          // 충돌 속도가 2 이상일 때만 재생 (미세한 바닥 긁힘 소리 방지)
           if (relativeVelocity > 2) {
             this.playHitSound(relativeVelocity);
           }
@@ -763,8 +768,23 @@ export class DiceEngine {
       }, 100);
     });
   }
+  getSpawnTransforms() {
+    return this.currentSpawnTransforms || [];
+  }
+
+  getFinalTransforms() {
+    return this.diceArray.map(d => ({
+      pos: { x: d.mesh.position.x, y: d.mesh.position.y, z: d.mesh.position.z },
+      quat: { x: d.mesh.quaternion.x, y: d.mesh.quaternion.y, z: d.mesh.quaternion.z, w: d.mesh.quaternion.w }
+    }));
+  }
+
   // 관전자(Guest)용 롤 종료 트리거
-  forceRollEnd(finalValues) {
+  forceRollEnd(finalValues, finalTransforms = null) {
+    if (this.observingTimeout) {
+      clearTimeout(this.observingTimeout);
+      this.observingTimeout = null;
+    }
     this.physicsActive = false;
     this.isObserving = false;
     this.diceArray.forEach((die, index) => {
@@ -773,8 +793,13 @@ export class DiceEngine {
           this.world.removeBody(die.body);
           die.body = null;
         }
+        if (finalTransforms && finalTransforms[index]) {
+          const ft = finalTransforms[index];
+          die.mesh.position.set(ft.pos.x, ft.pos.y, ft.pos.z);
+          die.mesh.quaternion.set(ft.quat.x, ft.quat.y, ft.quat.z, ft.quat.w);
+        }
         // 전달받은 진짜 최종값 적용
-        if (finalValues && finalValues[index]) {
+        if (finalValues && finalValues[index] !== undefined) {
           die.value = finalValues[index];
         } else {
           die.value = this.calculateDieValue(die.mesh.quaternion, die.config);

@@ -1309,16 +1309,14 @@ networkEngine.on('game_started', () => {
 });
 
 networkEngine.on('ingame_message', (data) => {
-  if (!window.isMultiplayer || currentPlayer === window.myPlayerIndex) return;
+  if (!window.isMultiplayer || Number(currentPlayer) === Number(window.myPlayerIndex)) return;
 
-  if (data.type === 'physics_sync') {
-    if (diceEngine) diceEngine.applyPhysicsUpdate(data.transforms);
-  } else if (data.type === 'sync_roll') {
+  if (data.type === 'sync_roll') {
     rollsLeft = data.rollsLeft;
     updateRollsUI();
     clearScorePreviews();
     window.lastRollStartTime = Date.now();
-    if (diceEngine) diceEngine.roll(data.specialConfigs, true);
+    if (diceEngine) diceEngine.roll(data.specialConfigs, true, data.spawnTransforms);
   } else if (data.type === 'sync_roll_end') {
     const elapsed = Date.now() - (window.lastRollStartTime || 0);
     const minAnimTime = 1100;
@@ -1326,7 +1324,7 @@ networkEngine.on('ingame_message', (data) => {
 
     setTimeout(() => {
       if (diceEngine) {
-        diceEngine.forceRollEnd(data.finalValues);
+        diceEngine.forceRollEnd(data.finalValues, data.finalTransforms);
         diceEngine.diceArray.forEach(die => die.isKept = false);
         keptDice = [];
         activeDice = diceEngine.diceArray.filter(d => d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
@@ -2302,15 +2300,19 @@ els.btnRoll.addEventListener('click', async () => {
     addGameLog({ type: 'roll-action', player: currentPlayer, meta: { rolledCount, keptValues } }, 'roll-action', window.isMultiplayer, currentPlayer);
   }
 
+  const rollPromise = diceEngine.roll(specialConfigs);
+
   if (window.isMultiplayer) {
-    networkEngine.sendMessage({ type: 'sync_roll', specialConfigs, rollsLeft });
+    const spawnTransforms = diceEngine.getSpawnTransforms();
+    networkEngine.sendMessage({ type: 'sync_roll', specialConfigs, rollsLeft, spawnTransforms });
   }
 
-  const results = await diceEngine.roll(specialConfigs);
+  await rollPromise;
 
   if (window.isMultiplayer) {
     const finalValues = diceEngine.diceArray.map(d => d.value);
-    networkEngine.sendMessage({ type: 'sync_roll_end', finalValues });
+    const finalTransforms = diceEngine.getFinalTransforms();
+    networkEngine.sendMessage({ type: 'sync_roll_end', finalValues, finalTransforms });
   }
 
   // Arrange them after a short delay
@@ -3119,11 +3121,7 @@ setTimeout(() => {
     updateScorePreviews();
   };
 
-  diceEngine.onPhysicsUpdate = (transforms) => {
-    if (window.isMultiplayer && currentPlayer === window.myPlayerIndex) {
-      networkEngine.sendMessage({ type: 'physics_sync', transforms });
-    }
-  };
+  diceEngine.onPhysicsUpdate = null; // 매 프레임 스트리밍 패킷 전송 비활성화
 
   diceBoxReady = true;
   if (els.appContainer?.classList.contains('mode-select-state')) {
