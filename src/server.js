@@ -288,6 +288,7 @@ export class DiceServer {
             disconnectGrace: { 1: 60, 2: 60, 3: 60, 4: 60 },
             matchLogHistory: []
           };
+          this.broadcastState();
           this.room.broadcast(JSON.stringify({ type: 'game_started' }));
         }
         break;

@@ -2366,5 +2366,33 @@ svg.lucide-icon {
   }
 }
 
+/* ----------------------------------------------------
+   Scoreboard Header & Player Name Formatting
+---------------------------------------------------- */
+#score-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+#score-table th.col-player {
+  padding: 6px 4px;
+  vertical-align: middle;
+  text-align: center;
+  overflow: hidden;
+}
+
+#score-table .name-text {
+  display: block;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--text-color, #222);
+}
+
 
 

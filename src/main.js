@@ -199,8 +199,15 @@ let landingDiceEngine = null;
 
 function getPlayerLabel(playerIndex) {
   let name = `Player ${playerIndex}`;
-  if (window.lobbyPlayers && window.lobbyPlayers[playerIndex - 1]) {
-    name = window.lobbyPlayers[playerIndex - 1].nickname || `Player ${playerIndex}`;
+  const searchPlayers = (window.initialMatchPlayers && window.initialMatchPlayers.length > 0)
+    ? window.initialMatchPlayers
+    : window.lobbyPlayers;
+
+  if (searchPlayers && Array.isArray(searchPlayers)) {
+    const found = searchPlayers.find((pl, idx) => (pl.playerIndex ? pl.playerIndex === playerIndex : idx + 1 === playerIndex));
+    if (found?.nickname) {
+      name = found.nickname;
+    }
   } else {
     const oppNameElem = document.getElementById(`match-p${playerIndex}-name`);
     if (oppNameElem && oppNameElem.textContent) {
@@ -1365,6 +1372,15 @@ networkEngine.on('game_started', () => {
 });
 
 networkEngine.on('ingame_message', (data) => {
+  if (data.subType === 'debug_next_turn' || data.type === 'debug_next_turn') {
+    window.debugNextTurnHandler?.();
+    return;
+  }
+  if (data.subType === 'debug_prev_turn' || data.type === 'debug_prev_turn') {
+    window.debugPrevTurnHandler?.();
+    return;
+  }
+
   if (!window.isMultiplayer || Number(currentPlayer) === Number(window.myPlayerIndex)) return;
 
   if (data.type === 'sync_roll') {
@@ -1910,7 +1926,16 @@ function updateMatchProfiles() {
 
   const myConnId = networkEngine.socket?.id;
   const myUid = getCurrentUser()?.uid;
-  const players = window.lobbyPlayers || [];
+  const players = (window.initialMatchPlayers && window.initialMatchPlayers.length > 0)
+    ? window.initialMatchPlayers
+    : (window.lobbyPlayers || []);
+
+  const getPIndex = (pObj, fallbackIdx) => {
+    if (!pObj) return fallbackIdx;
+    if (pObj.playerIndex) return Number(pObj.playerIndex);
+    const idx = players.indexOf(pObj);
+    return idx >= 0 ? idx + 1 : fallbackIdx;
+  };
 
   let me = players.find(p => p.connId === myConnId || (myUid && p.uid === myUid)) || players[0];
   let opponents = players.filter(p => p !== me);
@@ -1922,7 +1947,7 @@ function updateMatchProfiles() {
     opponents = [{ nickname: "Player 2", avatarUrl: null }];
   }
 
-  const myP = me ? (players.indexOf(me) >= 0 ? players.indexOf(me) + 1 : (window.myPlayerIndex || 1)) : (window.myPlayerIndex || 1);
+  const myP = me ? getPIndex(me, window.myPlayerIndex || 1) : (window.myPlayerIndex || 1);
 
   if (myBoxName) myBoxName.textContent = me.nickname || "Player (Me)";
   if (myBoxAvatar) {
@@ -1935,8 +1960,11 @@ function updateMatchProfiles() {
 
   if (oppContainer) {
     oppContainer.innerHTML = '';
+    // 상대방을 playerIndex 순서대로 정렬
+    opponents.sort((a, b) => getPIndex(a, 99) - getPIndex(b, 99));
+
     opponents.forEach((opp, idx) => {
-      const oppIdx = players.indexOf(opp) >= 0 ? players.indexOf(opp) + 1 : idx + 2;
+      const oppIdx = getPIndex(opp, idx + 2);
       const isCurrentTurn = (oppIdx === currentPlayer);
       const oppBox = document.createElement('div');
       oppBox.className = `match-player-box ${isCurrentTurn ? 'active-turn' : ''}`;
@@ -1971,10 +1999,24 @@ function startMultiplayerGame() {
   resetGameSession();
   window.gameSessionStarted = true;
   window.isMultiplayer = true;
-  // 방장은 1P, 게스트는 2P (현재 2인 대전 기준)
+
+  if (window.lobbyPlayers && Array.isArray(window.lobbyPlayers)) {
+    window.initialMatchPlayers = JSON.parse(JSON.stringify(window.lobbyPlayers));
+    window.initialMatchPlayers.forEach((p, idx) => {
+      if (!p.playerIndex) p.playerIndex = idx + 1;
+    });
+  }
+
   if (window.lobbyPlayers && window.myPlayerInfo) {
-    const idx = window.lobbyPlayers.indexOf(window.myPlayerInfo);
-    window.myPlayerIndex = idx >= 0 ? idx + 1 : (window.myPlayerInfo.playerIndex || (window.myPlayerInfo.isHost ? 1 : 2));
+    const myConnId = networkEngine.socket?.id;
+    const myUid = getCurrentUser()?.uid;
+    const found = window.lobbyPlayers.find(p => p.connId === myConnId || (myUid && p.uid === myUid));
+    if (found && found.playerIndex) {
+      window.myPlayerIndex = Number(found.playerIndex);
+    } else {
+      const idx = window.lobbyPlayers.indexOf(window.myPlayerInfo);
+      window.myPlayerIndex = idx >= 0 ? idx + 1 : (window.myPlayerInfo.playerIndex || (window.myPlayerInfo.isHost ? 1 : 2));
+    }
   } else {
     window.myPlayerIndex = window.myPlayerInfo?.playerIndex || (window.myPlayerInfo?.isHost ? 1 : 2);
   }
@@ -2910,9 +2952,10 @@ function endGame() {
       if (stat.isForfeited) {
         rankBadge = `<span class="endgame-rank-badge rank-forfeit" style="background: #e0e0e0; color: #888; font-weight: bold;">-</span>`;
       } else {
-        const activeRank = activePlayers.findIndex(s => s.playerIndex === stat.playerIndex);
-        isWinner = activeRank === 0 && (activePlayers.length === 1 || stat.totalScore > (activePlayers[1]?.totalScore || -1));
-        rankBadge = isWinner ? '<span class="endgame-rank-badge rank-1">🏆 1위</span>' : `<span class="endgame-rank-badge">${activeRank + 1}위</span>`;
+        const higherCount = activePlayers.filter(s => s.totalScore > stat.totalScore).length;
+        const displayRank = higherCount + 1;
+        isWinner = (displayRank === 1);
+        rankBadge = isWinner ? '<span class="endgame-rank-badge rank-1">🏆 1위</span>' : `<span class="endgame-rank-badge">${displayRank}위</span>`;
       }
 
       const card = document.createElement('div');
@@ -3238,9 +3281,12 @@ function initScoreboard() {
   if (thead) {
     let headerHtml = '<tr><th class="col-cat highlight-dark">Categories</th>';
     for (let i = 1; i <= count; i++) {
-      const pData = players[i - 1];
+      const searchPlayers = (window.initialMatchPlayers && window.initialMatchPlayers.length > 0)
+        ? window.initialMatchPlayers
+        : (window.lobbyPlayers || []);
+      const pData = searchPlayers.find((pl, idx) => (pl.playerIndex ? Number(pl.playerIndex) === i : idx + 1 === i)) || searchPlayers[i - 1];
       const pName = pData ? pData.nickname : `P${i}`;
-      headerHtml += `<th id="p${i}-name" class="col-player"><div class="name-text">${pName}</div></th>`;
+      headerHtml += `<th id="p${i}-name" class="col-player" title="${pName}"><div class="name-text" title="${pName}">${pName}</div></th>`;
     }
     if (showRight) {
       headerHtml += '<th class="col-cat highlight-dark">Categories</th>';
@@ -3742,32 +3788,52 @@ window.applyMutation = function (player, mutationId) {
   }
 };
 
+const executePrevTurn = () => {
+  const totalCount = getActivePlayerCount();
+  if (currentPlayer > 1) {
+    currentPlayer--;
+  } else {
+    if (currentRound > 1) {
+      currentPlayer = totalCount;
+      currentRound--;
+    } else return;
+  }
+  startTurn();
+};
+
+const executeNextTurn = () => {
+  const totalCount = getActivePlayerCount();
+  if (currentPlayer < totalCount) {
+    currentPlayer++;
+  } else {
+    currentPlayer = 1;
+    currentRound++;
+  }
+
+  if (currentRound > 12) {
+    checkExtraTurnsOrEndGame();
+  } else {
+    isExtraTurnPhase = false;
+    startTurn();
+  }
+};
+
+window.debugNextTurnHandler = executeNextTurn;
+window.debugPrevTurnHandler = executePrevTurn;
+
 setupDebugTools({
   applyMutation: window.applyMutation,
   prevTurn: () => {
-    if (currentPlayer === 2) {
-      currentPlayer = 1;
-    } else {
-      if (currentRound > 1) {
-        currentPlayer = 2;
-        currentRound--;
-      } else return;
+    if (window.isMultiplayer) {
+      networkEngine.sendMessage({ type: 'ingame_message', subType: 'debug_prev_turn' });
     }
-    startTurn();
+    executePrevTurn();
   },
   nextTurn: () => {
-    if (currentPlayer === 1) {
-      currentPlayer = 2;
-    } else {
-      currentPlayer = 1;
-      currentRound++;
+    if (window.isMultiplayer) {
+      networkEngine.sendMessage({ type: 'ingame_message', subType: 'debug_next_turn' });
     }
-
-    if (currentRound > 12) {
-      endGame();
-    } else {
-      startTurn();
-    }
+    executeNextTurn();
   },
   applyDice: (values) => {
     diceEngine.forceValues(values);
