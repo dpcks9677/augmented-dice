@@ -2172,6 +2172,9 @@ function startTurn() {
   rollsLeft = 3;
   keptDice = [];
   activeDice = [];
+  if (diceEngine) {
+    diceEngine.clearAll();
+  }
   updateRollsUI();
   clearScorePreviews();
 
@@ -2597,6 +2600,9 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
     scores[currentPlayer]['bonus'] = 35;
   }
 
+  stopTurnTimer(); // 족보 선택 즉시 장고 타이머 일시 정지
+  els.btnRoll.disabled = true; // 주사위 정리 중 굴리기 버튼 비활성화
+
   const cell = document.getElementById(`p${currentPlayer}-${catId}`);
 
   let scoreText = '';
@@ -2623,7 +2629,9 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
   const specialCats = ['choice', '4oak', 'fullhouse', 's-straight', 'l-straight', 'yacht'];
   const isSpecial = specialCats.includes(catId) && scoreObj.score > 0;
 
-  diceEngine.playClearAnimation(isSpecial); // 애니메이션 실행
+  if (diceEngine) {
+    diceEngine.playClearAnimation(isSpecial); // 애니메이션 실행
+  }
 
   const totalCount = getActivePlayerCount();
 
@@ -2641,19 +2649,27 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
   clearScorePreviews();
   updateScoreboard();
 
-  // 턴 전환 로직 (1 -> 2 -> ... -> N -> 1)
-  if (currentPlayer < totalCount) {
-    currentPlayer++;
-  } else {
-    currentPlayer = 1;
-    currentRound++;
-  }
+  // 주사위 정리 및 리셋 애니메이션 재생 동안 대기 후 다음 턴 전환 (장고 타이머는 턴 시작 시 가동)
+  const animDelay = isSpecial ? 1000 : 600;
+  setTimeout(() => {
+    if (diceEngine) {
+      diceEngine.clearAll();
+    }
 
-  if (currentRound > 12) {
-    endGame();
-  } else {
-    startTurn();
-  }
+    // 턴 전환 로직 (1 -> 2 -> ... -> N -> 1)
+    if (currentPlayer < totalCount) {
+      currentPlayer++;
+    } else {
+      currentPlayer = 1;
+      currentRound++;
+    }
+
+    if (currentRound > 12) {
+      endGame();
+    } else {
+      startTurn();
+    }
+  }, animDelay);
 }
 
 function endGame() {
