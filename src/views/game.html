@@ -188,10 +188,17 @@
           
           <hr class="menu-divider" style="margin: 10px 0 20px 0;" />
           
-          <h3 style="text-align: center; margin-bottom: 10px;">참여 코드로 참가</h3>
-          <div style="display: flex; gap: 8px;">
-            <input type="text" id="input-lobby-join-code" class="game-input" placeholder="코드 6자리" maxlength="6" style="flex: 1; text-transform: uppercase; text-align: center; font-size: 1.2rem; letter-spacing: 2px;" />
-            <button id="btn-lobby-join" class="btn-play-menu" style="padding: 0 20px;">참가</button>
+          <h3 style="text-align: center; margin-bottom: 12px;">참여 코드로 참가</h3>
+          <div class="lobby-join-row" style="display: flex; gap: 14px; align-items: center; justify-content: center;">
+            <div class="pin-code-container" id="pin-code-container">
+              <input type="text" class="pin-digit-input" maxlength="1" data-index="0" autocomplete="off" />
+              <input type="text" class="pin-digit-input" maxlength="1" data-index="1" autocomplete="off" />
+              <input type="text" class="pin-digit-input" maxlength="1" data-index="2" autocomplete="off" />
+              <input type="text" class="pin-digit-input" maxlength="1" data-index="3" autocomplete="off" />
+              <input type="text" class="pin-digit-input" maxlength="1" data-index="4" autocomplete="off" />
+              <input type="text" class="pin-digit-input" maxlength="1" data-index="5" autocomplete="off" />
+            </div>
+            <button id="btn-lobby-join" class="btn-play-menu btn-pin-submit" style="padding: 0 20px; height: 44px; white-space: nowrap; margin-left: 4px;">참가</button>
           </div>
         </div>
       </section>
@@ -209,6 +216,12 @@
           <div class="lobby-code-box">
             <span>참여 코드: </span>
             <strong id="lobby-code-display">ABC123</strong>
+            <button id="btn-copy-lobby-code" class="icon-btn-copy" title="참여 코드 복사">
+              <svg class="copy-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
           </div>
           
           <div class="lobby-players">

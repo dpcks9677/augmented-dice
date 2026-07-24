@@ -1597,10 +1597,83 @@ els.btnLobbyCreate?.addEventListener('click', () => {
   showLobby(true);
 });
 
+// 로비 참여 코드 클립보드 복사 버튼 이벤트
+const btnCopyCode = document.getElementById('btn-copy-lobby-code');
+btnCopyCode?.addEventListener('click', async () => {
+  const codeDisplay = document.getElementById('lobby-code-display');
+  const code = codeDisplay?.textContent?.trim();
+  if (!code) return;
+
+  try {
+    await navigator.clipboard.writeText(code);
+    btnCopyCode.classList.add('copied');
+    btnCopyCode.innerHTML = `
+      <svg class="copy-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    `;
+    setTimeout(() => {
+      btnCopyCode.classList.remove('copied');
+      btnCopyCode.innerHTML = `
+        <svg class="copy-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+      `;
+    }, 1500);
+  } catch (err) {
+    console.error("Copy failed:", err);
+  }
+});
+
+// 6자리 PIN 코드 입력 스마트 키보드 이벤터
+const pinInputs = document.querySelectorAll('.pin-digit-input');
+pinInputs.forEach((input, index) => {
+  input.addEventListener('input', (e) => {
+    const val = input.value.toUpperCase();
+    input.value = val;
+    input.classList.toggle('filled', val.length > 0);
+
+    if (val.length > 0 && index < pinInputs.length - 1) {
+      pinInputs[index + 1].focus();
+    }
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Backspace' && !input.value && index > 0) {
+      pinInputs[index - 1].focus();
+    }
+  });
+
+  input.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const pasted = (e.clipboardData || window.clipboardData).getData('text').trim().toUpperCase();
+    if (!pasted) return;
+
+    const chars = pasted.replace(/[^A-Z0-9]/g, '').slice(0, 6).split('');
+    chars.forEach((ch, idx) => {
+      if (pinInputs[idx]) {
+        pinInputs[idx].value = ch;
+        pinInputs[idx].classList.add('filled');
+      }
+    });
+
+    const nextIndex = Math.min(chars.length - 1, pinInputs.length - 1);
+    if (pinInputs[nextIndex]) pinInputs[nextIndex].focus();
+  });
+});
+
 els.btnLobbyJoin?.addEventListener('click', () => {
-  const code = els.inputLobbyJoinCode.value.trim().toUpperCase();
+  let code = '';
+  const pinInputsArr = document.querySelectorAll('.pin-digit-input');
+  if (pinInputsArr && pinInputsArr.length === 6) {
+    pinInputsArr.forEach(inp => code += inp.value.trim().toUpperCase());
+  } else if (els.inputLobbyJoinCode) {
+    code = els.inputLobbyJoinCode.value.trim().toUpperCase();
+  }
+
   if (code.length !== 6) {
-    alert('6자리의 참여 코드를 입력해주세요.');
+    alert('6자리의 참여 코드를 정확히 입력해주세요.');
     return;
   }
   showLobby(false, code);
@@ -1783,10 +1856,10 @@ function startHotseatGame(mode = 'hotseat') {
 function updateTurnHighlights() {
   const count = getActivePlayerCount();
   const myP = window.myPlayerIndex || 1;
+  const isMyTurn = (currentPlayer === myP);
 
   const myBox = document.getElementById('match-my-box');
   const myName = document.getElementById('match-my-name');
-  const isMyTurn = (currentPlayer === myP);
 
   if (myBox) myBox.classList.toggle('active-turn', isMyTurn);
   if (myName) myName.classList.toggle('active-turn', isMyTurn);
@@ -1799,6 +1872,16 @@ function updateTurnHighlights() {
     if (oppBox) oppBox.classList.toggle('active-turn', isCurrent);
     if (oppName) oppName.classList.toggle('active-turn', isCurrent);
   }
+
+  // 프로필 아바타 초록 글로우: data-player-index 매칭으로 100% 정확하게 단 1개만 활성화!
+  const allAvatarElems = document.querySelectorAll('.match-avatar-container, .match-avatar');
+  allAvatarElems.forEach(elem => {
+    const pIdxStr = elem.getAttribute('data-player-index');
+    if (pIdxStr) {
+      const pIdx = Number(pIdxStr);
+      elem.classList.toggle('turn-active-glow', pIdx === currentPlayer);
+    }
+  });
 
   if (els.p1Name) els.p1Name.classList.toggle('active-turn', currentPlayer === 1);
   if (els.p2Name) els.p2Name.classList.toggle('active-turn', currentPlayer === 2);
@@ -1825,8 +1908,16 @@ function updateMatchProfiles() {
     opponents = [{ nickname: "Player 2", avatarUrl: null }];
   }
 
+  const myP = me ? (players.indexOf(me) >= 0 ? players.indexOf(me) + 1 : (window.myPlayerIndex || 1)) : (window.myPlayerIndex || 1);
+
   if (myBoxName) myBoxName.textContent = me.nickname || "Player (Me)";
-  if (myBoxAvatar) myBoxAvatar.style.backgroundImage = me.avatarUrl ? `url('${me.avatarUrl}')` : 'none';
+  if (myBoxAvatar) {
+    myBoxAvatar.style.backgroundImage = me.avatarUrl ? `url('${me.avatarUrl}')` : 'none';
+    myBoxAvatar.setAttribute('data-player-index', myP);
+    if (myBoxAvatar.parentElement) {
+      myBoxAvatar.parentElement.setAttribute('data-player-index', myP);
+    }
+  }
 
   if (oppContainer) {
     oppContainer.innerHTML = '';
@@ -1839,8 +1930,8 @@ function updateMatchProfiles() {
 
       const avUrl = opp.avatarUrl ? `url('${opp.avatarUrl}')` : 'none';
       oppBox.innerHTML = `
-        <div class="match-avatar-container" style="position: relative; display: inline-block;">
-          <div class="match-avatar" id="match-p${oppIdx}-avatar" style="background-image: ${avUrl}; background-color: #ccc;"></div>
+        <div class="match-avatar-container" data-player-index="${oppIdx}" style="position: relative; display: inline-block;">
+          <div class="match-avatar" id="match-p${oppIdx}-avatar" data-player-index="${oppIdx}" style="background-image: ${avUrl}; background-color: #ccc;"></div>
           <div class="disconnect-overlay hidden" id="match-p${oppIdx}-disconnect">
             <svg class="unplug-svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="overflow: visible;">
               <path d="m19 5 3-3"></path>

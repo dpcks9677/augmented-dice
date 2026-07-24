@@ -1447,16 +1447,82 @@ body {
 .lobby-code-box {
   background: var(--bg-color);
   border: 1px solid var(--border-color);
-  padding: 12px;
+  padding: 10px 16px;
   border-radius: var(--radius);
   text-align: center;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 .lobby-code-box strong {
   font-size: 1.5rem;
   letter-spacing: 2px;
   color: var(--primary-color);
+}
+
+/* 코드 복사 아이콘 버튼 */
+.icon-btn-copy {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--text-color, #ffffff);
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 4px;
+}
+.icon-btn-copy:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.08);
+}
+.icon-btn-copy.copied {
+  background: #2ecc71 !important;
+  color: #ffffff !important;
+  border-color: #2ecc71 !important;
+}
+
+/* 6자리 분할 PIN/OTP 코드 입력 UI */
+.pin-code-container {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+.pin-digit-input {
+  width: 38px;
+  height: 46px;
+  border-radius: 10px;
+  border: 2px solid rgba(203, 213, 225, 0.9);
+  background: #ffffff !important;
+  color: #0f172a !important;
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+  outline: none;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.22), inset 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.pin-digit-input:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15), 0 0 12px rgba(59, 130, 246, 0.6) !important;
+  transform: translateY(-1px);
+  background: #ffffff !important;
+}
+
+.pin-digit-input.filled {
+  border-color: #2563eb !important;
+  background: #ffffff !important;
+  color: #1e3a8a !important;
 }
 
 .lobby-players {
@@ -2028,6 +2094,26 @@ body {
 .match-avatar-container.disconnected .match-avatar {
   filter: grayscale(100%) contrast(80%);
   opacity: 0.5;
+}
+
+/* 현재 턴 플레이어 프로필 초록색 글로우 이펙트 (#4ade80) */
+.match-avatar-container.turn-active-glow,
+.match-avatar.turn-active-glow {
+  outline: 3px solid #4ade80 !important;
+  box-shadow: 0 0 14px #4ade80, 0 0 28px rgba(74, 222, 128, 0.7) !important;
+  animation: turnGreenGlowPulse 1.5s infinite alternate ease-in-out;
+  transition: all 0.3s ease;
+}
+
+@keyframes turnGreenGlowPulse {
+  0% {
+    box-shadow: 0 0 8px #4ade80, 0 0 16px rgba(74, 222, 128, 0.5) !important;
+    outline-color: #4ade80 !important;
+  }
+  100% {
+    box-shadow: 0 0 20px #22c55e, 0 0 35px rgba(74, 222, 128, 0.95) !important;
+    outline-color: #22c55e !important;
+  }
 }
 
 .disconnect-overlay {
