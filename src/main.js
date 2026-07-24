@@ -320,6 +320,37 @@ function addGameLog(logData, type = 'normal', sync = false, player = 0) {
   }
 }
 
+function renderGameLogHistory(history) {
+  if (!els.gameLogContainer || !Array.isArray(history)) return;
+  const emptyText = els.gameLogContainer.querySelector('.log-empty-text');
+  if (emptyText) emptyText.remove();
+  els.gameLogContainer.innerHTML = '';
+  window.matchLogHistory = [...history];
+
+  history.forEach(log => {
+    const isTurnStart = log.type === 'turn-start' || log.message === '게임 시작!';
+    const entryType = isTurnStart ? 'turn-start' : (log.type || 'normal');
+    const formattedMessage = formatLogEntry(log);
+
+    const entry = document.createElement('div');
+    entry.className = `game-log-entry ${entryType}`;
+    if (log.player === 1) entry.classList.add('log-p1');
+    else if (log.player === 2) entry.classList.add('log-p2');
+
+    const textSpan = document.createElement('span');
+    textSpan.textContent = formattedMessage;
+    if (log.type === 'timeout') {
+      textSpan.style.textDecoration = 'underline';
+    }
+    entry.appendChild(textSpan);
+    els.gameLogContainer.appendChild(entry);
+  });
+
+  if (els.gameLogContainer.parentElement) {
+    els.gameLogContainer.parentElement.scrollTop = els.gameLogContainer.parentElement.scrollHeight;
+  }
+}
+
 function showAugment() {
   if (els.augmentSection) {
     els.augmentSection.classList.remove('hidden');
@@ -1378,9 +1409,8 @@ networkEngine.on('ingame_message', (data) => {
   } else if (data.type === 'sync_score') {
     lockScore(data.catId, data.scoreInfo, true, data.force);
   } else if (data.type === 'sync_log') {
-    // 턴 시작 로그 중복 출력 방지 (이미 로컬에서 출력함)
+    // 턴 시작 및 게임 시작 로그는 각 클라이언트의 startTurn()에서 이미 로컬 출력하므로 중복 렌더링 차단
     if (data.logData?.type === 'turn-start' || data.logData?.message === '게임 시작!') {
-      // 서버 메모리 저장용 수신이므로 중복 DOM 생성 안 함
       return;
     }
     addGameLog(data.logData, data.logType, false, data.player);
@@ -1409,14 +1439,7 @@ networkEngine.on('full_game_sync', (data) => {
   rollsLeft = sData.rollsLeft !== undefined ? sData.rollsLeft : 3;
 
   if (sData.matchLogHistory) {
-    window.matchLogHistory = [...sData.matchLogHistory];
-    if (els.gameLogContainer) {
-      els.gameLogContainer.innerHTML = '';
-      sData.matchLogHistory.forEach(log => {
-        const logType = (log.type === 'turn-start' || log.message === '게임 시작!') ? 'turn-start' : (log.type || 'normal');
-        addGameLog(log, logType, false, log.player || 0);
-      });
-    }
+    renderGameLogHistory(sData.matchLogHistory);
   }
 
   if (sData.disconnectGrace) {
@@ -2190,12 +2213,12 @@ function startTurn() {
 
   // 게임 최선두 1라운드 P1 시작 시 '게임 시작!' 로그 기록
   if (currentRound === 1 && currentPlayer === 1 && (!window.matchLogHistory || window.matchLogHistory.length === 0)) {
-    addGameLog('게임 시작!', 'turn-start', false, 0);
+    addGameLog('게임 시작!', 'turn-start', true, 0);
   }
 
   const proceedTurnStart = () => {
     startTurnTimer();
-    addGameLog({ type: 'turn-start', player: currentPlayer, round: currentRound }, 'turn-start', false, currentPlayer);
+    addGameLog({ type: 'turn-start', player: currentPlayer, round: currentRound }, 'turn-start', true, currentPlayer);
 
     if (diceBoxReady) {
       els.btnRoll.disabled = !isMyTurn;
