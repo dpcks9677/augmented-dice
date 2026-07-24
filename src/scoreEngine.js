@@ -3,11 +3,11 @@ export const mutationDefinitions = {
   // Upper Section
   // -------------------------
   'lucky-sevens': {
-    id: 'lucky-sevens', name: '럭키 세븐', target: 'aces', enName: 'L. Sevens', excludeFromUpper: true,
+    id: 'lucky-sevens', name: '럭키 세븐', target: 'aces', enName: 'L. Sevens', excludeFromUpper: false,
     calculate: (dice, counts, sum) => [7, 17, 27].includes(sum) ? 15 : 0
   },
   'perfect-squares': {
-    id: 'perfect-squares', name: '퍼펙트 스퀘어', target: 'aces', enName: 'P. Squares', excludeFromUpper: true,
+    id: 'perfect-squares', name: '퍼펙트 스퀘어', target: 'aces', enName: 'P. Squares', excludeFromUpper: false,
     calculate: (dice, counts, sum) => [9, 16, 25].includes(sum) ? 12 : 0
   },
   'anti-ace-deuces': {

@@ -6,7 +6,7 @@
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"> <path d=\"M7 6 H17 L11 20\" fill=\"none\" stroke=\"#222\" stroke-width=\"3.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/> <path d=\"M4 12 L8 12 M6 10 L6 14\" stroke=\"#222\" stroke-width=\"1.5\" stroke-linecap=\"round\"/> </svg>",
     "target": "에이스 (Aces)",
     "mark": "L. Sevens",
-    "description": "에이스 족보를 <strong><u>럭키 세븐</u></strong> 족보로 변경합니다.<br><br>주사위 눈금 총합이 7, 17, 27 중 하나일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 15점을 등록할 수 있습니다.<br><br>(단, 획득한 점수는 상단 보너스 계산에서 제외됩니다.)",
+    "description": "에이스 족보를 <strong><u>럭키 세븐</u></strong> 족보로 변경합니다.<br><br>주사위 눈금 총합이 7, 17, 27 중 하나일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 15점을 등록할 수 있습니다.",
     "mutationId": "lucky-sevens"
   },
   {
@@ -16,7 +16,7 @@
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"> <rect x=\"5\" y=\"5\" width=\"6\" height=\"6\" fill=\"#222\"/> <rect x=\"13\" y=\"13\" width=\"6\" height=\"6\" fill=\"#222\"/> <rect x=\"5\" y=\"13\" width=\"6\" height=\"6\" fill=\"none\" stroke=\"#222\" stroke-width=\"1.5\"/> <rect x=\"13\" y=\"5\" width=\"6\" height=\"6\" fill=\"none\" stroke=\"#222\" stroke-width=\"1.5\"/> </svg>",
     "target": "에이스 (Aces)",
     "mark": "P. Squares",
-    "description": "에이스 족보를 <strong><u>퍼펙트 스퀘어</u></strong> 족보로 변경합니다.<br><br>주사위 눈금 총합이 9, 16, 25 중 하나일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 12점을 등록할 수 있습니다.<br><br>(단, 획득한 점수는 상단 보너스 계산에서 제외됩니다.)",
+    "description": "에이스 족보를 <strong><u>퍼펙트 스퀘어</u></strong> 족보로 변경합니다.<br><br>주사위 눈금 총합이 9, 16, 25 중 하나일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 12점을 등록할 수 있습니다.",
     "mutationId": "perfect-squares"
   },
   {
@@ -400,7 +400,7 @@
     "name": "커플 주사위",
     "en-name": "Couple Dice",
     "icon": "<svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" style=\"vertical-align: middle; \"><path d=\"M12 20 l-8 -8 a4 4 0 0 1 8 -5 a4 4 0 0 1 8 5 z\" fill=\"#222\" stroke-linejoin=\"round\"/></svg>",
-    "description": "기본 주사위를 <strong><u>커플 주사위</strong></u>로 변경합니다.<br><br>커플 주사위는 족보 기입 시 두 주사위의 눈금이 같다면 +3점 추가 획득(상단 보너스 계산 제외)하는 특성을 가집니다.",
+    "description": "기본 주사위를 <strong><u>커플 주사위</strong></u>로 변경합니다.<br><br>커플 주사위는 족보 기입 시 두 주사위의 눈금이 같다면 +3점 추가 획득하는 특성을 가집니다.",
     "mutationId": "couple-dice"
   },
   {

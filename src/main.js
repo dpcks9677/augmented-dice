@@ -184,6 +184,8 @@ let keptDice = []; // 킵된 주사위 배열 (값만 저장)
 let activeDice = []; // 방금 굴린 주사위 배열 (값만 저장)
 let scores = { 1: {}, 2: {}, 3: {}, 4: {} };
 let activeMutations = { 1: {}, 2: {}, 3: {}, 4: {} };
+let extraTurns = { 1: 0, 2: 0, 3: 0, 4: 0 };
+let isExtraTurnPhase = false;
 let upperBonusThreshold = { 1: 63, 2: 63, 3: 63, 4: 63 };
 let playerYachtBank = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let yachtBankLocked = { 1: false, 2: false, 3: false, 4: false };
@@ -1789,6 +1791,8 @@ function resetGameSession() {
   forfeitedPlayers = { 1: false, 2: false, 3: false, 4: false };
   scores[1] = {}; scores[2] = {}; scores[3] = {}; scores[4] = {};
   activeMutations[1] = {}; activeMutations[2] = {}; activeMutations[3] = {}; activeMutations[4] = {};
+  extraTurns = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  isExtraTurnPhase = false;
   upperBonusThreshold[1] = 63; upperBonusThreshold[2] = 63; upperBonusThreshold[3] = 63; upperBonusThreshold[4] = 63;
   playerYachtBank[1] = 0; playerYachtBank[2] = 0; playerYachtBank[3] = 0; playerYachtBank[4] = 0;
   yachtBankLocked[1] = false; yachtBankLocked[2] = false; yachtBankLocked[3] = false; yachtBankLocked[4] = false;
@@ -2639,7 +2643,7 @@ function getUpperSum(player) {
   const upperCats = ['aces', 'deuces', 'threes', 'fours', 'fives', 'sixes'];
   return upperCats.reduce((sum, catId) => {
     let scoreVal = scores[player][catId];
-    let score = scoreVal ? (typeof scoreVal === 'object' ? scoreVal.score : scoreVal) : 0;
+    let score = scoreVal ? (typeof scoreVal === 'object' ? scoreVal.score + (scoreVal.bonus || 0) : scoreVal) : 0;
 
     const mutId = activeMutations[player] ? activeMutations[player][catId] : null;
     if (mutId && mutationDefinitions[mutId] && mutationDefinitions[mutId].excludeFromUpper) {
@@ -2787,7 +2791,24 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
       diceEngine.clearAll();
     }
 
-    // 턴 전환 로직 (1 -> 2 -> ... -> N -> 1)
+    advanceTurnAfterScore();
+  }, animDelay);
+}
+
+function hasUnfilledCategory(p) {
+  if (!scores[p]) return true;
+  const allCats = ['aces', 'deuces', 'threes', 'fours', 'fives', 'sixes', 'choice', '4oak', 'fullhouse', 's-straight', 'l-straight', 'yacht'];
+  return allCats.some(catId => scores[p][catId] === undefined);
+}
+
+function advanceTurnAfterScore() {
+  const totalCount = getActivePlayerCount();
+
+  if (isExtraTurnPhase && (extraTurns[currentPlayer] || 0) > 0) {
+    extraTurns[currentPlayer]--;
+  }
+
+  if (currentRound <= 12) {
     if (currentPlayer < totalCount) {
       currentPlayer++;
     } else {
@@ -2796,11 +2817,53 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
     }
 
     if (currentRound > 12) {
-      endGame();
+      checkExtraTurnsOrEndGame();
     } else {
+      isExtraTurnPhase = false;
       startTurn();
     }
-  }, animDelay);
+  } else {
+    checkExtraTurnsOrEndGame();
+  }
+}
+
+function checkExtraTurnsOrEndGame() {
+  const totalCount = getActivePlayerCount();
+  const candidatePlayers = [];
+
+  for (let p = 1; p <= totalCount; p++) {
+    if ((extraTurns[p] || 0) > 0 && hasUnfilledCategory(p) && !forfeitedPlayers[p]) {
+      candidatePlayers.push(p);
+    }
+  }
+
+  if (candidatePlayers.length === 0) {
+    endGame();
+    return;
+  }
+
+  let nextPlayer = null;
+  for (let step = 1; step <= totalCount; step++) {
+    const testP = ((currentPlayer - 1 + step) % totalCount) + 1;
+    if (candidatePlayers.includes(testP)) {
+      nextPlayer = testP;
+      break;
+    }
+  }
+
+  if (!nextPlayer) {
+    nextPlayer = candidatePlayers[0];
+  }
+
+  currentPlayer = nextPlayer;
+  isExtraTurnPhase = true;
+
+  addGameLog({
+    type: 'system',
+    message: `${getPlayerLabel(currentPlayer)}의 추가 턴(+1턴)이 시작됩니다!`
+  }, 'system', window.isMultiplayer, currentPlayer);
+
+  startTurn();
 }
 
 function endGame() {
@@ -2889,10 +2952,16 @@ function endGame() {
   els.endgameModal?.classList.remove('hidden');
 
   const myIdx = window.myPlayerIndex || 1;
-  const isSurvivingWinner = !forfeitedPlayers[myIdx];
-  const isHostOrSaver = (myIdx === 1) || isSurvivingWinner;
+  const activePlayerIndices = [];
+  for (let p = 1; p <= count; p++) {
+    if (!forfeitedPlayers[p]) {
+      activePlayerIndices.push(p);
+    }
+  }
+  const saverIndex = activePlayerIndices.includes(1) ? 1 : (activePlayerIndices[0] || 1);
+  const isHostOrSaver = (myIdx === saverIndex);
 
-  console.log(`[DEBUG-3.1] Checking saveMatchData trigger. gameMode: "${gameMode}", myIdx: ${myIdx}, isSurvivingWinner: ${isSurvivingWinner}, isHostOrSaver: ${isHostOrSaver}`);
+  console.log(`[DEBUG-3.1] Checking saveMatchData trigger. gameMode: "${gameMode}", myIdx: ${myIdx}, saverIndex: ${saverIndex}, isHostOrSaver: ${isHostOrSaver}`);
 
   if (gameMode && gameMode !== 'hotseat' && gameMode !== 'none') {
     if (isHostOrSaver) {
@@ -3628,7 +3697,21 @@ window.applyMutation = function (player, mutationId) {
   const mut = mutationDefinitions[mutationId];
   if (!mut) return;
 
-  activeMutations[player][mut.target] = mutationId;
+  const targetCat = mut.target;
+
+  // 이미 기입된 족보 칸을 덮어씌워 선택한 경우 점수 삭제 및 추가 턴 부여
+  if (scores[player] && scores[player][targetCat] !== undefined) {
+    delete scores[player][targetCat];
+    extraTurns[player] = (extraTurns[player] || 0) + 1;
+
+    const catName = getCategoryDisplayName(targetCat, player);
+    addGameLog({
+      type: 'system',
+      message: `${getPlayerLabel(player)}의 이미 기입된 [${catName}] 족보가 공백으로 초기화되었으며, 추가 턴(+1턴)을 획득했습니다!`
+    }, 'system', window.isMultiplayer, player);
+  }
+
+  activeMutations[player][targetCat] = mutationId;
 
   const augInfo = augmentData.find(a => a.name.includes(mut.name) || (a.mark && mut.enName && a.mark === mut.enName)) || {};
   addGameLog({ type: 'augment-action', player, meta: { mutationId, name: augInfo.name || mut.name } }, 'augment-action', window.isMultiplayer, player);
