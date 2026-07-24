@@ -1500,6 +1500,7 @@ function cleanUid(raw) {
   return raw.split('_')[0];
 }
 
+
 networkEngine.on('player_forfeited', (data) => {
   console.log("[DEBUG-1] player_forfeited event received:", data);
   if (!els.appContainer?.classList.contains('playing-state')) {
