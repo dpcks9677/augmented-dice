@@ -1261,7 +1261,10 @@ els.btnCreateRoom?.addEventListener('click', () => {
 });
 els.btnJoinRoom?.addEventListener('click', () => {
   const code = els.inputRoomCode?.value.toUpperCase();
-  if (code && code.length === 4) joinRoom(code, false);
+  if (code && code.length === 4) {
+    if (els.inputRoomCode) els.inputRoomCode.value = '';
+    joinRoom(code, false);
+  }
 });
 
 function joinRoom(roomId, asHost) {
@@ -2479,8 +2482,8 @@ function startTurnTimer(overrideTime = null) {
     }
   }
 
-  const isPlainHotseat = gameMode === 'hotseat';
-  if (isPlainHotseat) {
+  const isUnlimitedTimer = !window.gameSessionStarted || gameMode === 'none' || gameMode === 'hotseat' || gameMode === 'augmented-hotseat';
+  if (isUnlimitedTimer) {
     updateTurnTimerUI();
     return;
   }
@@ -2517,8 +2520,11 @@ function pauseTurnTimer() {
 }
 
 function resumeTurnTimer() {
-  const isPlainHotseat = gameMode === 'hotseat';
-  if (isPlainHotseat) return;
+  const isUnlimitedTimer = !window.gameSessionStarted || gameMode === 'none' || gameMode === 'hotseat' || gameMode === 'augmented-hotseat';
+  if (isUnlimitedTimer) {
+    updateTurnTimerUI();
+    return;
+  }
 
   if (!turnTimerInterval && turnTimeRemaining > 0) {
     const timerElem = document.getElementById('turn-timer') || els.turnTimer;
@@ -2539,9 +2545,9 @@ function resumeTurnTimer() {
 function updateTurnTimerUI() {
   const timerElem = document.getElementById('turn-timer') || els.turnTimer;
   const textEl = document.getElementById('turn-timer-text');
-  const isPlainHotseat = gameMode === 'hotseat';
+  const isUnlimitedTimer = !window.gameSessionStarted || gameMode === 'none' || gameMode === 'hotseat' || gameMode === 'augmented-hotseat';
 
-  if (isPlainHotseat) {
+  if (isUnlimitedTimer) {
     if (textEl) textEl.textContent = "--";
     if (timerElem) {
       timerElem.classList.add('paused');
