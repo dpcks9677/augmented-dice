@@ -1261,10 +1261,7 @@ els.btnCreateRoom?.addEventListener('click', () => {
 });
 els.btnJoinRoom?.addEventListener('click', () => {
   const code = els.inputRoomCode?.value.toUpperCase();
-  if (code && code.length === 4) {
-    if (els.inputRoomCode) els.inputRoomCode.value = '';
-    joinRoom(code, false);
-  }
+  if (code && code.length === 4) joinRoom(code, false);
 });
 
 function joinRoom(roomId, asHost) {
@@ -1990,9 +1987,20 @@ els.btnLobbyJoin?.addEventListener('click', () => {
   showLobby(false, code);
 });
 
+function resetPinInputs() {
+  if (els.inputLobbyJoinCode) {
+    els.inputLobbyJoinCode.value = '';
+  }
+  document.querySelectorAll('.pin-digit-input').forEach(input => {
+    input.value = '';
+    input.classList.remove('filled');
+  });
+}
+
 els.btnLobbyBack?.addEventListener('click', () => {
   networkEngine.disconnect();
   stopLobbyWaitingAnimation();
+  resetPinInputs();
   els.appContainer.classList.remove('lobby-state');
   els.appContainer.classList.add('lobby-select-state');
 });
