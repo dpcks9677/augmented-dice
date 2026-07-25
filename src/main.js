@@ -4300,9 +4300,9 @@ if (avatarContainer && cropModal) {
       return;
     }
     cropModal.classList.remove('hidden');
-    cropInputSection.classList.remove('hidden');
-    cropEditSection.classList.add('hidden');
-    cropUrlInput.value = "";
+    if (cropInputSection) cropInputSection.classList.remove('hidden');
+    if (cropEditSection) cropEditSection.classList.add('hidden');
+    if (cropUrlInput) cropUrlInput.value = "";
     if (cropperInstance) {
       cropperInstance.destroy();
       cropperInstance = null;
@@ -4321,12 +4321,13 @@ if (avatarContainer && cropModal) {
   btnCropCancel2?.addEventListener('click', closeModal);
 
   btnCropLoad?.addEventListener('click', () => {
-    const url = cropUrlInput.value.trim();
+    const url = cropUrlInput?.value?.trim() || "";
     if (!url) return alert("이미지 링크를 입력하세요.");
 
+    if (!cropImagePreview) return;
     cropImagePreview.onload = () => {
-      cropInputSection.classList.add('hidden');
-      cropEditSection.classList.remove('hidden');
+      if (cropInputSection) cropInputSection.classList.add('hidden');
+      if (cropEditSection) cropEditSection.classList.remove('hidden');
       if (cropperInstance) cropperInstance.destroy();
       cropperInstance = new Cropper(cropImagePreview, {
         aspectRatio: 1,
@@ -4355,7 +4356,7 @@ if (avatarContainer && cropModal) {
     if (!user) return;
 
     const cropData = cropperInstance.getData(true); // rounded values
-    const url = cropUrlInput.value.trim();
+    const url = cropUrlInput?.value?.trim() || "";
 
     const success = await updateUserAvatar(user.uid, url, cropData);
     if (success) {
@@ -4411,9 +4412,13 @@ if (els.btnMenuHelp) {
 let currentCompendiumCategory = 'all';
 
 function getAugmentCategoryName(aug) {
-  if (aug.id >= 1 && aug.id <= 25) return '변형';
-  if (aug.id >= 26 && aug.id <= 35) return '퀘스트';
-  if (aug.id >= 36 && aug.id <= 45) return '강화';
+  if (aug.type === 'Quest') return '퀘스트';
+  if (aug.type === 'Enhancement') return '강화';
+  if (aug.type === 'Mutation') return '변형';
+
+  if (aug.id >= 1 && aug.id <= 26) return '변형';
+  if (aug.id >= 27 && aug.id <= 36) return '퀘스트';
+  if (aug.id >= 37 && aug.id <= 45) return '강화';
   return '기타';
 }
 
