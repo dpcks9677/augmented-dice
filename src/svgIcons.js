@@ -127,15 +127,16 @@ export function getVariantSvg(id) {
     'cautious-straight': 'cautious-straight',
     'mickle': 'mickle',
     'weighted-dice': 'weighted-dice',
-    'lucky-punch': 'lucky-punch',
     'momentum': 'momentum',
     'golden-die': 'golden-die',
-    'not-over': 'not-over',
     '8-sided': '8-sided',
     'strange-die': 'strange-die',
     'promotion-die': 'promotion-die',
     'couple-dice': 'couple-dice',
-    'sevens-dice': 'sevens-dice'
+    'sevens-dice': 'sevens-dice',
+    'copycat': 'copycat',
+    'doubling': 'doubling',
+    'nozdormu': 'nozdormu'
   };
   const mappedId = map[id] || id;
 
@@ -147,9 +148,7 @@ export function getVariantSvg(id) {
       <rect x="15" y="14" width="4" height="4" rx="0.5" fill="#222"/>
     `;
   } else if (mappedId === '2nd-choice') {
-    inner = `
-      <path d="M18 18 V10 C18 5, 6 5, 6 10 V18 M2 14 L6 18 L10 14" stroke="#222" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-    `;
+    inner = `<rect x="10" y="4" width="4" height="4" rx="0.5" fill="none" stroke="#222" stroke-width="1.5"/><rect x="10" y="16" width="4" height="4" rx="0.5" fill="none" stroke="#222" stroke-width="1.5"/><rect x="4" y="10" width="4" height="4" rx="0.5" fill="none" stroke="#222" stroke-width="1.5"/><rect x="16" y="10" width="4" height="4" rx="0.5" fill="none" stroke="#222" stroke-width="1.5"/><rect x="10" y="10" width="4" height="4" rx="0.5" fill="none" stroke="#222" stroke-width="1.5"/>`;
   } else if (mappedId === 'two-pair') {
     inner = `
       <rect x="4" y="5" width="5" height="5" rx="0.5" fill="#222"/>
@@ -170,10 +169,7 @@ export function getVariantSvg(id) {
       <circle cx="19" cy="19" r="2.5" fill="none" stroke="#222" stroke-width="1.5"/>
     `;
   } else if (mappedId === 'mountain') {
-    inner = `
-      <path d="M3 18 L12 5 L21 18 Z" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round"/>
-      <path d="M8 12 L12 16 L16 12" fill="none" stroke="#222" stroke-width="2" stroke-linejoin="round"/>
-    `;
+    inner = `<path d="M 12 3.8 L 2.5 20.2 L 21.5 20.2 Z" fill="none" stroke="#222" stroke-width="2.2" stroke-linejoin="round"/><path d="M 7.5 12 L 12 16 L 16.5 12" fill="none" stroke="#222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`;
   } else if (mappedId === 'head-tail') {
     inner = `
       <rect x="7" y="3" width="4" height="6" rx="0.5" fill="#222" />
@@ -184,8 +180,8 @@ export function getVariantSvg(id) {
     `;
   } else if (mappedId === 'lucky-seven') {
     inner = `
-      <path d="M7 6 H17 L11 20" fill="none" stroke="#222" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M4 12 L8 12 M6 10 L6 14" stroke="#222" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M 12 11 C 12 8 9.5 5.5 7.5 7.5 C 5.5 9.5 8 12 12 11 Z M 12 11 C 15 12 17.5 9.5 15.5 7.5 C 13.5 5.5 11 8 12 11 Z M 12 11 C 12 14 14.5 16.5 16.5 14.5 C 18.5 12.5 16 10 12 11 Z M 12 11 C 9 10 6.5 12.5 8.5 14.5 C 10.5 16.5 13 14 12 11 Z" fill="none" stroke="#222" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M 11.5 13 C 11 16 9.5 19.5 7 21" stroke="#222" stroke-width="1.6" stroke-linecap="round"/>
     `;
   } else if (mappedId === 'fibonacci') {
     inner = `
@@ -262,7 +258,7 @@ export function getVariantSvg(id) {
       <circle cx="12" cy="12" r="6" fill="none" stroke="#222" stroke-width="1.5"/>
     `;
   } else if (mappedId === 'fast-straight') {
-    inner = `<path d="M13 2 L3 14 h9 l-2 8 l10-12 h-9 z" fill="#222" stroke-linejoin="round"/>`;
+    inner = `<path d="M 13.5 2 L 6.5 12.5 H 12 L 9.5 22 L 17.5 10.5 H 12 Z" fill="#222" stroke-linejoin="round"/>`;
   } else if (mappedId === 'no-waste') {
     inner = `<circle cx="12" cy="13" r="8" fill="none" stroke="#222" stroke-width="2"/><path d="M12 5 v-3 M9 2 h6 M12 13 l3 -3" stroke="#222" stroke-width="2" stroke-linecap="round"/>`;
   } else if (mappedId === 'step-by-step') {
@@ -277,27 +273,35 @@ export function getVariantSvg(id) {
   } else if (mappedId === 'cautious-straight') {
     inner = `<circle cx="10" cy="10" r="5" fill="none" stroke="#222" stroke-width="2"/><path d="M13.5 13.5 l5.5 5.5" stroke="#222" stroke-width="2.5" stroke-linecap="round"/>`;
   } else if (mappedId === 'mickle') {
-    inner = `<circle cx="12" cy="18" r="4" fill="#222"/><circle cx="12" cy="12" r="3" fill="#222"/><circle cx="12" cy="7" r="2" fill="#222"/>`;
+    inner = `<path d="M3 19 L11 6 L16 13.5 L19 9 L22 19 Z" fill="none" stroke="#222" stroke-width="2" stroke-linejoin="round"/><path d="M8 11 L11 15 L13.5 12.5" fill="none" stroke="#222" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`;
   } else if (mappedId === 'weighted-dice') {
-    inner = `<path d="M7 10 c0 -3 10 -3 10 0 v4 a5 5 0 0 1 -10 0 z" fill="#222"/><path d="M9 10 v-4 a3 3 0 0 1 6 0 v4" fill="none" stroke="#222" stroke-width="2"/>`;
-  } else if (mappedId === 'lucky-punch') {
-    inner = `<rect x="6" y="8" width="12" height="10" rx="4" fill="#222"/><path d="M6 14 h-2 a2 2 0 0 1 0 -4 h2" fill="#222"/>`;
+    inner = `<path d="M 12 3 L 20.5 7.5 L 20.5 16.5 L 12 21 L 3.5 16.5 L 3.5 7.5 Z" fill="none" stroke="#222" stroke-width="1.8" stroke-linejoin="round"/><path d="M 12 3 L 12 12 M 12 12 L 3.5 7.5 M 12 12 L 20.5 7.5" fill="none" stroke="#222" stroke-width="1.8" stroke-linejoin="round"/><circle cx="8" cy="6.8" r="0.9" fill="#222"/><circle cx="12" cy="5" r="0.9" fill="#222"/><circle cx="16" cy="6.8" r="0.9" fill="#222"/><circle cx="8" cy="10" r="0.9" fill="#222"/><circle cx="12" cy="8.2" r="0.9" fill="#222"/><circle cx="16" cy="10" r="0.9" fill="#222"/><circle cx="6" cy="10.5" r="0.9" fill="#222"/><circle cx="9.5" cy="12" r="0.9" fill="#222"/><circle cx="7.75" cy="14.2" r="0.9" fill="#222"/><circle cx="6" cy="16.5" r="0.9" fill="#222"/><circle cx="9.5" cy="18" r="0.9" fill="#222"/><circle cx="14.5" cy="12" r="0.9" fill="#222"/><circle cx="18" cy="10.5" r="0.9" fill="#222"/><circle cx="14.5" cy="18" r="0.9" fill="#222"/><circle cx="18" cy="16.5" r="0.9" fill="#222"/>`;
   } else if (mappedId === 'momentum') {
     inner = `<path d="M12 2 l4 8 v8 l-4 -2 l-4 2 v-8 z" fill="#222" stroke-linejoin="round"/>`;
   } else if (mappedId === 'golden-die') {
-    inner = `<path d="M12 2 l3 7 h7 l-5 5 l2 8 l-7 -4 l-7 4 l2 -8 l-5 -5 h7 z" fill="#222" stroke-linejoin="round"/>`;
-  } else if (mappedId === 'not-over') {
-    inner = `<path d="M12 4 a8 8 0 1 0 8 8" stroke="#222" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M20 7 v5 h-5" stroke="#222" stroke-width="2.5" fill="none" stroke-linejoin="round"/>`;
+    inner = `<rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="#222" stroke-width="2"/><path d="M 12 5.5 L 13.8 9.2 L 17.8 9.8 L 14.9 12.6 L 15.6 16.5 L 12 14.6 L 8.4 16.5 L 9.1 12.6 L 6.2 9.8 L 10.2 9.2 Z" fill="#222" stroke="#222" stroke-width="0.8" stroke-linejoin="round"/>`;
   } else if (mappedId === '8-sided') {
     inner = `<path d="M12 2 L20 12 L12 22 L4 12 Z M4 12 H20 M12 2 L16 12 L12 22 M12 2 L8 12 L12 22" fill="none" stroke="#222" stroke-width="1.5" stroke-linejoin="round"/>`;
   } else if (mappedId === 'strange-die') {
-    inner = `<path d="M9 8 a3 3 0 0 1 6 0 c0 2 -3 3 -3 5" fill="none" stroke="#222" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="17" r="1.5" fill="#222"/>`;
+    inner = `<rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="#222" stroke-width="2"/><path d="M 9.5 8.5 C 9.5 6.5 14.5 6.5 14.5 9 C 14.5 11 12 11.5 12 14" fill="none" stroke="#222" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16.8" r="1.2" fill="#222"/>`;
   } else if (mappedId === 'promotion-die') {
-    inner = `<path d="M4 20 h16 L20 8 l-4 4 l-4 -8 l-4 8 l-4 -4 Z" fill="#222" stroke-linejoin="round"/>`;
+    inner = `<rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="#222" stroke-width="2"/><path d="M 6.5 16 H 17.5 L 18.5 9 L 14.5 12 L 12 7 L 9.5 12 L 5.5 9 Z" fill="none" stroke="#222" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><circle cx="5.5" cy="8.5" r="0.8" fill="#222"/><circle cx="12" cy="6.5" r="0.8" fill="#222"/><circle cx="18.5" cy="8.5" r="0.8" fill="#222"/>`;
+  } else if (mappedId === 'lucky-sevens') {
+    inner = `<path d="M 12 12 C 9.5 9 8.5 5.5 12 3.5 C 15.5 5.5 14.5 9 12 12 C 15 9.5 18.5 8.5 20.5 12 C 18.5 15.5 15 14.5 12 12 C 14.5 15 15.5 18.5 12 20.5 C 8.5 18.5 9.5 15 12 12 C 9 14.5 5.5 15.5 3.5 12 C 5.5 8.5 9 9.5 12 12 Z" fill="#222"/>`;
+  } else if (mappedId === 'every-little') {
+    inner = `<path d="M3 19 L11 6 L16 13.5 L19 9 L22 19 Z" fill="none" stroke="#222" stroke-width="2" stroke-linejoin="round"/><path d="M8 11 L11 15 L13.5 12.5" fill="none" stroke="#222" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+  } else if (mappedId === 'not-over') {
+    inner = `<path d="M12 4 a8 8 0 1 0 8 8" stroke="#222" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M20 7 v5 h-5" stroke="#222" stroke-width="2.5" fill="none" stroke-linejoin="round"/>`;
   } else if (mappedId === 'couple-dice') {
-    inner = `<path d="M12 20 l-8 -8 a4 4 0 0 1 8 -5 a4 4 0 0 1 8 5 z" fill="#222" stroke-linejoin="round"/>`;
+    inner = `<defs><clipPath id="couple-back-clip"><path d="M 0 0 H 24 V 24 H 0 Z M 3 10 H 14 V 21 H 3 Z" fill-rule="evenodd"/></clipPath></defs><g clip-path="url(#couple-back-clip)"><rect x="10" y="3" width="11" height="11" rx="2" fill="none" stroke="#222" stroke-width="1.8"/><path d="M 15.5 5.8 C 13.8 4.2 11.5 5.8 11.5 8.2 C 11.5 10.5 13.8 12.2 15.5 13.2 C 17.2 12.2 19.5 10.5 19.5 8.2 C 19.5 4.2 17.2 4.2 15.5 5.8 Z" fill="#222"/></g><rect x="3" y="10" width="11" height="11" rx="2" fill="none" stroke="#222" stroke-width="1.8"/><path d="M 8.5 12.8 C 6.8 11.2 4.5 12.8 4.5 15.2 C 4.5 17.5 6.8 19.2 8.5 20.2 C 10.2 19.2 12.5 17.5 12.5 15.2 C 12.5 11.2 10.2 11.2 8.5 12.8 Z" fill="#222"/>`;
   } else if (mappedId === 'sevens-dice') {
-    inner = `<rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="#222" stroke-width="2"/><path d="M8 7 H16 L11.5 17" fill="none" stroke="#222" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+    inner = `<rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="#222" stroke-width="2"/><circle cx="7.5" cy="7.5" r="1.3" fill="#222"/><circle cx="16.5" cy="7.5" r="1.3" fill="#222"/><circle cx="7.5" cy="12" r="1.3" fill="#222"/><circle cx="12" cy="12" r="1.3" fill="#222"/><circle cx="16.5" cy="12" r="1.3" fill="#222"/><circle cx="7.5" cy="16.5" r="1.3" fill="#222"/><circle cx="16.5" cy="16.5" r="1.3" fill="#222"/>`;
+  } else if (mappedId === 'copycat') {
+    inner = `<path d="M4 8 l3-5 l4 3.5 l1-1 l1 1 l4-3.5 l3 5 v6 a5 5 0 0 1 -5 5 h-6 a5 5 0 0 1 -5 -5 z" fill="none" stroke="#222" stroke-width="2" stroke-linejoin="round"/><circle cx="8.5" cy="12" r="1.2" fill="#222"/><circle cx="15.5" cy="12" r="1.2" fill="#222"/><path d="M11 14.5 l1 1 l1 -1" fill="none" stroke="#222" stroke-width="1.5" stroke-linecap="round"/><path d="M4 12.5 h3.5 M4 14.5 h3 M20 12.5 h-3.5 M20 14.5 h-3" stroke="#222" stroke-width="1.5" stroke-linecap="round"/>`;
+  } else if (mappedId === 'doubling') {
+    inner = `<rect x="4" y="4" width="8" height="8" rx="2" fill="none" stroke="#222" stroke-width="2"/><rect x="12" y="12" width="8" height="8" rx="2" fill="none" stroke="#222" stroke-width="2"/><path d="M8 12v4h4" fill="none" stroke="#222" stroke-width="2"/>`;
+  } else if (mappedId === 'nozdormu') {
+    inner = `<path d="M 1.5 10.5 L 3.5 11.5 C 7 12 10.5 10 14.5 7.5 L 20 2 C 18 5 17.5 7.5 18 9 L 22 5 C 19.5 8.5 19.5 10.5 20.5 12.5 C 18 13 16 14.5 15.5 17 C 13.5 20 10 21.5 7 21.5 C 10 18.5 11 16 9 14.5 C 6 15 3.5 15.5 3 16.5 L 8 13.5 C 5 13.5 3 12.5 2.5 14.5 C 2 12.5 2 11.5 1.5 10.5 Z" fill="none" stroke="#222" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><path d="M 5 14 C 3.5 15 3.8 16.2 5.2 16.2" fill="none" stroke="#222" stroke-width="1.4" stroke-linecap="round"/><polygon points="10.5,9 13.5,8.2 12.5,10" fill="#222"/>`;
   }
 
   return `<svg viewBox="0 0 24 24" width="1.2em" height="1.2em" style="vertical-align: text-bottom; margin-right: 6px;">

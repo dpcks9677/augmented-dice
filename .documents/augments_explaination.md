@@ -197,43 +197,54 @@
     *   **조건:** 스몰 스트레이트를 먼저 기입한 후에만, 라지 스트레이트를 기입 가능 (어길 시 실패)
     *   **보상:** 순서대로 모두 기입 완료 시 보너스 +7점 획득
     *   **텍스트:** 퀘스트: 스몰 스트레이트 족보를 채운 후, 라지 스트레이트를 족보를 채웁니다. (순서를 어길 시 퀘스트 실패) 퀘스트 완료 시 보너스 7점을 획득합니다. 
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><circle cx="12" cy="18" r="4" fill="#222"/><circle cx="12" cy="12" r="3" fill="#222"/><circle cx="12" cy="7" r="2" fill="#222"/></svg> 33. 티끌 모아 태산 (Every Little Makes a Mickle)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M3 19 L11 6 L16 13.5 L19 9 L22 19 Z" fill="none" stroke="#222" stroke-width="2" stroke-linejoin="round"/><path d="M8 11 L11 15 L13.5 12.5" fill="none" stroke="#222" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 33. 티끌 모아 태산 (Every Little Makes a Mickle)**
     *   **조건:** 족보 기입 시, 포함된 주사위 '1' 눈금의 누적 사용 개수가 총 7개 도달
     *   **보상:** 달성 즉시 보너스 +15점 획득
     *   **텍스트:** 퀘스트: 족보 기입에 1의 눈을 가진 면을 7번 사용합니다. 퀘스트 완료 시 보너스 15점을 획득합니다.
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M4 8 l3-5 l4 3.5 l1-1 l1 1 l4-3.5 l3 5 v6 a5 5 0 0 1 -5 5 h-6 a5 5 0 0 1 -5 -5 z" fill="none" stroke="#222" stroke-width="2" stroke-linejoin="round"/><circle cx="8.5" cy="12" r="1.2" fill="#222"/><circle cx="15.5" cy="12" r="1.2" fill="#222"/><path d="M11 14.5 l1 1 l1 -1" fill="none" stroke="#222" stroke-width="1.5" stroke-linecap="round"/><path d="M4 12.5 h3.5 M4 14.5 h3 M20 12.5 h-3.5 M20 14.5 h-3" stroke="#222" stroke-width="1.5" stroke-linecap="round"/></svg> 34. 카피캣 (Copycat)**
+    *   **조건:** 상대가 입력한 족보를 따라서 3회 기입 (하단 족보를 따라 기입했을 때 족보 값이 동일하다면 즉시 완료)
+    *   **보상:** 보너스 +10점 획득
+    *   **텍스트:** 퀘스트: 상대가 입력한 족보를 따라서 3회 기입합니다. 하단 족보를 따라 기입했을 때, 족보의 값이 동일하다면 즉시 퀘스트를 완료합니다.<br><br>퀘스트 완료 시, 보너스 10점을 획득합니다.
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><rect x="4" y="4" width="8" height="8" rx="2" fill="none" stroke="#222" stroke-width="2"/><rect x="12" y="12" width="8" height="8" rx="2" fill="none" stroke="#222" stroke-width="2"/><path d="M8 12v4h4" fill="none" stroke="#222" stroke-width="2"/></svg> 35. 더블링 (Doubling)**
+    *   **조건:** 동일한 점수로 족보를 두 번 등록 (스크래치 제외)
+    *   **보상:** 보너스 +10점 획득
+    *   **텍스트:** 퀘스트: 동일한 점수로 족보를 두 번 등록합니다. (스크래치 제외)<br><br>퀘스트 완료 시, 보너스 10점을 획득합니다.
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M 1.5 10.5 L 3.5 11.5 C 7 12 10.5 10 14.5 7.5 L 20 2 C 18 5 17.5 7.5 18 9 L 22 5 C 19.5 8.5 19.5 10.5 20.5 12.5 C 18 13 16 14.5 15.5 17 C 13.5 20 10 21.5 7 21.5 C 10 18.5 11 16 9 14.5 C 6 15 3.5 15.5 3 16.5 L 8 13.5 C 5 13.5 3 12.5 2.5 14.5 C 2 12.5 2 11.5 1.5 10.5 Z" fill="none" stroke="#222" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><path d="M 5 14 C 3.5 15 3.8 16.2 5.2 16.2" fill="none" stroke="#222" stroke-width="1.4" stroke-linecap="round"/><polygon points="10.5,9 13.5,8.2 12.5,10" fill="#222"/></svg> 36. 노즈도르무 (Nozdormu)**
+    *   **조건:** 다음 페이즈 전까지 나의 턴 타이머를 15초로 설정하여 플레이
+    *   **보상:** 보너스 +9점 획득
+    *   **텍스트:** 퀘스트: 다음 페이즈 전까지 나의 턴 타이머를 15초로 설정합니다.<br><br>퀘스트 완료 시, 보너스 9점을 획득합니다.
 
 ---
 
 ## 📌 3. 강화 (Enhancement)
 내 주사위의 구성이나 족보 기입 규칙 자체를 지속적이고 유리하게 바꿔줍니다.
 
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M7 10 c0 -3 10 -3 10 0 v4 a5 5 0 0 1 -10 0 z" fill="#222"/><path d="M9 10 v-4 a3 3 0 0 1 6 0 v4" fill="none" stroke="#222" stroke-width="2"/></svg> 34. 묵직한 주사위 (Weighted Dice)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M 12 3 L 20.5 7.5 L 20.5 16.5 L 12 21 L 3.5 16.5 L 3.5 7.5 Z" fill="none" stroke="#222" stroke-width="1.8" stroke-linejoin="round"/><path d="M 12 3 L 12 12 M 12 12 L 3.5 7.5 M 12 12 L 20.5 7.5" fill="none" stroke="#222" stroke-width="1.8" stroke-linejoin="round"/><circle cx="8" cy="6.8" r="0.9" fill="#222"/><circle cx="12" cy="5" r="0.9" fill="#222"/><circle cx="16" cy="6.8" r="0.9" fill="#222"/><circle cx="8" cy="10" r="0.9" fill="#222"/><circle cx="12" cy="8.2" r="0.9" fill="#222"/><circle cx="16" cy="10" r="0.9" fill="#222"/><circle cx="6" cy="10.5" r="0.9" fill="#222"/><circle cx="9.5" cy="12" r="0.9" fill="#222"/><circle cx="7.75" cy="14.2" r="0.9" fill="#222"/><circle cx="6" cy="16.5" r="0.9" fill="#222"/><circle cx="9.5" cy="18" r="0.9" fill="#222"/><circle cx="14.5" cy="12" r="0.9" fill="#222"/><circle cx="18" cy="10.5" r="0.9" fill="#222"/><circle cx="14.5" cy="18" r="0.9" fill="#222"/><circle cx="18" cy="16.5" r="0.9" fill="#222"/></svg> 37. 묵직한 주사위 (Weighted Dice)**
     *   **효과:** 내 주사위 중 1개를 [4, 4, 5, 5, 6, 6] 눈금이 적힌 주사위로 영구 교체
     *   **텍스트:** 기본 주사위를 묵직한 주사위로 변경합니다.<br><br>묵직한 주사위는 [4, 4, 5, 5, 6, 6] 눈을 가집니다.
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><rect x="6" y="8" width="12" height="10" rx="4" fill="#222"/><path d="M6 14 h-2 a2 2 0 0 1 0 -4 h2" fill="#222"/></svg> 35. 럭키 펀치 (Lucky Punch)**
-    *   **효과:** 매 턴 첫 번째 굴림만으로 '하단 구역' 족보를 기입할 경우, 해당 획득 점수에 +5점 보너스 부여
-    *   **텍스트:** 매 턴 첫 번째 굴림만으로 '하단 구역' 족보를 기입할 경우, 해당 획득 점수에 +5점 보너스를 부여합니다.
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M12 2 l4 8 v8 l-4 -2 l-4 2 v-8 z" fill="#222" stroke-linejoin="round"/></svg> 36. 추진력 (Momentum)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M12 2 l4 8 v8 l-4 -2 l-4 2 v-8 z" fill="#222" stroke-linejoin="round"/></svg> 38. 추진력 (Momentum)**
     *   **효과:** 내가 족보에 처음으로 0점(스크래치)을 기록했을 때 발동. 내 다음 턴에 '하단 구역' 족보를 완성하여 기입하면 획득 점수가 1.5배로 증가 (단 1회 발동)
     *   **텍스트:** 족보에 처음으로 0점(스크래치)을 기록했을 때 발동합니다. 다음 턴에 '하단 구역' 족보를 완성하여 기입하면 획득 점수가 1.5배로 증가합니다. (단 1회 발동)
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M12 2 l3 7 h7 l-5 5 l2 8 l-7 -4 l-7 4 l2 -8 l-5 -5 h7 z" fill="#222" stroke-linejoin="round"/></svg> 37. 황금 주사위 (Golden Die)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="#222" stroke-width="2"/><path d="M 12 5.5 L 13.8 9.2 L 17.8 9.8 L 14.9 12.6 L 15.6 16.5 L 12 14.6 L 8.4 16.5 L 9.1 12.6 L 6.2 9.8 L 10.2 9.2 Z" fill="#222" stroke="#222" stroke-width="0.8" stroke-linejoin="round"/></svg> 39. 황금 주사위 (Golden Die)**
     *   **효과:** 내 주사위 중 1개를 황금 주사위로 지정. 족보 기입 시 이 주사위 눈금이 1, 2, 3 중 하나라면 +3점 추가 획득 (단, 상단 보너스 계산에서는 제외)
     *   **텍스트:** 기본 주사위를 황금 주사위로 변경합니다.<br><br>황금 주사위의 면이 1, 2, 3 이 나왔을 때 족보를 기입하면 추가로 +3점을 얻습니다. (보너스 계산 제외)
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M12 4 a8 8 0 1 0 8 8" stroke="#222" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M20 7 v5 h-5" stroke="#222" stroke-width="2.5" fill="none" stroke-linejoin="round"/></svg> 38. 아직 안 끝났어 (It's Not Over Yet)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M12 4 a8 8 0 1 0 8 8" stroke="#222" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M20 7 v5 h-5" stroke="#222" stroke-width="2.5" fill="none" stroke-linejoin="round"/></svg> 40. 아직 안 끝났어 (It's Not Over Yet)**
     *   **효과:** 획득 즉시 조건이 나쁜 족보(낮은 점수) 1개를 무작위로 빈칸으로 초기화하고 1턴 추가 획득. 이후 해당 족보를 다시 기입할 때 +3점 추가 획득 (이 보너스는 상단 계산에 포함)
     *   **텍스트:** 획득 즉시 가장 점수가 낮은 족보 1개를 빈칸으로 초기화하고 1턴 추가 획득합니다. 이후 해당 족보를 다시 기입할 때 기본 점수에 +3점을 추가로 획득합니다.
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M12 2 L20 12 L12 22 L4 12 Z M4 12 H20 M12 2 L16 12 L12 22 M12 2 L8 12 L12 22" fill="none" stroke="#222" stroke-width="1.5" stroke-linejoin="round"/></svg> 39. 8면 주사위 (8-Sided Dice)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M12 2 L20 12 L12 22 L4 12 Z M4 12 H20 M12 2 L16 12 L12 22 M12 2 L8 12 L12 22" fill="none" stroke="#222" stroke-width="1.5" stroke-linejoin="round"/></svg> 41. 8면 주사위 (8-Sided Dice)**
     *   **효과:** 내 주사위 중 2개를 [1, 2, 3, 4, 4, 5, 5, 6] 눈금이 적힌 주사위로 영구 교체
     *   **텍스트:** 기본 주사위를 8면 주사위로 변경합니다.<br><br>8면 주사위는 [1, 2, 3, 4, 4, 5, 5, 6] 눈을 가집니다.
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M9 8 a3 3 0 0 1 6 0 c0 2 -3 3 -3 5" fill="none" stroke="#222" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="17" r="1.5" fill="#222"/></svg> 40. 이상한 주사위 (Strange Die)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="#222" stroke-width="2"/><path d="M 9.5 8.5 C 9.5 6.5 14.5 6.5 14.5 9 C 14.5 11 12 11.5 12 14" fill="none" stroke="#222" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16.8" r="1.2" fill="#222"/></svg> 42. 이상한 주사위 (Strange Die)**
     *   **효과:** 족보에 쓸 수 없는 조커 주사위 1개 추가. 매 턴 기입 시 눈금 결과(+2, +1, +1, 0, -1, 파괴)가 최종 점수에 반영. 파괴 면이 나오면 영구 제거됨. (유지하려면 킵 슬롯 소모)
     *   **텍스트:** 이상한 주사위를 한 개 추가합니다.<br><br>이상한 주사위는 [+2, +1, +1, 0, -1, 파괴] 면을 가지고 있으며, 족보에 쓸 수 없습니다. 매 턴 족보를 기입 시 눈금 결과가 족보 점수에 반영됩니다.
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M4 20 h16 L20 8 l-4 4 l-4 -8 l-4 8 l-4 -4 Z" fill="#222" stroke-linejoin="round"/></svg> 41. 프로모션 주사위 (Promotion Die)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="#222" stroke-width="2"/><path d="M 6.5 16 H 17.5 L 18.5 9 L 14.5 12 L 12 7 L 9.5 12 L 5.5 9 Z" fill="none" stroke="#222" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><circle cx="5.5" cy="8.5" r="0.8" fill="#222"/><circle cx="12" cy="6.5" r="0.8" fill="#222"/><circle cx="18.5" cy="8.5" r="0.8" fill="#222"/></svg> 43. 프로모션 주사위 (Promotion Die)**
     *   **효과:** 기본 주사위 1개를 프로모션 주사위로 변경. 턴이 지날수록 눈금이 1씩 상승(최대 6). 6의 눈인 상태에서 족보를 기입할 시 소모되어 기본 주사위로 돌아옵니다.
     *   **텍스트:** 기본 주사위 1개를 프로모션 주사위로 변경합니다.<br><br>프로모션 주사위는 모든 눈금이 동일한 주사위며, 초기 눈금이 1입니다. 턴이 지나면 모든 면의 눈 개수가 1 증가합니다. 주사위 눈이 6일 때 족보 기입 시 기본 주사위로 돌아옵니다.
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M12 20 l-8 -8 a4 4 0 0 1 8 -5 a4 4 0 0 1 8 5 z" fill="#222" stroke-linejoin="round"/></svg> 42. 커플 주사위 (Couple Dice)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><defs><clipPath id="couple-md-clip"><path d="M 0 0 H 24 V 24 H 0 Z M 3 10 H 14 V 21 H 3 Z" fill-rule="evenodd"/></clipPath></defs><g clip-path="url(#couple-md-clip)"><rect x="10" y="3" width="11" height="11" rx="2" fill="none" stroke="#222" stroke-width="1.8"/><path d="M 15.5 5.8 C 13.8 4.2 11.5 5.8 11.5 8.2 C 11.5 10.5 13.8 12.2 15.5 13.2 C 17.2 12.2 19.5 10.5 19.5 8.2 C 19.5 4.2 17.2 4.2 15.5 5.8 Z" fill="#222"/></g><rect x="3" y="10" width="11" height="11" rx="2" fill="none" stroke="#222" stroke-width="1.8"/><path d="M 8.5 12.8 C 6.8 11.2 4.5 12.8 4.5 15.2 C 4.5 17.5 6.8 19.2 8.5 20.2 C 10.2 19.2 12.5 17.5 12.5 15.2 C 12.5 11.2 10.2 11.2 8.5 12.8 Z" fill="#222"/></svg> 44. 커플 주사위 (Couple Dice)**
     *   **효과:** 내 주사위 중 2개를 커플 주사위로 영구 교체. 족보 기입 시 두 주사위의 눈금이 같다면 +2점 추가 획득 (상단 보너스 계산 제외)
     *   **텍스트:** 기본 주사위 2개를 커플 주사위로 변경합니다.<br><br>족보를 기입 할 때, 커플 주사위 두 개의 눈금이 같다면 +2점 추가로 획득합니다. (단, 상단 보너스 계산에서는 제외)
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="#222" stroke-width="2"/><path d="M8 7 H16 L11.5 17" fill="none" stroke="#222" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg> 43. 세븐스 다이스 (Sevens Dice)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="#222" stroke-width="2"/><circle cx="7.5" cy="7.5" r="1.3" fill="#222"/><circle cx="16.5" cy="7.5" r="1.3" fill="#222"/><circle cx="7.5" cy="12" r="1.3" fill="#222"/><circle cx="12" cy="12" r="1.3" fill="#222"/><circle cx="16.5" cy="16.5" r="1.3" fill="#222"/><circle cx="7.5" cy="16.5" r="1.3" fill="#222"/><circle cx="16.5" cy="16.5" r="1.3" fill="#222"/></svg> 45. 세븐스 다이스 (Sevens Dice)**
     *   **효과:** 내 주사위 중 2개를 [2, 3, 4, 5, 6, 7] 눈금을 가진 주사위로 영구 교체. 스트레이트 달성 시 '7' 눈금 사용 가능.
     *   **텍스트:** 기본 주사위를 세븐스 다이스로 변경합니다.<br><br>세븐스 다이스는 [2, 3, 4, 5, 6, 7] 눈금을 가지며, 스트레이트 달성 시 '7' 눈금을 사용해서 족보의 조건을 채울 수 있습니다.
+
+

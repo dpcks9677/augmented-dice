@@ -174,15 +174,16 @@ export const mutationDefinitions = {
   'holdout': { id: 'holdout', name: '알박기', target: 'q5', enName: 'Holdout', isQuest: true },
   'cautious-straight': { id: 'cautious-straight', name: '신중한 스트레이트', target: 'q6', enName: 'Cautious Straight', isQuest: true },
   'every-little': { id: 'every-little', name: '티끌 모아 태산', target: 'q7', enName: 'Every Little', isQuest: true },
+  'copycat': { id: 'copycat', name: '카피캣', target: 'q8', enName: 'Copycat', isQuest: true },
+  'doubling': { id: 'doubling', name: '더블링', target: 'q9', enName: 'Doubling', isQuest: true },
+  'nozdormu': { id: 'nozdormu', name: '노즈도르무', target: 'q10', enName: 'Nozdormu', isQuest: true },
   
   // -------------------------
   // Enhancement Section
   // -------------------------
   'weighted-dice': { id: 'weighted-dice', name: '묵직한 주사위', target: 'eh1', enName: 'Weighted', isEnhancement: true },
-  'lucky-punch': { id: 'lucky-punch', name: '럭키 펀치', target: 'eh2', enName: 'L. Punch', isEnhancement: true },
   'momentum': { id: 'momentum', name: '추진력', target: 'eh3', enName: 'Momentum', isEnhancement: true },
   'golden-die': { id: 'golden-die', name: '황금 주사위', target: 'eh4', enName: 'Golden', isEnhancement: true },
-  'not-over': { id: 'not-over', name: '아직 안 끝났어', target: 'eh5', enName: 'Not Over', isEnhancement: true },
   '8-sided': { id: '8-sided', name: '8면 주사위', target: 'eh6', enName: '8-Sided', isEnhancement: true },
   'strange-die': { id: 'strange-die', name: '이상한 주사위', target: 'eh7', enName: 'Strange', isEnhancement: true },
   'promotion-die': { id: 'promotion-die', name: '프로모션 주사위', target: 'eh8', enName: 'Promotion', isEnhancement: true },

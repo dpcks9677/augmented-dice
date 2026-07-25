@@ -2284,6 +2284,7 @@ function startMultiplayerGame() {
 let augmentTimerInterval = null;
 
 function showAugmentSelectionModal(player, onSelect) {
+  stopTurnTimer();
   const modal = document.getElementById('augment-selection-modal');
   const title = document.getElementById('augment-modal-title');
   const optionsContainer = document.getElementById('augment-options');
@@ -2316,7 +2317,10 @@ function showAugmentSelectionModal(player, onSelect) {
     }
     modal.classList.add('hidden');
     if (window.applyMutation) window.applyMutation(player, aug.mutationId);
-    if (onSelect) onSelect();
+    if (onSelect) {
+        onSelect();
+        resumeTurnTimer();
+    }
   };
 
   selectedAugments.forEach(aug => {
@@ -2361,8 +2365,18 @@ let turnTimeRemaining = 45;
 
 function startTurnTimer(overrideTime = null) {
   stopTurnTimer();
-  const isHotseat = !window.isMultiplayer || gameMode === 'hotseat' || gameMode === 'augmented-hotseat';
-  if (isHotseat) {
+  const curP = typeof currentPlayer !== 'undefined' ? currentPlayer : 1;
+  const activeMutsObj = activeMutations[curP] || activeMutations[`p${curP}`] || {};
+  const activeMuts = Object.values(activeMutsObj);
+  const activeProg = questProgress[curP] || questProgress[`p${curP}`] || {};
+  if (activeMuts.includes('nozdormu') && !activeProg.nozdormuRewarded) {
+    if (overrideTime === null || overrideTime > 15) {
+      overrideTime = 15;
+    }
+  }
+
+  const isPlainHotseat = gameMode === 'hotseat';
+  if (isPlainHotseat) {
     updateTurnTimerUI();
     return;
   }
@@ -2399,8 +2413,8 @@ function pauseTurnTimer() {
 }
 
 function resumeTurnTimer() {
-  const isHotseat = !window.isMultiplayer || gameMode === 'hotseat' || gameMode === 'augmented-hotseat';
-  if (isHotseat) return;
+  const isPlainHotseat = gameMode === 'hotseat';
+  if (isPlainHotseat) return;
 
   if (!turnTimerInterval && turnTimeRemaining > 0) {
     const timerElem = document.getElementById('turn-timer') || els.turnTimer;
@@ -2421,9 +2435,9 @@ function resumeTurnTimer() {
 function updateTurnTimerUI() {
   const timerElem = document.getElementById('turn-timer') || els.turnTimer;
   const textEl = document.getElementById('turn-timer-text');
-  const isHotseat = !window.isMultiplayer || gameMode === 'hotseat' || gameMode === 'augmented-hotseat';
+  const isPlainHotseat = gameMode === 'hotseat';
 
-  if (isHotseat) {
+  if (isPlainHotseat) {
     if (textEl) textEl.textContent = "--";
     if (timerElem) {
       timerElem.classList.add('paused');
@@ -2584,6 +2598,7 @@ function startTurn() {
   const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
 
   if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(currentPlayer);
+  updateQuestProgress(currentPlayer === 1 ? 'p1' : 'p2', null, null);
 
   // 게임 최선두 1라운드 P1 시작 시 '게임 시작!' 로그 기록
   if (currentRound === 1 && currentPlayer === 1 && (!window.matchLogHistory || window.matchLogHistory.length === 0)) {
@@ -3816,6 +3831,51 @@ function updateQuestProgress(player, catId, scoreObj) {
       addReward('신중한 스트레이트', 7);
     }
   }
+
+  // 8. 카피캣 (copycat): 상대가 입력한 족보를 따라서 3회 기입 (+10점) / 하단 족보 동점 기입 시 즉시 달성
+  if (myMutations.includes('copycat') && !prog.copycatRewarded) {
+    const otherPlayer = player === 'p1' ? 'p2' : 'p1';
+    const otherScores = scores[otherPlayer] || {};
+    if (otherScores[catId] !== undefined) {
+      prog.copycatCount = (prog.copycatCount || 0) + 1;
+      const lowerCats = ['choice', '3-of-a-kind', '4-of-a-kind', 'fullhouse', 's-straight', 'l-straight', 'yacht'];
+      const myScore = scoreObj ? scoreObj.score : (s[catId]?.score || 0);
+      const oppScore = otherScores[catId]?.score || 0;
+      if (lowerCats.includes(catId) && myScore === oppScore) {
+        prog.copycatSpecialCleared = true;
+        prog.copycatRewarded = true;
+        addReward('카피캣', 10);
+      } else if (prog.copycatCount >= 3) {
+        prog.copycatRewarded = true;
+        addReward('카피캣', 10);
+      }
+    }
+  }
+
+  // 9. 더블링 (doubling): 동일한 점수로 족보를 두 번 등록 (스크래치 제외, +10점)
+  if (myMutations.includes('doubling') && !prog.doublingRewarded) {
+    const currentScore = scoreObj ? scoreObj.score : (s[catId]?.score || 0);
+    if (currentScore > 0) {
+      const hasSameScore = Object.entries(s).some(([catKey, catVal]) => {
+        return catKey !== catId && catVal !== undefined && catVal.score === currentScore && catVal.score > 0;
+      });
+      if (hasSameScore) {
+        prog.doublingRewarded = true;
+        addReward('더블링', 10);
+      }
+    }
+  }
+
+  // 10. 노즈도르무 (nozdormu): 페이즈 종료 시점 달성 (+9점)
+  if (myMutations.includes('nozdormu') && !prog.nozdormuRewarded) {
+    if (!prog.nozdormuTargetRound) {
+      prog.nozdormuTargetRound = currentRound <= 3 ? 3 : (currentRound <= 6 ? 6 : 12);
+    }
+    if (currentRound >= prog.nozdormuTargetRound) {
+      prog.nozdormuRewarded = true;
+      addReward('노즈도르무', 9);
+    }
+  }
 }
 
 // -----------------------------------------------------
@@ -3881,6 +3941,28 @@ function getQuestProgressText(player, mutId) {
       const elCount = prog.everyLittleCount || 0;
       if (prog.everyLittleRewarded) status = 'completed';
       questLines.push(line(`1의 눈을 포함하여 족보 기입 (${elCount}/7)`, elCount >= 7));
+      break;
+
+    case 'copycat':
+      if (prog.copycatRewarded) status = 'completed';
+      const cCount = prog.copycatCount || 0;
+      if (prog.copycatSpecialCleared) {
+        questLines.push(line('이전 턴에 상대방이 기입한 족보와 동일한 족보 기입 (조건 달성!)', true));
+      } else {
+        questLines.push(line(`이전 턴에 상대방이 기입한 족보와 동일한 족보 기입 (${cCount}/3)`, prog.copycatRewarded));
+      }
+      break;
+
+    case 'doubling':
+      if (prog.doublingRewarded) status = 'completed';
+      questLines.push(line(`동일한 점수로 족보를 두 번 등록 (${prog.doublingRewarded ? '1/1' : '0/1'})`, prog.doublingRewarded));
+      break;
+
+    case 'nozdormu':
+      if (prog.nozdormuRewarded) status = 'completed';
+      const targetR = prog.nozdormuTargetRound || (currentRound <= 3 ? 3 : (currentRound <= 6 ? 6 : 12));
+      const rem = Math.max(0, targetR - currentRound);
+      questLines.push(line(`턴 타이머가 15초인 상태로 플레이하기 (${rem}턴 남음!)`, prog.nozdormuRewarded));
       break;
   }
 
@@ -3987,6 +4069,13 @@ window.applyMutation = function (player, mutationId) {
   // 더블 라지 스트레이트 등 특수 효과 즉시 적용
   if (mutationId === 'double-large-straight') {
     upperBonusThreshold[player] = 60;
+  }
+
+  if (mutationId === 'nozdormu') {
+    if (!questProgress[player]) questProgress[player] = {};
+    if (!questProgress[player].nozdormuTargetRound) {
+      questProgress[player].nozdormuTargetRound = currentRound <= 3 ? 3 : (currentRound <= 6 ? 6 : 12);
+    }
   }
 
   // 족보 제목 UI 변경 (선택된 플레이어 방향만)
