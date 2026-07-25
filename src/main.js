@@ -1619,30 +1619,44 @@ networkEngine.on('ingame_message', (data) => {
     return;
   }
 
+  if (data.type === 'augment_selecting' || data.subType === 'augment_selecting') {
+    const optionsContainer = document.getElementById('augment-options');
+    if (optionsContainer && optionsContainer.children[data.optionIndex]) {
+      optionsContainer.children[data.optionIndex].classList.add('selected');
+    }
+    return;
+  }
+
   if (data.type === 'apply_mutation' || data.subType === 'apply_mutation') {
     if (window.applyMutation) {
       window.applyMutation(data.player, data.mutationId, true);
-    }
-    const modal = document.getElementById('augment-selection-modal');
-    if (modal && !modal.classList.contains('hidden')) {
-      if (augmentTimerInterval) {
-        clearInterval(augmentTimerInterval);
-        augmentTimerInterval = null;
-      }
-      modal.classList.add('hidden');
     }
     let expectedCount = 0;
     if (currentRound >= 1) expectedCount = 1;
     if (currentRound >= 6) expectedCount = 2;
     if (currentRound >= 9) expectedCount = 3;
 
+    const p1Count = Object.keys(activeMutations[1] || {}).length;
     const p2Count = Object.keys(activeMutations[2] || {}).length;
-    if (p2Count < expectedCount) {
+
+    if (p1Count < expectedCount) {
+      if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(1);
+      showAugmentSelectionModal(1);
+    } else if (p2Count < expectedCount) {
       if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(2);
-      showAugmentSelectionModal(2, () => {
-        if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(1);
-        if (typeof proceedTurnStart === 'function') proceedTurnStart();
-      });
+      showAugmentSelectionModal(2);
+    } else {
+      const modal = document.getElementById('augment-selection-modal');
+      if (modal) {
+        if (augmentTimerInterval) {
+          clearInterval(augmentTimerInterval);
+          augmentTimerInterval = null;
+        }
+        modal.classList.add('hidden');
+      }
+      if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(currentPlayer);
+      if (typeof window.proceedTurnStart === 'function') window.proceedTurnStart();
+      if (typeof updateRollsUI === 'function') updateRollsUI();
     }
     return;
   }
@@ -2328,6 +2342,29 @@ function startMultiplayerGame() {
 
 let augmentTimerInterval = null;
 
+function getSeededAugments(round, player) {
+  const roomCode = els.lobbyCodeDisplay?.textContent?.trim() || networkEngine.roomCode || window.currentRoomCode || 'DEFAULT';
+  let seedStr = `${roomCode}_R${round}_P${player}`;
+  
+  let hash = 0;
+  for (let i = 0; i < seedStr.length; i++) {
+    hash = (hash * 31 + seedStr.charCodeAt(i)) & 0x7fffffff;
+  }
+
+  const pseudoRandom = () => {
+    hash = (hash * 1664525 + 1013904223) & 0x7fffffff;
+    return hash / 0x7fffffff;
+  };
+
+  const list = [...augmentData];
+  for (let i = list.length - 1; i > 0; i--) {
+    const j = Math.floor(pseudoRandom() * (i + 1));
+    [list[i], list[j]] = [list[j], list[i]];
+  }
+
+  return list.slice(0, 3);
+}
+
 function showAugmentSelectionModal(player, onSelect) {
   stopTurnTimer();
   const modal = document.getElementById('augment-selection-modal');
@@ -2354,8 +2391,7 @@ function showAugmentSelectionModal(player, onSelect) {
     timerElem.classList.remove('warning', 'paused');
   }
 
-  const shuffled = [...augmentData].sort(() => 0.5 - Math.random());
-  const selectedAugments = shuffled.slice(0, 3);
+  const selectedAugments = getSeededAugments(typeof currentRound !== 'undefined' ? currentRound : 1, player);
 
   let isSelecting = false;
   const cleanupAndSelect = (aug) => {
@@ -2371,7 +2407,7 @@ function showAugmentSelectionModal(player, onSelect) {
     }
   };
 
-  selectedAugments.forEach(aug => {
+  selectedAugments.forEach((aug, idx) => {
     const btn = document.createElement('div');
     btn.className = 'augment-option' + (!isMyTurn ? ' disabled-option' : '');
     let desc = aug.description || aug.name + ' 증강이 적용됩니다.';
@@ -2388,6 +2424,15 @@ function showAugmentSelectionModal(player, onSelect) {
         isSelecting = true;
         optionsContainer.style.pointerEvents = 'none';
         btn.classList.add('selected');
+
+        if (window.isMultiplayer && networkEngine) {
+          networkEngine.sendMessage({
+            type: 'augment_selecting',
+            player,
+            optionIndex: idx,
+            mutationId: aug.mutationId
+          });
+        }
 
         setTimeout(() => {
           cleanupAndSelect(aug);
@@ -2664,14 +2709,12 @@ function startTurn() {
     addGameLog('게임 시작!', 'turn-start', true, 0);
   }
 
-  const proceedTurnStart = () => {
+  window.proceedTurnStart = function () {
     startTurnTimer();
     addGameLog({ type: 'turn-start', player: currentPlayer, round: currentRound }, 'turn-start', true, currentPlayer);
-
-    if (diceBoxReady) {
-      els.btnRoll.disabled = !isMyTurn;
-    }
+    updateRollsUI();
   };
+  const proceedTurnStart = window.proceedTurnStart;
 
   if (gameMode === 'augmented' || gameMode === 'augmented-hotseat') {
     const currentAugCount = Object.keys(activeMutations[currentPlayer] || {}).length;
@@ -4154,7 +4197,7 @@ window.applyMutation = function (player, mutationId, isRemote = false) {
   if (!mut) return;
 
   if (!isRemote && window.isMultiplayer && networkEngine) {
-    networkEngine.sendInGameAction({
+    networkEngine.sendMessage({
       type: 'apply_mutation',
       player,
       mutationId

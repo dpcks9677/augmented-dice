@@ -177,6 +177,10 @@ class NetworkEngine {
     }
   }
 
+  sendInGameAction(data) {
+    this.sendMessage(data);
+  }
+
   setReady(isReady) {
     this.sendMessage({ type: 'ready', isReady });
   }
