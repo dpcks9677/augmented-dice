@@ -120,7 +120,7 @@ export function getVariantSvg(id) {
     'yacht-bank': 'yacht-bank',
     'blackjack-21': 'blackjack',
     'fast-straight': 'fast-straight',
-    'no-waste': 'no-waste',
+    'no-time-to-waste': 'no-waste',
     'step-by-step': 'step-by-step',
     'two-households': 'two-households',
     'holdout': 'holdout',
@@ -290,10 +290,8 @@ export function getVariantSvg(id) {
     inner = `<path d="M 12 12 C 9.5 9 8.5 5.5 12 3.5 C 15.5 5.5 14.5 9 12 12 C 15 9.5 18.5 8.5 20.5 12 C 18.5 15.5 15 14.5 12 12 C 14.5 15 15.5 18.5 12 20.5 C 8.5 18.5 9.5 15 12 12 C 9 14.5 5.5 15.5 3.5 12 C 5.5 8.5 9 9.5 12 12 Z" fill="#222"/>`;
   } else if (mappedId === 'every-little') {
     inner = `<path d="M3 19 L11 6 L16 13.5 L19 9 L22 19 Z" fill="none" stroke="#222" stroke-width="2" stroke-linejoin="round"/><path d="M8 11 L11 15 L13.5 12.5" fill="none" stroke="#222" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`;
-  } else if (mappedId === 'not-over') {
-    inner = `<path d="M12 4 a8 8 0 1 0 8 8" stroke="#222" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M20 7 v5 h-5" stroke="#222" stroke-width="2.5" fill="none" stroke-linejoin="round"/>`;
   } else if (mappedId === 'couple-dice') {
-    inner = `<defs><clipPath id="couple-back-clip"><path d="M 0 0 H 24 V 24 H 0 Z M 3 10 H 14 V 21 H 3 Z" fill-rule="evenodd"/></clipPath></defs><g clip-path="url(#couple-back-clip)"><rect x="10" y="3" width="11" height="11" rx="2" fill="none" stroke="#222" stroke-width="1.8"/><path d="M 15.5 5.8 C 13.8 4.2 11.5 5.8 11.5 8.2 C 11.5 10.5 13.8 12.2 15.5 13.2 C 17.2 12.2 19.5 10.5 19.5 8.2 C 19.5 4.2 17.2 4.2 15.5 5.8 Z" fill="#222"/></g><rect x="3" y="10" width="11" height="11" rx="2" fill="none" stroke="#222" stroke-width="1.8"/><path d="M 8.5 12.8 C 6.8 11.2 4.5 12.8 4.5 15.2 C 4.5 17.5 6.8 19.2 8.5 20.2 C 10.2 19.2 12.5 17.5 12.5 15.2 C 12.5 11.2 10.2 11.2 8.5 12.8 Z" fill="#222"/>`;
+    inner = `<path d="M 11.5 9.5 H 19.5 A 2.5 2.5 0 0 1 22 12 V 19.5 A 2.5 2.5 0 0 1 19.5 22 H 12 A 2.5 2.5 0 0 1 9.5 19.5 V 12.5" stroke="#222" stroke-width="1.8" stroke-linecap="round" fill="none"/><path d="M 15.5 13.6 C 14.2 12.3 12.4 13.6 12.4 15.2 C 12.4 16.9 14.2 18.3 15.5 19.1 C 16.8 18.3 18.6 16.9 18.6 15.2 C 18.6 13.6 16.8 12.3 15.5 13.6 Z" fill="#222"/><g transform="rotate(-15 8 8)"><rect x="2" y="2" width="12" height="12" rx="2.5" stroke="#222" stroke-width="1.8" fill="#ffffff"/><path d="M 8 6.3 C 6.8 5.1 5.2 6.3 5.2 7.7 C 5.2 9.2 6.8 10.4 8 11.1 C 9.2 10.4 10.8 9.2 10.8 7.7 C 10.8 6.3 9.2 5.1 8 6.3 Z" fill="#222"/></g>`;
   } else if (mappedId === 'sevens-dice') {
     inner = `<rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="#222" stroke-width="2"/><circle cx="7.5" cy="7.5" r="1.3" fill="#222"/><circle cx="16.5" cy="7.5" r="1.3" fill="#222"/><circle cx="7.5" cy="12" r="1.3" fill="#222"/><circle cx="12" cy="12" r="1.3" fill="#222"/><circle cx="16.5" cy="12" r="1.3" fill="#222"/><circle cx="7.5" cy="16.5" r="1.3" fill="#222"/><circle cx="16.5" cy="16.5" r="1.3" fill="#222"/>`;
   } else if (mappedId === 'copycat') {

@@ -319,13 +319,22 @@
 
     <!-- 증강 도감 모달 -->
     <div id="modal-compendium" class="game-modal-overlay hidden">
-      <div class="game-modal-content">
-        <div class="game-modal-header">
-          <h2>증강 도감</h2>
-          <button class="game-modal-close" data-target="modal-compendium">&times;</button>
+      <div id="modal-compendium-card" class="game-modal-content">
+        <div id="modal-compendium-header" class="game-modal-header">
+          <h2 id="modal-compendium-title">증강 도감</h2>
+          <button id="modal-compendium-close" class="game-modal-close" data-target="modal-compendium">&times;</button>
         </div>
-        <div class="game-modal-body">
-          <p class="modal-placeholder-text">다양한 증강 목록과 효과를 확인해 보세요. (업데이트 예정)</p>
+        <div id="modal-compendium-body" class="game-modal-body">
+          <div id="modal-compendium-category-tabs" class="modal-compendium-category-tabs">
+            <button class="modal-compendium-tab-btn active" data-category="all">전체</button>
+            <button class="modal-compendium-tab-btn" data-category="변형">변형</button>
+            <button class="modal-compendium-tab-btn" data-category="퀘스트">퀘스트</button>
+            <button class="modal-compendium-tab-btn" data-category="강화">강화</button>
+          </div>
+          <hr id="modal-compendium-divider" class="modal-compendium-divider" />
+          <div id="modal-compendium-list" class="modal-compendium-list">
+            <!-- 자바스크립트에서 렌더링 -->
+          </div>
         </div>
       </div>
     </div>

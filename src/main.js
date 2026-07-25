@@ -10,8 +10,10 @@ import { uiManager } from "./UIManager.js";
 import "cropperjs/dist/cropper.css";
 import { subscribeAuthState, signInWithGoogle, setNickname, getCurrentUser, saveUserToDB, getUserFromDB, signOutUser, updateUserStatusMsg, updateUserAvatar, updateUserActiveGame, clearUserActiveGame, getUserMatchesFromDB } from "./authEngine.js";
 import Cropper from "cropperjs";
-let augmentData = [];
-fetch('/src/augments.json').then(r => r.json()).then(d => { augmentData = d; }).catch(e => console.error(e));
+import defaultAugmentsData from "./augments.json";
+
+let augmentData = defaultAugmentsData || [];
+fetch('/src/augments.json').then(r => r.json()).then(d => { if (d && d.length) augmentData = d; }).catch(e => console.error(e));
 
 export function escapeHtml(str) {
   if (!str || typeof str !== 'string') return str || '';
@@ -2337,7 +2339,7 @@ function showAugmentSelectionModal(player, onSelect) {
     btn.className = 'augment-option';
     let desc = aug.description || aug.name + ' 증강이 적용됩니다.';
 
-    const icon = aug.icon || getVariantSvg(aug.mutationId) || '';
+    const icon = getVariantSvg(aug.mutationId) || '';
     btn.innerHTML = `
       <div class="aug-slot-header">${icon} <span class="aug-slot-name">${aug.name}</span></div>
       <div class="aug-slot-desc">${desc}</div>
@@ -4005,7 +4007,7 @@ window.updateAugmentSidebar = function (player) {
       const mut = mutationDefinitions[mutationId];
       if (!mut) continue;
       const augInfo = augmentData.find(a => a.name.includes(mut.name) || (a.mark && mut.enName && a.mark === mut.enName)) || {};
-      const svgIcon = augInfo.icon || getVariantSvg(mutationId);
+      const svgIcon = getVariantSvg(mutationId);
       let description = augInfo.description || mut.name + ' 증강이 적용되었습니다.';
 
       let extraHTML = '';
@@ -4091,7 +4093,7 @@ window.applyMutation = function (player, mutationId) {
   const targetTh = document.getElementById(player === 1 ? `cat-title-left-${mut.target}` : `cat-title-right-${mut.target}`);
 
   if (targetTh) {
-    const svgIcon = augInfo.icon || getVariantSvg(mutationId);
+    const svgIcon = getVariantSvg(mutationId);
     targetTh.innerHTML = `${svgIcon} ${mut.enName}`;
     targetTh.style.backgroundColor = '#87CEEB'; // Sky Blue
     targetTh.style.color = '#222';
@@ -4338,6 +4340,7 @@ if (els.btnMenuAchievements) {
 if (els.btnMenuCompendium) {
   els.btnMenuCompendium.addEventListener('click', () => {
     openGameModal(els.modalCompendium);
+    renderCompendiumAugments(currentCompendiumCategory);
   });
 }
 
@@ -4346,6 +4349,80 @@ if (els.btnMenuHelp) {
     openGameModal(els.modalHelp);
   });
 }
+
+// -----------------------------------------------------
+// 증강 도감 (modal-compendium) 카테고리 탭 & 렌더링 시스템
+// -----------------------------------------------------
+let currentCompendiumCategory = 'all';
+
+function getAugmentCategoryName(aug) {
+  if (aug.id >= 1 && aug.id <= 25) return '변형';
+  if (aug.id >= 26 && aug.id <= 35) return '퀘스트';
+  if (aug.id >= 36 && aug.id <= 45) return '강화';
+  return '기타';
+}
+
+function getAugmentBadgeClass(catName) {
+  if (catName === '변형') return 'cat-mutation';
+  if (catName === '퀘스트') return 'cat-quest';
+  if (catName === '강화') return 'cat-enhancement';
+  return '';
+}
+
+function renderCompendiumAugments(category = 'all') {
+  const listContainer = document.getElementById('modal-compendium-list');
+  if (!listContainer) return;
+
+  listContainer.innerHTML = '';
+  if (!augmentData || augmentData.length === 0) {
+    listContainer.innerHTML = '<p class="modal-placeholder-text">증강 데이터를 불러오는 중입니다...</p>';
+    return;
+  }
+
+  const filtered = augmentData.filter(aug => {
+    if (category === 'all') return true;
+    const catName = getAugmentCategoryName(aug);
+    return catName === category;
+  });
+
+  if (filtered.length === 0) {
+    listContainer.innerHTML = '<p class="modal-placeholder-text">해당 카테고리의 증강이 없습니다.</p>';
+    return;
+  }
+
+  filtered.forEach(aug => {
+    const item = document.createElement('div');
+    item.className = 'augment-option modal-compendium-item';
+    
+    const catName = getAugmentCategoryName(aug);
+    const badgeClass = getAugmentBadgeClass(catName);
+    const desc = aug.description || (aug.name + ' 증강이 적용됩니다.');
+    const icon = getVariantSvg(aug.mutationId) || '';
+
+    item.innerHTML = `
+      <span class="modal-compendium-badge ${badgeClass}">${catName}</span>
+      <div class="aug-slot-header">
+        ${icon}
+        <span class="aug-slot-name">${aug.name}</span>
+      </div>
+      <div class="aug-slot-desc">${desc}</div>
+    `;
+    listContainer.appendChild(item);
+  });
+}
+
+// 탭 버튼 클릭 핸들러 바인딩
+document.querySelectorAll('.modal-compendium-tab-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    document.querySelectorAll('.modal-compendium-tab-btn').forEach(b => b.classList.remove('active'));
+    const targetBtn = e.currentTarget;
+    targetBtn.classList.add('active');
+    
+    const cat = targetBtn.getAttribute('data-category');
+    currentCompendiumCategory = cat;
+    renderCompendiumAugments(cat);
+  });
+});
 
 // 닫기 버튼 이벤트 바인딩
 document.querySelectorAll('.game-modal-close').forEach(btn => {
