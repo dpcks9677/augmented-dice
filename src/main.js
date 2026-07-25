@@ -2423,8 +2423,10 @@ function showAugmentSelectionModal(player, onSelect) {
     btn.className = 'augment-option' + (!isMyTurn ? ' disabled-option' : '');
     let desc = aug.description || aug.name + ' 증강이 적용됩니다.';
 
+    const catEnName = getAugmentCategoryEnName(aug);
     const icon = getVariantSvg(aug.mutationId) || '';
     btn.innerHTML = `
+      <div class="modal-compendium-type-text">${catEnName}</div>
       <div class="aug-slot-header">${icon} <span class="aug-slot-name">${aug.name}</span></div>
       <div class="aug-slot-desc">${desc}</div>
     `;
@@ -4527,6 +4529,14 @@ function getAugmentCategoryName(aug) {
   return '기타';
 }
 
+function getAugmentCategoryEnName(aug) {
+  const catName = getAugmentCategoryName(aug);
+  if (catName === '변형') return 'Modification';
+  if (catName === '퀘스트') return 'Quest';
+  if (catName === '강화') return 'Enhancement';
+  return catName;
+}
+
 function getAugmentBadgeClass(catName) {
   if (catName === '변형') return 'cat-mutation';
   if (catName === '퀘스트') return 'cat-quest';
@@ -4559,13 +4569,12 @@ function renderCompendiumAugments(category = 'all') {
     const item = document.createElement('div');
     item.className = 'augment-option modal-compendium-item';
     
-    const catName = getAugmentCategoryName(aug);
-    const badgeClass = getAugmentBadgeClass(catName);
+    const catEnName = getAugmentCategoryEnName(aug);
     const desc = aug.description || (aug.name + ' 증강이 적용됩니다.');
     const icon = getVariantSvg(aug.mutationId) || '';
 
     item.innerHTML = `
-      <span class="modal-compendium-badge ${badgeClass}">${catName}</span>
+      <div class="modal-compendium-type-text">${catEnName}</div>
       <div class="aug-slot-header">
         ${icon}
         <span class="aug-slot-name">${aug.name}</span>
@@ -4614,5 +4623,52 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeAllGameModals();
   }
+});
+
+// --- 도움말 모달 개편 (게임 모드 전용 SVG 아이콘 렌더링 및 90% 규격 상세 모달 연동) ---
+const helpIconNorm = document.getElementById('help-icon-norm');
+const helpIconAug = document.getElementById('help-icon-aug');
+
+if (helpIconNorm) {
+  helpIconNorm.innerHTML = getDicesIconSvg();
+}
+if (helpIconAug) {
+  helpIconAug.innerHTML = getAugmentedDicesIconSvg();
+}
+
+const btnHelpNormGuide = document.getElementById('btn-help-norm-guide');
+const btnHelpAugGuide = document.getElementById('btn-help-aug-guide');
+const modalHelpDetail = document.getElementById('modal-help-detail');
+const helpDetailTitle = document.getElementById('help-detail-title');
+const helpDetailText = document.getElementById('help-detail-text');
+const btnHelpDetailBack = document.getElementById('btn-help-detail-back');
+const btnHelpDetailClose = document.getElementById('btn-help-detail-close');
+
+function openHelpDetail(titleText, bodyText) {
+  const modalHelp = document.getElementById('modal-help');
+  if (modalHelp) closeGameModal(modalHelp);
+
+  if (helpDetailTitle) helpDetailTitle.textContent = titleText;
+  if (helpDetailText) helpDetailText.textContent = bodyText;
+
+  if (modalHelpDetail) openGameModal(modalHelpDetail);
+}
+
+btnHelpNormGuide?.addEventListener('click', () => {
+  openHelpDetail('요트 다이스 가이드', '요트 다이스 가이드 내용이 여기에 추가될 예정입니다.');
+});
+
+btnHelpAugGuide?.addEventListener('click', () => {
+  openHelpDetail('증강 요트 다이스 가이드', '증강 요트 다이스 가이드 내용이 여기에 추가될 예정입니다.');
+});
+
+btnHelpDetailBack?.addEventListener('click', () => {
+  if (modalHelpDetail) closeGameModal(modalHelpDetail);
+  const modalHelp = document.getElementById('modal-help');
+  if (modalHelp) openGameModal(modalHelp);
+});
+
+btnHelpDetailClose?.addEventListener('click', () => {
+  if (modalHelpDetail) closeGameModal(modalHelpDetail);
 });
 

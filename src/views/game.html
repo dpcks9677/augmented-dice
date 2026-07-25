@@ -349,15 +349,47 @@
       </div>
     </div>
 
-    <!-- 도움말 모달 -->
+    <!-- 도움말 가이드 선택 모달 -->
     <div id="modal-help" class="game-modal-overlay hidden">
-      <div class="game-modal-content">
+      <div class="game-modal-content help-select-modal">
         <div class="game-modal-header">
-          <h2>도움말</h2>
+          <h2>게임 도움말</h2>
           <button class="game-modal-close" data-target="modal-help">&times;</button>
         </div>
         <div class="game-modal-body">
-          <p class="modal-placeholder-text">일반 요트 다이스 및 증강 요트 다이스 규칙 가이드입니다. (업데이트 예정)</p>
+          <div class="help-guide-cards">
+            <button id="btn-help-norm-guide" class="help-guide-card">
+              <div class="help-guide-card-icon" id="help-icon-norm"></div>
+              <span class="help-guide-card-text">요트 다이스 가이드</span>
+            </button>
+            <button id="btn-help-aug-guide" class="help-guide-card">
+              <div class="help-guide-card-icon" id="help-icon-aug"></div>
+              <span class="help-guide-card-text">증강 요트 다이스 가이드</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 90% 규격 상세 도움말 모달 -->
+    <div id="modal-help-detail" class="game-modal-overlay hidden">
+      <div class="game-modal-content help-detail-modal">
+        <div class="game-modal-header">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <button id="btn-help-detail-back" class="icon-btn" title="가이드 선택으로 돌아가기" style="transform: translateY(2px);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+            </button>
+            <h2 id="help-detail-title">게임 가이드</h2>
+          </div>
+          <button class="game-modal-close" id="btn-help-detail-close">&times;</button>
+        </div>
+        <div class="game-modal-body help-detail-body" id="help-detail-body">
+          <div class="guide-placeholder-container">
+            <p id="help-detail-text" class="modal-placeholder-text">가이드 내용이 여기에 추가될 예정입니다.</p>
+          </div>
         </div>
       </div>
     </div>
