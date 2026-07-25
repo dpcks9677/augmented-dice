@@ -130,25 +130,23 @@ const els = {
   modalHelp: document.getElementById('modal-help')
 };
 
-// 환경 제어 (증강 요트 다이스 로비/핫시트 플레이는 배포 환경에서도 허용)
+// 환경 제어 (증강 및 일반 요트 다이스 플레이 모드 버튼 상시 활성화)
 const isLocalhost = Boolean(
   window.location.hostname === 'localhost' ||
   window.location.hostname === '127.0.0.1' ||
   window.location.hostname === '[::1]'
 );
 
-// 증강 로비 플레이 및 핫시트 플레이는 배포 환경에서도 들어갈 수 있도록 항상 활성화
+// 모든 플레이 모드 버튼 상시 활성화 (disabled = false)
+if (els.btnAugOnline) els.btnAugOnline.disabled = false;
 if (els.btnAugLobby) els.btnAugLobby.disabled = false;
 if (els.btnAugHotseat) els.btnAugHotseat.disabled = false;
+if (els.btnPlayNormal) els.btnPlayNormal.disabled = false;
+if (els.btnPlayNormalLobby) els.btnPlayNormalLobby.disabled = false;
 
-if (isLocalhost) {
-  if (els.btnAugOnline) els.btnAugOnline.disabled = false;
-  const debugContainer = document.getElementById('debug-container');
-  if (debugContainer) debugContainer.style.display = 'block';
-} else {
-  if (els.btnAugOnline) els.btnAugOnline.disabled = true;
-  const debugContainer = document.getElementById('debug-container');
-  if (debugContainer) debugContainer.style.display = 'none';
+const debugContainer = document.getElementById('debug-container');
+if (debugContainer) {
+  debugContainer.style.display = isLocalhost ? 'block' : 'none';
 }
 
 
