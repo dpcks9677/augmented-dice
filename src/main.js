@@ -72,6 +72,7 @@ const els = {
   playMenuSection: document.getElementById('play-menu-section'),
   btnPlayNormal: document.getElementById('btn-norm-hotseat'),
   btnPlayNormalLobby: document.getElementById('btn-norm-lobby'),
+  btnNormOnline: document.getElementById('btn-norm-online'),
   btnAugOnline: document.getElementById('btn-aug-online'),
   btnAugLobby: document.getElementById('btn-aug-lobby'),
   btnAugHotseat: document.getElementById('btn-aug-hotseat'),
@@ -130,15 +131,18 @@ const els = {
   modalHelp: document.getElementById('modal-help')
 };
 
-// 환경 제어 (증강 및 일반 요트 다이스 플레이 모드 버튼 상시 활성화)
+// 환경 제어 (온라인 플레이는 상시 비활성화, 로비 및 핫시트 플레이는 상시 활성화)
 const isLocalhost = Boolean(
   window.location.hostname === 'localhost' ||
   window.location.hostname === '127.0.0.1' ||
   window.location.hostname === '[::1]'
 );
 
-// 모든 플레이 모드 버튼 상시 활성화 (disabled = false)
-if (els.btnAugOnline) els.btnAugOnline.disabled = false;
+// 온라인 플레이 2종 (증강 온라인, 요트 온라인)은 개발 우선도에 따라 상시 비활성화
+if (els.btnAugOnline) els.btnAugOnline.disabled = true;
+if (els.btnNormOnline) els.btnNormOnline.disabled = true;
+
+// 로비 플레이 및 핫시트 플레이만 항상 활성화
 if (els.btnAugLobby) els.btnAugLobby.disabled = false;
 if (els.btnAugHotseat) els.btnAugHotseat.disabled = false;
 if (els.btnPlayNormal) els.btnPlayNormal.disabled = false;
