@@ -27,3 +27,12 @@
   - 게임 종료 시 방장(Host) 클라이언트가 최종 점수표를 기반으로 matchHistory 컬렉션에 게임 기록(시작/종료 시간, 양 플레이어 UID, 획득 점수, 게임 모드)을 업로드.
 - **유저 전적 업데이트**:
   - 게임 종료 시 users 컬렉션 내의 gamesPlayed 횟수를 +1 증가시키고, 누적 점수나 승률 통계 데이터를 갱신.
+
+## 4. 리소스 사전 다운로드 & 성능 최적화 (Preloading & Caching)
+초기 로딩 속도 향상 및 인게임 프레임 드랍(Stuttering) 방지를 위한 사전 다운로드 및 캐싱 체계를 구축합니다.
+- **로딩 스크린 & THREE.LoadingManager 연동**:
+  - 게임 초기 진입 시 3D 모델 파일(.stl), 효과음(.ogg), 증강 메타데이터(augments.json)를 미리 다운로드하며 실시간 프로그레스 바(%)를 표시.
+- **Service Worker 기반 캐싱 (PWA)**:
+  - CacheStorage를 활용하여 리소스를 로컬에 저장, 재방문 및 네트워크 불량 시 다운로드 0초/즉시 로딩 지원.
+- **GPU 텍스처 프리워밍 (Texture Pre-warming)**:
+  - 게임 진입 전 주사위 텍스처(CanvasTexture)를 미리 렌더링/GPU 업로드하여 턴 진행 시의 미세한 끊김(Stuttering) 원천 차단.

@@ -44,7 +44,7 @@ export const mutationDefinitions = {
   },
   'three-of-a-kind': {
     id: 'three-of-a-kind', name: '쓰리 오브 어 카인드', target: '4oak', enName: '3 of a Kind', excludeFromUpper: false,
-    calculate: (dice, counts, sum) => Object.values(counts).some(c => c >= 3) ? sum - 2 : 0
+    calculate: (dice, counts, sum) => Object.values(counts).some(c => c >= 3) ? sum : 0
   },
   'four-by-four': {
     id: 'four-by-four', name: '포 바이 포', target: '4oak', enName: 'Four x Four', excludeFromUpper: false,

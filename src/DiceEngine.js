@@ -888,7 +888,8 @@ export class DiceEngine {
            bestFace = i + 1; // 1-indexed
          }
        }
-       return bestFace;
+       const octMapping = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 4, 6: 5, 7: 5, 8: 6 };
+       return octMapping[bestFace] || bestFace;
     } else {
        let rawValue = 1;
        if (localUp.y > 0.5) rawValue = 1;
@@ -924,6 +925,10 @@ export class DiceEngine {
     if (config.type === 'sevens') {
       return value - 1;
     }
+    if (config.type === 'octahedron') {
+      const revMapping = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 6, 6: 8 };
+      return revMapping[value] || 1;
+    }
     return value;
   }
 
@@ -942,7 +947,8 @@ export class DiceEngine {
          new THREE.Vector3(-1, -1, 1).normalize(),
          new THREE.Vector3(-1, 1, 1).normalize()
        ];
-       const targetNormal = normals[value - 1] || normals[0];
+       const targetFace = this.getPhysicalFaceIndex(value, config);
+       const targetNormal = normals[targetFace - 1] || normals[0];
        const localUp = new THREE.Vector3(-targetNormal.x, -targetNormal.y, 2 * targetNormal.z).normalize();
        const localRight = new THREE.Vector3().crossVectors(localUp, targetNormal).normalize();
        
@@ -1167,7 +1173,8 @@ export class DiceEngine {
              new THREE.Vector3(-1, -1, 1).normalize(),
              new THREE.Vector3(-1, 1, 1).normalize()
            ];
-           localUp = normals[die.value - 1] || normals[0];
+           const faceIndex = this.getPhysicalFaceIndex(die.value, die.config);
+           localUp = normals[faceIndex - 1] || normals[0];
         } else {
            let faceIndex = this.getPhysicalFaceIndex(die.value, die.config);
            

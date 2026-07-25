@@ -83,6 +83,7 @@ export function getCurrentUser() {
 
 export async function signOutUser() {
   try {
+    localStorage.removeItem('ad_logged_in');
     await auth.signOut();
   } catch (error) {
     console.error("Sign Out Error:", error);

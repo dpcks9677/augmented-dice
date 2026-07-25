@@ -43,6 +43,7 @@ const els = {
 
   profileSection: document.getElementById('profile-section'),
   profileNickname: document.getElementById('profile-nickname'),
+  profileStatusMsg: document.getElementById('profile-status-msg'),
   augmentSection: document.getElementById('augment-section'),
 
   matchInfoSection: document.getElementById('match-info-section'),
@@ -144,7 +145,7 @@ if (isLocalhost) {
 }
 
 
-// 화면 스케일링 로직
+// 화면 스케일링 로직 (1920x960 16:9 비율 정밀 스케일 조화)
 function handleAppScaling() {
   if (!els.appContainer) return;
   const targetW = 1920;
@@ -153,10 +154,10 @@ function handleAppScaling() {
   const scaleY = window.innerHeight / targetH;
   const scale = Math.min(scaleX, scaleY) * 0.96;
   els.appContainer.style.transform = `scale(${scale})`;
-  els.appContainer.style.transformOrigin = 'center';
+  els.appContainer.style.transformOrigin = 'center center';
 }
 window.addEventListener('resize', handleAppScaling);
-setTimeout(handleAppScaling, 50);
+handleAppScaling(); // 즉시 동기 실행하여 새로고침 시 50ms 지연/끊김(FOUC) 원천 방지
 
 // 1. 유저 식별 (랜덤 닉네임 생성 및 캐시)
 let myNickname = localStorage.getItem('ad_nickname');
@@ -167,6 +168,215 @@ if (!myNickname) {
   const randNoun = nouns[Math.floor(Math.random() * nouns.length)];
   myNickname = `${randAdj} ${randNoun}`;
   localStorage.setItem('ad_nickname', myNickname);
+}
+let myStatusMsg = localStorage.getItem('ad_status_msg');
+let myAvatarUrl = localStorage.getItem('ad_avatar_url');
+let myCropData = null;
+try {
+  const cropStr = localStorage.getItem('ad_crop_data');
+  if (cropStr) myCropData = JSON.parse(cropStr);
+} catch (e) {}
+
+// -----------------------------------------------------
+// 스켈레톤 스크린 제어 시스템
+// -----------------------------------------------------
+let mainSkeletonsActive = false;
+
+function initMainSkeletons() {
+  if (mainSkeletonsActive) return;
+  mainSkeletonsActive = true;
+
+  // 1. 프로필 섹션 전 요소 스켈레톤 부여
+  const profileTitle = document.querySelector('.profile-header h2');
+  if (profileTitle) profileTitle.classList.add('skeleton-box', 'skeleton-profile-title');
+
+  const btnLogout = document.getElementById('btn-logout');
+  if (btnLogout) btnLogout.classList.add('skeleton-box', 'skeleton-icon-btn');
+
+  const btnEditStatus = document.getElementById('btn-edit-status');
+  if (btnEditStatus) btnEditStatus.classList.add('skeleton-box', 'skeleton-icon-btn');
+
+  const avatarContainer = document.getElementById('profile-avatar-container');
+  if (avatarContainer) avatarContainer.classList.add('skeleton-box');
+
+  const nickElem = document.getElementById('profile-nickname');
+  if (nickElem) nickElem.classList.add('skeleton-box', 'skeleton-text-name');
+
+  const statusElem = document.getElementById('profile-status-msg');
+  if (statusElem) statusElem.classList.add('skeleton-box', 'skeleton-text-status');
+
+  document.querySelectorAll('.profile-user-detail .detail-val').forEach(el => {
+    el.classList.add('skeleton-box', 'skeleton-detail-val');
+  });
+  document.querySelectorAll('.profile-user-detail .detail-item span:first-child').forEach(el => {
+    el.classList.add('skeleton-box', 'skeleton-detail-label');
+  });
+
+  // 2. 경기 기록 (5개 게임 기록 세부 요소 스켈레톤 리스트)
+  const historyCard = document.querySelector('.history-card');
+  if (historyCard) {
+    let historySkeletonsHtml = `
+      <div class="history-header">
+        <span class="skeleton-box" style="width: 90px; height: 18px; border-radius: 4px;"></span>
+        <div class="skeleton-box" style="width: 24px; height: 24px; border-radius: 50%;"></div>
+      </div>
+      <div class="history-table-header">
+        <div class="col-mode"><div class="skeleton-box" style="width: 28px; height: 14px; border-radius: 4px;"></div></div>
+        <div class="col-players"><div class="skeleton-box" style="width: 48px; height: 14px; border-radius: 4px;"></div></div>
+        <div class="col-score"><div class="skeleton-box" style="width: 28px; height: 14px; border-radius: 4px;"></div></div>
+        <div class="col-result"><div class="skeleton-box" style="width: 28px; height: 14px; border-radius: 4px; margin: 0 auto;"></div></div>
+        <div class="col-date"><div class="skeleton-box" style="width: 28px; height: 14px; border-radius: 4px; margin: 0 auto;"></div></div>
+      </div>
+      <div class="history-match-list">
+    `;
+    for (let i = 0; i < 5; i++) {
+      historySkeletonsHtml += `
+        <div class="history-match-item skel-match-item">
+          <div class="history-match-main">
+            <div class="history-mode-col">
+              <div class="skeleton-box skel-mode-icon"></div>
+              <div class="skeleton-box skel-mode-text"></div>
+            </div>
+            <div class="history-players-col">
+              <div class="history-player-row me">
+                <div class="skeleton-box skel-avatar"></div>
+                <div class="skeleton-box skel-name"></div>
+              </div>
+              <div class="history-player-row">
+                <div class="skeleton-box skel-avatar"></div>
+                <div class="skeleton-box skel-name"></div>
+              </div>
+            </div>
+            <div class="history-score-col">
+              <div class="skeleton-box skel-score"></div>
+              <div class="skeleton-box skel-score"></div>
+            </div>
+            <div class="history-result-col">
+              <div class="skeleton-box skel-badge"></div>
+            </div>
+            <div class="history-date-col">
+              <div class="skeleton-box skel-date"></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    historySkeletonsHtml += '</div>';
+    historyCard.innerHTML = historySkeletonsHtml;
+  }
+
+  // 3. playable-section & 버건디 매트 (모서리가 둥근 사각형)
+  const burgundyMat = document.querySelector('#dice-board-area .burgundy-mat');
+  if (burgundyMat) burgundyMat.classList.add('skeleton-box');
+  const tableFrame = document.querySelector('#dice-board-area .table-frame');
+  if (tableFrame) tableFrame.classList.add('skeleton-frame-box');
+
+  const rollsLeftElem = document.getElementById('rolls-left');
+  if (rollsLeftElem) rollsLeftElem.classList.add('skeleton-box');
+
+  const gameStatusElem = document.getElementById('game-status');
+  if (gameStatusElem) gameStatusElem.classList.add('skeleton-box');
+
+  const turnTimerElem = document.getElementById('turn-timer');
+  if (turnTimerElem) turnTimerElem.classList.add('skeleton-box');
+
+  const btnRoll = document.getElementById('btn-roll');
+  if (btnRoll) btnRoll.classList.add('skeleton-box', 'skeleton-btn-roll');
+
+  // 4. play-menu-section
+  const playMenuCard = document.querySelector('.play-menu-card');
+  if (playMenuCard) {
+    playMenuCard.classList.add('skeleton-fade-in');
+    const menuTitle = playMenuCard.querySelector('h2');
+    if (menuTitle) menuTitle.classList.add('skeleton-box', 'skeleton-menu-title');
+    playMenuCard.querySelectorAll('.btn-play-menu').forEach(btn => {
+      btn.classList.add('skeleton-box', 'skeleton-menu-btn');
+    });
+  }
+}
+
+function removeMainSkeletons() {
+  if (!mainSkeletonsActive) return;
+
+  // 1. 프로필 스켈레톤 해제
+  const profileTitle = document.querySelector('.profile-header h2');
+  if (profileTitle) profileTitle.classList.remove('skeleton-box', 'skeleton-profile-title');
+
+  const btnLogout = document.getElementById('btn-logout');
+  if (btnLogout) btnLogout.classList.remove('skeleton-box', 'skeleton-icon-btn');
+
+  const btnEditStatus = document.getElementById('btn-edit-status');
+  if (btnEditStatus) btnEditStatus.classList.remove('skeleton-box', 'skeleton-icon-btn');
+
+  const avatarContainer = document.getElementById('profile-avatar-container');
+  if (avatarContainer) avatarContainer.classList.remove('skeleton-box');
+
+  const nickElem = document.getElementById('profile-nickname');
+  if (nickElem) nickElem.classList.remove('skeleton-box', 'skeleton-text-name');
+
+  const statusElem = document.getElementById('profile-status-msg');
+  if (statusElem) statusElem.classList.remove('skeleton-box', 'skeleton-text-status');
+
+  document.querySelectorAll('.profile-user-detail .detail-val').forEach(el => {
+    el.classList.remove('skeleton-box', 'skeleton-detail-val');
+  });
+  document.querySelectorAll('.profile-user-detail .detail-item span:first-child').forEach(el => {
+    el.classList.remove('skeleton-box', 'skeleton-detail-label');
+  });
+
+  // 2. 버건디 매트 스켈레톤 해제
+  const burgundyMat = document.querySelector('#dice-board-area .burgundy-mat');
+  if (burgundyMat) burgundyMat.classList.remove('skeleton-box');
+  const tableFrame = document.querySelector('#dice-board-area .table-frame');
+  if (tableFrame) tableFrame.classList.remove('skeleton-frame-box');
+
+  const rollsLeftElem = document.getElementById('rolls-left');
+  if (rollsLeftElem) rollsLeftElem.classList.remove('skeleton-box');
+
+  const gameStatusElem = document.getElementById('game-status');
+  if (gameStatusElem) gameStatusElem.classList.remove('skeleton-box');
+
+  const turnTimerElem = document.getElementById('turn-timer');
+  if (turnTimerElem) turnTimerElem.classList.remove('skeleton-box');
+
+  const btnRoll = document.getElementById('btn-roll');
+  if (btnRoll) btnRoll.classList.remove('skeleton-box', 'skeleton-btn-roll');
+
+  // 3. play-menu-section 스켈레톤 해제
+  const playMenuCard = document.querySelector('.play-menu-card');
+  if (playMenuCard) {
+    const menuTitle = playMenuCard.querySelector('h2');
+    if (menuTitle) menuTitle.classList.remove('skeleton-box', 'skeleton-menu-title');
+    playMenuCard.querySelectorAll('.btn-play-menu').forEach(btn => {
+      btn.classList.remove('skeleton-box', 'skeleton-menu-btn');
+    });
+  }
+
+  mainSkeletonsActive = false;
+}
+
+// 캐시된 로그인 상태 확인 (낙관적 뷰 전환: 새로고침 시 랜딩 뷰 건너뛰고 메인 화면 즉시 노출 + 스켈레톤 활성화)
+const isLoggedInCache = localStorage.getItem('ad_logged_in') === 'true';
+if (isLoggedInCache) {
+  els.landingView?.classList.add('hidden');
+  els.loginView?.classList.add('hidden');
+  els.nicknameSetupView?.classList.add('hidden');
+  els.appContainer?.classList.remove('hidden');
+  handleAppScaling(); // 스컨테이너 노출 즉시 스케일링 동기화
+  initMainSkeletons();
+  if (myNickname) {
+    if (els.myNickname) els.myNickname.textContent = myNickname;
+    if (els.profileNickname) els.profileNickname.textContent = myNickname;
+  }
+  const statusToSet = myStatusMsg || '안녕하세요! 주사위 굴리러 왔습니다.';
+  if (els.profileStatusMsg) {
+    els.profileStatusMsg.textContent = statusToSet;
+  }
+  if (myAvatarUrl && myCropData) {
+    if (typeof renderAvatar === 'function') {
+      renderAvatar(myAvatarUrl, myCropData);
+    }
+  }
 }
 
 // 전역 상태
@@ -687,6 +897,8 @@ subscribeAuthState(async (user) => {
 
     if (userData && userData.nickname) {
       // 닉네임이 설정된 로그인 유저: 메인 게임 화면으로 바로 이동
+      localStorage.setItem('ad_logged_in', 'true');
+      localStorage.setItem('ad_nickname', userData.nickname);
       els.landingView?.classList.add('hidden');
       els.loginView?.classList.add('hidden');
       els.nicknameSetupView?.classList.add('hidden');
@@ -699,6 +911,7 @@ subscribeAuthState(async (user) => {
       const profileStatus = document.getElementById('profile-status-msg');
       if (profileStatus && userData.statusMsg) {
         profileStatus.textContent = userData.statusMsg;
+        localStorage.setItem('ad_status_msg', userData.statusMsg);
       }
 
       // 추가 프로필 통계 바인딩
@@ -722,13 +935,20 @@ subscribeAuthState(async (user) => {
       }
 
       if (userData.avatarUrl && userData.cropData) {
-        setTimeout(() => {
-          if (typeof renderAvatar === 'function') {
-            renderAvatar(userData.avatarUrl, userData.cropData);
-          }
-        }, 100);
+        localStorage.setItem('ad_avatar_url', userData.avatarUrl);
+        localStorage.setItem('ad_crop_data', JSON.stringify(userData.cropData));
+        if (typeof renderAvatar === 'function') {
+          renderAvatar(userData.avatarUrl, userData.cropData, () => {
+            removeMainSkeletons();
+          });
+        } else {
+          removeMainSkeletons();
+        }
       } else {
+        localStorage.removeItem('ad_avatar_url');
+        localStorage.removeItem('ad_crop_data');
         resetAvatarUI();
+        removeMainSkeletons();
       }
 
       // 진행 중인 게임 재접속 체크
@@ -808,6 +1028,7 @@ subscribeAuthState(async (user) => {
     }
   } else {
     // 비로그인 유저: 랜딩 페이지
+    localStorage.removeItem('ad_logged_in');
     els.appContainer?.classList.add('hidden');
     els.loginView?.classList.add('hidden');
     els.nicknameSetupView?.classList.add('hidden');
@@ -3479,6 +3700,7 @@ setTimeout(() => {
   diceEngine.onPhysicsUpdate = null; // 매 프레임 스트리밍 패킷 전송 비활성화
 
   diceBoxReady = true;
+  removeMainSkeletons();
   if (els.appContainer?.classList.contains('mode-select-state')) {
     els.btnRoll.disabled = false;
     if (els.gameStatus) els.gameStatus.textContent = '로비 (자유 연습)';
@@ -3868,9 +4090,12 @@ function resetAvatarUI() {
   if (canvas) canvas.style.display = 'none';
 }
 
-function renderAvatar(url, cropData) {
+function renderAvatar(url, cropData, onComplete) {
   const container = document.getElementById('profile-avatar-container');
-  if (!container || !url || !cropData) return;
+  if (!container || !url || !cropData) {
+    if (typeof onComplete === 'function') onComplete();
+    return;
+  }
   const canvas = document.getElementById('profile-avatar-canvas');
   if (canvas) canvas.style.display = 'none'; // 캔버스는 이제 사용 안 함 (정지된 이미지 방지)
 
@@ -3889,6 +4114,11 @@ function renderAvatar(url, cropData) {
     container.style.backgroundSize = `${bgWidth}px ${bgHeight}px`;
     container.style.backgroundPosition = `${bgPosX}px ${bgPosY}px`;
     container.style.backgroundRepeat = 'no-repeat';
+
+    if (typeof onComplete === 'function') onComplete();
+  };
+  img.onerror = () => {
+    if (typeof onComplete === 'function') onComplete();
   };
   img.src = url;
 }
