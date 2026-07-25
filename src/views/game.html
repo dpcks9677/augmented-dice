@@ -164,9 +164,30 @@
       <section id="play-menu-section">
         <div class="play-menu-card">
           <div class="play-menu-top-bar">
-            <button class="btn-play-submenu" id="btn-menu-achievements">도전과제</button>
-            <button class="btn-play-submenu" id="btn-menu-compendium">증강 도감</button>
-            <button class="btn-play-submenu" id="btn-menu-help">도움말</button>
+            <button class="btn-play-submenu-icon" id="btn-menu-achievements" title="도전과제">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+                <path d="M4 22h16"/>
+                <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+                <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+                <path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/>
+              </svg>
+            </button>
+            <button class="btn-play-submenu-icon" id="btn-menu-compendium" title="증강 도감">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
+                <path d="M8 7h6"/>
+                <path d="M8 11h8"/>
+              </svg>
+            </button>
+            <button class="btn-play-submenu-icon" id="btn-menu-help" title="도움말">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                <path d="M12 17h.01"/>
+              </svg>
+            </button>
           </div>
           <h2>Play Augmented Dice</h2>
           <button class="btn-play-menu" id="btn-aug-online" disabled>증강 요트 다이스 / 온라인 플레이</button>
@@ -279,6 +300,45 @@
         <div class="modal-buttons" style="display: flex; gap: 10px; justify-content: center;">
           <button id="btn-reconnect-join" class="game-btn primary-btn" style="flex: 1;">재접속</button>
           <button id="btn-reconnect-cancel" class="game-btn secondary-btn" style="flex: 1; background: #e0e0e0; color: #333;">포기하기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 도전과제 모달 -->
+    <div id="modal-achievements" class="game-modal-overlay hidden">
+      <div class="game-modal-content">
+        <div class="game-modal-header">
+          <h2>도전과제</h2>
+          <button class="game-modal-close" data-target="modal-achievements">&times;</button>
+        </div>
+        <div class="game-modal-body">
+          <p class="modal-placeholder-text">게임을 완료하여 도전과제를 달성해 보세요. (업데이트 예정)</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 증강 도감 모달 -->
+    <div id="modal-compendium" class="game-modal-overlay hidden">
+      <div class="game-modal-content">
+        <div class="game-modal-header">
+          <h2>증강 도감</h2>
+          <button class="game-modal-close" data-target="modal-compendium">&times;</button>
+        </div>
+        <div class="game-modal-body">
+          <p class="modal-placeholder-text">다양한 증강 목록과 효과를 확인해 보세요. (업데이트 예정)</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 도움말 모달 -->
+    <div id="modal-help" class="game-modal-overlay hidden">
+      <div class="game-modal-content">
+        <div class="game-modal-header">
+          <h2>도움말</h2>
+          <button class="game-modal-close" data-target="modal-help">&times;</button>
+        </div>
+        <div class="game-modal-body">
+          <p class="modal-placeholder-text">일반 요트 다이스 및 증강 요트 다이스 규칙 가이드입니다. (업데이트 예정)</p>
         </div>
       </div>
     </div>

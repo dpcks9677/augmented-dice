@@ -120,7 +120,14 @@ const els = {
   endgameP1Score: document.getElementById('endgame-p1-score'),
   endgameP2Score: document.getElementById('endgame-p2-score'),
   endgameWinner: document.getElementById('endgame-winner'),
-  btnReturnLobby: document.getElementById('btn-return-lobby')
+  btnReturnLobby: document.getElementById('btn-return-lobby'),
+
+  btnMenuAchievements: document.getElementById('btn-menu-achievements'),
+  btnMenuCompendium: document.getElementById('btn-menu-compendium'),
+  btnMenuHelp: document.getElementById('btn-menu-help'),
+  modalAchievements: document.getElementById('modal-achievements'),
+  modalCompendium: document.getElementById('modal-compendium'),
+  modalHelp: document.getElementById('modal-help')
 };
 
 // 환경 제어 (로컬호스트인 경우만 증강 모드 및 디버그 툴 사용 허용)
@@ -4300,3 +4307,68 @@ if (avatarContainer && cropModal) {
     }
   });
 }
+
+// -----------------------------------------------------
+// 메인 메뉴 서브 버튼 & 모달 제어 시스템 (도전과제 / 증강 도감 / 도움말)
+// -----------------------------------------------------
+function openGameModal(modalEl) {
+  if (!modalEl) return;
+  modalEl.classList.remove('hidden');
+}
+
+function closeGameModal(modalEl) {
+  if (!modalEl) return;
+  modalEl.classList.add('hidden');
+}
+
+function closeAllGameModals() {
+  if (els.modalAchievements) els.modalAchievements.classList.add('hidden');
+  if (els.modalCompendium) els.modalCompendium.classList.add('hidden');
+  if (els.modalHelp) els.modalHelp.classList.add('hidden');
+}
+
+if (els.btnMenuAchievements) {
+  els.btnMenuAchievements.addEventListener('click', () => {
+    openGameModal(els.modalAchievements);
+  });
+}
+
+if (els.btnMenuCompendium) {
+  els.btnMenuCompendium.addEventListener('click', () => {
+    openGameModal(els.modalCompendium);
+  });
+}
+
+if (els.btnMenuHelp) {
+  els.btnMenuHelp.addEventListener('click', () => {
+    openGameModal(els.modalHelp);
+  });
+}
+
+// 닫기 버튼 이벤트 바인딩
+document.querySelectorAll('.game-modal-close').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    const targetId = e.currentTarget.getAttribute('data-target');
+    if (targetId) {
+      const targetModal = document.getElementById(targetId);
+      closeGameModal(targetModal);
+    }
+  });
+});
+
+// 배경 영역 클릭 시 닫기
+document.querySelectorAll('.game-modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      closeGameModal(overlay);
+    }
+  });
+});
+
+// ESC 키 입력 시 활성화된 모달 닫기
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeAllGameModals();
+  }
+});
+
