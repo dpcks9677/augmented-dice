@@ -2401,6 +2401,36 @@ svg.lucide-icon {
   background: #fafafa;
 }
 
+@keyframes augmentSelectPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(241, 196, 15, 0);
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 0 24px rgba(241, 196, 15, 0.85);
+    border-color: #f1c40f;
+  }
+  100% {
+    transform: scale(1.03);
+    box-shadow: 0 0 18px rgba(241, 196, 15, 0.7);
+    border-color: #f1c40f;
+  }
+}
+
+.augment-option.selected {
+  animation: augmentSelectPulse 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  background-color: rgba(241, 196, 15, 0.12) !important;
+  border-color: #f1c40f !important;
+  z-index: 10;
+}
+
+.augment-option.disabled-option {
+  opacity: 0.6;
+  pointer-events: none !important;
+  cursor: default !important;
+}
+
 .augment-option .aug-slot-header {
   display: flex;
   flex-direction: column;

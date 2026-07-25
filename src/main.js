@@ -1619,6 +1619,34 @@ networkEngine.on('ingame_message', (data) => {
     return;
   }
 
+  if (data.type === 'apply_mutation' || data.subType === 'apply_mutation') {
+    if (window.applyMutation) {
+      window.applyMutation(data.player, data.mutationId, true);
+    }
+    const modal = document.getElementById('augment-selection-modal');
+    if (modal && !modal.classList.contains('hidden')) {
+      if (augmentTimerInterval) {
+        clearInterval(augmentTimerInterval);
+        augmentTimerInterval = null;
+      }
+      modal.classList.add('hidden');
+    }
+    let expectedCount = 0;
+    if (currentRound >= 1) expectedCount = 1;
+    if (currentRound >= 6) expectedCount = 2;
+    if (currentRound >= 9) expectedCount = 3;
+
+    const p2Count = Object.keys(activeMutations[2] || {}).length;
+    if (p2Count < expectedCount) {
+      if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(2);
+      showAugmentSelectionModal(2, () => {
+        if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(1);
+        if (typeof proceedTurnStart === 'function') proceedTurnStart();
+      });
+    }
+    return;
+  }
+
   if (!window.isMultiplayer || Number(currentPlayer) === Number(window.myPlayerIndex)) return;
 
   if (data.type === 'sync_roll') {
@@ -2315,8 +2343,10 @@ function showAugmentSelectionModal(player, onSelect) {
     augmentTimerInterval = null;
   }
 
-  title.textContent = `Player ${player} 증강 선택`;
+  const isMyTurn = !window.isMultiplayer || player === window.myPlayerIndex;
+  title.textContent = isMyTurn ? `Player ${player} 증강 선택` : `Player ${player} 증강 선택 중...`;
   optionsContainer.innerHTML = '';
+  optionsContainer.style.pointerEvents = 'auto';
 
   let timeLeft = 30;
   if (timerText) timerText.textContent = `${timeLeft}s`;
@@ -2327,6 +2357,7 @@ function showAugmentSelectionModal(player, onSelect) {
   const shuffled = [...augmentData].sort(() => 0.5 - Math.random());
   const selectedAugments = shuffled.slice(0, 3);
 
+  let isSelecting = false;
   const cleanupAndSelect = (aug) => {
     if (augmentTimerInterval) {
       clearInterval(augmentTimerInterval);
@@ -2335,14 +2366,14 @@ function showAugmentSelectionModal(player, onSelect) {
     modal.classList.add('hidden');
     if (window.applyMutation) window.applyMutation(player, aug.mutationId);
     if (onSelect) {
-        onSelect();
-        resumeTurnTimer();
+      onSelect();
+      resumeTurnTimer();
     }
   };
 
   selectedAugments.forEach(aug => {
     const btn = document.createElement('div');
-    btn.className = 'augment-option';
+    btn.className = 'augment-option' + (!isMyTurn ? ' disabled-option' : '');
     let desc = aug.description || aug.name + ' 증강이 적용됩니다.';
 
     const icon = getVariantSvg(aug.mutationId) || '';
@@ -2350,28 +2381,39 @@ function showAugmentSelectionModal(player, onSelect) {
       <div class="aug-slot-header">${icon} <span class="aug-slot-name">${aug.name}</span></div>
       <div class="aug-slot-desc">${desc}</div>
     `;
-    btn.addEventListener('click', () => {
-      cleanupAndSelect(aug);
-    });
+
+    if (isMyTurn) {
+      btn.addEventListener('click', () => {
+        if (isSelecting) return;
+        isSelecting = true;
+        optionsContainer.style.pointerEvents = 'none';
+        btn.classList.add('selected');
+
+        setTimeout(() => {
+          cleanupAndSelect(aug);
+        }, 500);
+      });
+    }
     optionsContainer.appendChild(btn);
   });
 
-  augmentTimerInterval = setInterval(() => {
-    timeLeft--;
-    if (timerText) timerText.textContent = `${timeLeft}s`;
-    if (timerElem) {
-      if (timeLeft <= 10) timerElem.classList.add('warning');
-      else timerElem.classList.remove('warning');
-    }
+  if (isMyTurn) {
+    augmentTimerInterval = setInterval(() => {
+      timeLeft--;
+      if (timerText) timerText.textContent = `${timeLeft}s`;
+      if (timerElem) {
+        if (timeLeft <= 10) timerElem.classList.add('warning');
+        else timerElem.classList.remove('warning');
+      }
 
-    if (timeLeft <= 0) {
-      clearInterval(augmentTimerInterval);
-      augmentTimerInterval = null;
-      // 3개 옵션 중 첫 번째 무작위 자동 선택
-      const autoPick = selectedAugments[Math.floor(Math.random() * selectedAugments.length)];
-      cleanupAndSelect(autoPick);
-    }
-  }, 1000);
+      if (timeLeft <= 0) {
+        clearInterval(augmentTimerInterval);
+        augmentTimerInterval = null;
+        const autoPick = selectedAugments[Math.floor(Math.random() * selectedAugments.length)];
+        cleanupAndSelect(autoPick);
+      }
+    }, 1000);
+  }
 
   modal.classList.remove('hidden');
 }
@@ -2646,26 +2688,20 @@ function startTurn() {
 
       els.btnRoll.disabled = true;
 
-      if (gameMode === 'augmented-hotseat') {
-        showAugmentSelectionModal(currentPlayer, () => {
-          if (currentPlayer === 1) {
-            const p2Count = Object.keys(activeMutations[2] || {}).length;
-            if (p2Count < expectedCount) {
-              if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(2);
-              showAugmentSelectionModal(2, () => {
-                if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(1);
-                proceedTurnStart();
-              });
-              return;
-            }
+      showAugmentSelectionModal(currentPlayer, () => {
+        if (currentPlayer === 1) {
+          const p2Count = Object.keys(activeMutations[2] || {}).length;
+          if (p2Count < expectedCount) {
+            if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(2);
+            showAugmentSelectionModal(2, () => {
+              if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(1);
+              proceedTurnStart();
+            });
+            return;
           }
-          proceedTurnStart();
-        });
-      } else {
-        showAugmentSelectionModal(currentPlayer, () => {
-          proceedTurnStart();
-        });
-      }
+        }
+        proceedTurnStart();
+      });
       return;
     }
   }
@@ -4009,18 +4045,22 @@ function getQuestProgressText(player, mutId) {
 // -----------------------------------------------------
 let isViewingOpponentAugments = false;
 
-function getAugmentSidebarTargetPlayer(defaultPlayer = 1) {
-  let myPIdx = defaultPlayer;
-  if (window.isMultiplayer && window.myPlayerIndex) {
-    myPIdx = window.myPlayerIndex;
-  } else if (typeof currentPlayer !== 'undefined' && currentPlayer) {
-    myPIdx = currentPlayer;
+function getAugmentSidebarTargetPlayer(explicitPlayer = null) {
+  let basePlayer = explicitPlayer;
+  if (!basePlayer) {
+    if (window.isMultiplayer && window.myPlayerIndex) {
+      basePlayer = window.myPlayerIndex;
+    } else if (typeof currentPlayer !== 'undefined' && currentPlayer) {
+      basePlayer = currentPlayer;
+    } else {
+      basePlayer = 1;
+    }
   }
 
   if (isViewingOpponentAugments) {
-    return myPIdx === 1 ? 2 : 1;
+    return basePlayer === 1 ? 2 : 1;
   }
-  return myPIdx;
+  return basePlayer;
 }
 
 window.updateAugmentSidebar = function (player) {
@@ -4109,9 +4149,17 @@ document.getElementById('btn-toggle-opponent-augments')?.addEventListener('click
   }
 });
 
-window.applyMutation = function (player, mutationId) {
+window.applyMutation = function (player, mutationId, isRemote = false) {
   const mut = mutationDefinitions[mutationId];
   if (!mut) return;
+
+  if (!isRemote && window.isMultiplayer && networkEngine) {
+    networkEngine.sendInGameAction({
+      type: 'apply_mutation',
+      player,
+      mutationId
+    });
+  }
 
   const targetCat = mut.target;
 
