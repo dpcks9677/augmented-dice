@@ -2700,6 +2700,14 @@ svg.lucide-icon {
   animation: modalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* 증강 도감 전용 모달 크기 (app-container 70% 규격) */
+#modal-compendium .game-modal-content {
+  width: 70vw;
+  max-width: 1344px;
+  height: 70vh;
+  max-height: 672px;
+}
+
 @keyframes modalPop {
   from {
     opacity: 0;
