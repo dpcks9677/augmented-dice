@@ -1410,7 +1410,13 @@ function showLobbySelect(mode) {
   window.pendingLobbyMode = mode;
   els.appContainer.classList.remove('mode-select-state', 'playing-state', 'normal-mode', 'lobby-state');
   els.appContainer.classList.add('lobby-select-state');
-  els.inputLobbyJoinCode.value = '';
+  if (els.inputLobbyJoinCode) {
+    els.inputLobbyJoinCode.value = '';
+  }
+  document.querySelectorAll('.pin-digit-input').forEach(input => {
+    input.value = '';
+    input.classList.remove('filled');
+  });
 }
 
 function showLobby(isHost, joinCode = null) {
@@ -2625,7 +2631,7 @@ function startTurn() {
     }
   };
 
-  if (gameMode === 'augmented-hotseat') {
+  if (gameMode === 'augmented' || gameMode === 'augmented-hotseat') {
     const currentAugCount = Object.keys(activeMutations[currentPlayer] || {}).length;
     let expectedCount = 0;
     if (currentRound >= 1) expectedCount = 1;
@@ -2639,20 +2645,27 @@ function startTurn() {
       }
 
       els.btnRoll.disabled = true;
-      showAugmentSelectionModal(currentPlayer, () => {
-        if (currentPlayer === 1) {
-          const p2Count = Object.keys(activeMutations[2] || {}).length;
-          if (p2Count < expectedCount) {
-            if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(2);
-            showAugmentSelectionModal(2, () => {
-              if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(1);
-              proceedTurnStart();
-            });
-            return;
+
+      if (gameMode === 'augmented-hotseat') {
+        showAugmentSelectionModal(currentPlayer, () => {
+          if (currentPlayer === 1) {
+            const p2Count = Object.keys(activeMutations[2] || {}).length;
+            if (p2Count < expectedCount) {
+              if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(2);
+              showAugmentSelectionModal(2, () => {
+                if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(1);
+                proceedTurnStart();
+              });
+              return;
+            }
           }
-        }
-        proceedTurnStart();
-      });
+          proceedTurnStart();
+        });
+      } else {
+        showAugmentSelectionModal(currentPlayer, () => {
+          proceedTurnStart();
+        });
+      }
       return;
     }
   }
@@ -3994,10 +4007,44 @@ function getQuestProgressText(player, mutId) {
 
 
 // -----------------------------------------------------
-// 5. 디버그 및 핫시트 UI 도구
-// -----------------------------------------------------
+let isViewingOpponentAugments = false;
+
+function getAugmentSidebarTargetPlayer(defaultPlayer = 1) {
+  let myPIdx = defaultPlayer;
+  if (window.isMultiplayer && window.myPlayerIndex) {
+    myPIdx = window.myPlayerIndex;
+  } else if (typeof currentPlayer !== 'undefined' && currentPlayer) {
+    myPIdx = currentPlayer;
+  }
+
+  if (isViewingOpponentAugments) {
+    return myPIdx === 1 ? 2 : 1;
+  }
+  return myPIdx;
+}
+
 window.updateAugmentSidebar = function (player) {
-  const muts = Object.values(activeMutations[player] || {});
+  const targetPlayer = getAugmentSidebarTargetPlayer(player || 1);
+  const isOpponent = isViewingOpponentAugments;
+
+  const btnToggle = document.getElementById('btn-toggle-opponent-augments');
+  const labelTarget = document.getElementById('aug-view-target-label');
+
+  if (btnToggle) {
+    if (isOpponent) {
+      btnToggle.classList.add('active');
+      btnToggle.setAttribute('title', '내 증강 보기');
+    } else {
+      btnToggle.classList.remove('active');
+      btnToggle.setAttribute('title', '상대방 증강 보기');
+    }
+  }
+
+  if (labelTarget) {
+    labelTarget.textContent = isOpponent ? '(상대)' : '';
+  }
+
+  const muts = Object.values(activeMutations[targetPlayer] || {});
   for (let i = 0; i < 3; i++) {
     const slot = document.getElementById(`aug-slot-${i}`);
     if (!slot) continue;
@@ -4012,19 +4059,19 @@ window.updateAugmentSidebar = function (player) {
 
       let extraHTML = '';
       if (mut.isQuest && typeof getQuestProgressText === 'function') {
-        extraHTML = `<div class="aug-quest-container" style="margin-top: auto; width: 100%; padding-top: 6px;">${getQuestProgressText(player, mutationId)}</div>`;
+        extraHTML = `<div class="aug-quest-container" style="margin-top: auto; width: 100%; padding-top: 6px;">${getQuestProgressText(targetPlayer, mutationId)}</div>`;
       } else if (mutationId === 'momentum') {
-        const mState = momentumState[player] || 'ready';
+        const mState = momentumState[targetPlayer] || 'ready';
         if (mState === 'active') {
           extraHTML = `<div style="margin-top: auto; width: 100%; padding-top: 6px; color: #27ae60; font-weight: bold; text-align: left;">이번 턴에 발동합니다!</div>`;
         } else if (mState === 'used') {
-          const gained = momentumGainedScore[player] || 0;
+          const gained = momentumGainedScore[targetPlayer] || 0;
           extraHTML = `<div style="margin-top: auto; width: 100%; padding-top: 6px; color: #888; font-size: 0.85em; font-style: italic; text-align: left;">이 증강은 소모되었습니다 (${gained}점 획득함)</div>`;
         }
       }
 
       slot.classList.add('filled');
-      if (mutationId === 'momentum' && momentumState[player] === 'used') {
+      if (mutationId === 'momentum' && momentumState[targetPlayer] === 'used') {
         slot.style.opacity = '0.65';
       } else {
         slot.style.opacity = '1';
@@ -4040,6 +4087,7 @@ window.updateAugmentSidebar = function (player) {
     } else {
       slot.classList.remove('filled');
       let roundText = i === 0 ? "1턴" : (i === 1 ? "6턴" : "9턴");
+      const emptyText = isOpponent ? `${roundText}에 선택된 증강입니다.` : `${roundText}에 증강을 선택할 수 있습니다.`;
       slot.innerHTML = `
         <div class="aug-empty-icon">
           <svg viewBox="0 0 24 24" width="1em" height="1em">
@@ -4048,11 +4096,18 @@ window.updateAugmentSidebar = function (player) {
             <circle cx="12" cy="16" r="1.5" fill="currentColor"/>
           </svg>
         </div>
-        <div class="aug-empty-text">${roundText}에 증강을 선택할 수 있습니다.</div>
+        <div class="aug-empty-text">${emptyText}</div>
       `;
     }
   }
 };
+
+document.getElementById('btn-toggle-opponent-augments')?.addEventListener('click', () => {
+  isViewingOpponentAugments = !isViewingOpponentAugments;
+  if (typeof updateAugmentSidebar === 'function') {
+    updateAugmentSidebar(typeof currentPlayer !== 'undefined' ? currentPlayer : 1);
+  }
+});
 
 window.applyMutation = function (player, mutationId) {
   const mut = mutationDefinitions[mutationId];
