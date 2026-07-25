@@ -325,23 +325,30 @@ export function getDicesIconSvg() {
 }
 
 export function getAugmentedDicesIconSvg() {
-  return `<div class="mode-icon-augmented-wrapper" style="display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0;">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="lucide-icon custom-dices-icon" style="flex-shrink: 0;">
-      <path d="M 11.5 9.5 H 19.5 A 2.5 2.5 0 0 1 22 12 V 19.5 A 2.5 2.5 0 0 1 19.5 22 H 12 A 2.5 2.5 0 0 1 9.5 19.5 V 12.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
-      <circle cx="12.5" cy="12.5" r="1.1" fill="currentColor"/>
-      <circle cx="18.5" cy="12.5" r="1.1" fill="currentColor"/>
-      <circle cx="15.5" cy="15.5" r="1.1" fill="currentColor"/>
-      <circle cx="12.5" cy="18.5" r="1.1" fill="currentColor"/>
-      <circle cx="18.5" cy="18.5" r="1.1" fill="currentColor"/>
-      <g transform="rotate(-15 8 8)">
-        <rect x="2" y="2" width="12" height="12" rx="2.5" stroke="currentColor" stroke-width="2" fill="#ffffff"/>
-        <circle cx="5" cy="5" r="1.1" fill="#333333"/>
-        <circle cx="8" cy="8" r="1.1" fill="#333333"/>
-        <circle cx="11" cy="11" r="1.1" fill="#333333"/>
-      </g>
-    </svg>
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide-icon lucide-arrow-big-up" style="color: #27ae60; flex-shrink: 0;"><path d="M9 18v-6H5l7-7 7 7h-4v6H9z" fill="rgba(39, 174, 96, 0.2)"/></svg>
-  </div>`;
+  return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="lucide-icon custom-dices-icon" style="flex-shrink: 0;">
+    <defs>
+      <mask id="augmented-dice-gap-mask">
+        <rect width="24" height="24" fill="#ffffff"/>
+        <g transform="rotate(-15 8 8)">
+          <rect x="2" y="2" width="12" height="12" rx="2.5" fill="#000000" stroke="#000000" stroke-width="2.2"/>
+        </g>
+      </mask>
+    </defs>
+    <g mask="url(#augmented-dice-gap-mask)">
+      <rect x="9.5" y="9.5" width="12.5" height="12.5" rx="2.5" fill="#222222" stroke="#222222" stroke-width="1"/>
+      <circle cx="12.5" cy="19.0" r="1.1" fill="#ffffff"/>
+      <circle cx="15.75" cy="15.75" r="1.1" fill="#ffffff"/>
+      <circle cx="19.0" cy="12.5" r="1.1" fill="#ffffff"/>
+    </g>
+    <g transform="rotate(-15 8 8)">
+      <rect x="2" y="2" width="12" height="12" rx="2.5" fill="#222222" stroke="#222222" stroke-width="1"/>
+      <circle cx="5" cy="5" r="1.1" fill="#ffffff"/>
+      <circle cx="11" cy="5" r="1.1" fill="#ffffff"/>
+      <circle cx="5" cy="11" r="1.1" fill="#ffffff"/>
+      <circle cx="11" cy="11" r="1.1" fill="#ffffff"/>
+    </g>
+    <path d="M 18.5 3.5 L 20.5 1.5 L 22.5 3.5 M 20.5 1.5 V 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </svg>`;
 }
 
 export function getCirclePlusIconSvg() {
