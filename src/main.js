@@ -1841,9 +1841,7 @@ function cleanUid(raw) {
 
 
 networkEngine.on('player_forfeited', (data) => {
-  console.log("[DEBUG-1] player_forfeited event received:", data);
   if (!els.appContainer?.classList.contains('playing-state')) {
-    console.log("[DEBUG-1.1] Ignored player_forfeited in non-playing state:", data);
     return;
   }
 
@@ -1872,7 +1870,6 @@ networkEngine.on('player_forfeited', (data) => {
     forfeitPIndex = 1;
   }
 
-  console.log("[DEBUG-1.2] Calling handleGameForfeit with forfeitPIndex:", forfeitPIndex, "uid:", data.uid);
   handleGameForfeit(forfeitPIndex, data.uid);
   const user = getCurrentUser();
   if (user?.uid) {
@@ -2045,7 +2042,6 @@ let forfeitedPlayers = { 1: false, 2: false, 3: false, 4: false };
 let forfeitedPlayerUids = {};
 
 function handleGameForfeit(forfeitedPlayerIndex, forfeitUid = null) {
-  console.log("[DEBUG-2] handleGameForfeit executed. forfeitedPlayerIndex:", forfeitedPlayerIndex, "forfeitUid:", forfeitUid);
   forfeitedPlayers[forfeitedPlayerIndex] = true;
   if (forfeitUid) {
     forfeitedPlayerUids[forfeitedPlayerIndex] = forfeitUid;
@@ -2086,7 +2082,6 @@ function handleGameForfeit(forfeitedPlayerIndex, forfeitUid = null) {
     if (winnerTitle) {
       winnerTitle.textContent = `${winnerName} 몰수승!`;
     }
-    console.log("[DEBUG-2.1] Forfeit triggered endGame()");
     endGame();
   }
 }
@@ -2499,23 +2494,23 @@ function showAugmentSelectionModal(player, onSelect) {
     optionsContainer.appendChild(btn);
   });
 
-  if (isMyTurn) {
-    augmentTimerInterval = setInterval(() => {
-      timeLeft--;
-      if (timerText) timerText.textContent = `${timeLeft}s`;
-      if (timerElem) {
-        if (timeLeft <= 10) timerElem.classList.add('warning');
-        else timerElem.classList.remove('warning');
-      }
+  augmentTimerInterval = setInterval(() => {
+    timeLeft--;
+    if (timerText) timerText.textContent = `${timeLeft}s`;
+    if (timerElem) {
+      if (timeLeft <= 10) timerElem.classList.add('warning');
+      else timerElem.classList.remove('warning');
+    }
 
-      if (timeLeft <= 0) {
-        clearInterval(augmentTimerInterval);
-        augmentTimerInterval = null;
+    if (timeLeft <= 0) {
+      clearInterval(augmentTimerInterval);
+      augmentTimerInterval = null;
+      if (isMyTurn) {
         const autoPick = selectedAugments[Math.floor(Math.random() * selectedAugments.length)];
         cleanupAndSelect(autoPick);
       }
-    }, 1000);
-  }
+    }
+  }, 1000);
 
   modal.classList.remove('hidden');
 }
@@ -2751,7 +2746,11 @@ function startTurn() {
   if (diceEngine) {
     diceEngine.clearAll();
   }
-  els.gameStatus.textContent = `P${currentPlayer}의 턴 (라운드 ${currentRound}/12)`;
+  if (currentRound > 12) {
+    els.gameStatus.textContent = `P${currentPlayer}의 추가 턴 (라운드 ${currentRound})`;
+  } else {
+    els.gameStatus.textContent = `P${currentPlayer}의 턴 (라운드 ${currentRound}/12)`;
+  }
 
   updateMatchProfiles();
   updateTurnHighlights();
@@ -3368,7 +3367,6 @@ function checkExtraTurnsOrEndGame() {
 }
 
 function endGame() {
-  console.log("[DEBUG-3] endGame executed. gameMode:", gameMode, "isMultiplayer:", window.isMultiplayer, "myPlayerIndex:", window.myPlayerIndex);
   if (window.isMultiplayer) {
     networkEngine.sendMessage({ type: 'game_ended' });
   }
@@ -3381,7 +3379,12 @@ function endGame() {
 
   let playerStats = [];
   for (let p = 1; p <= count; p++) {
-    const tot = Object.values(scores[p] || {}).reduce(sumObj, 0);
+    let tot = Object.values(scores[p] || {}).reduce(sumObj, 0);
+    if (activeMutations[p] && activeMutations[p]['yacht'] === 'yacht-bank' && (scores[p] && scores[p]['yacht'] === undefined)) {
+      tot += Math.min(yachtBankState[p]?.accumulatedScore || 0, 15);
+    }
+    tot += (questProgress[p]?.questBonus || 0);
+
     const pData = (window.initialMatchPlayers && window.initialMatchPlayers[p - 1])
       ? window.initialMatchPlayers[p - 1]
       : (window.lobbyPlayers ? window.lobbyPlayers[p - 1] : null);
@@ -3463,17 +3466,10 @@ function endGame() {
   const saverIndex = activePlayerIndices.includes(1) ? 1 : (activePlayerIndices[0] || 1);
   const isHostOrSaver = (myIdx === saverIndex);
 
-  console.log(`[DEBUG-3.1] Checking saveMatchData trigger. gameMode: "${gameMode}", myIdx: ${myIdx}, saverIndex: ${saverIndex}, isHostOrSaver: ${isHostOrSaver}`);
-
   if (gameMode && gameMode !== 'hotseat' && gameMode !== 'none') {
     if (isHostOrSaver) {
-      console.log(`[DEBUG-3.2] Triggering saveMatchData() now! (isHostOrSaver: true, myIdx: ${myIdx})`);
       saveMatchData();
-    } else {
-      console.log(`[DEBUG-3.3] Skipping saveMatchData on this client (myIdx: ${myIdx}).`);
     }
-  } else {
-    console.log(`[DEBUG-3.4] gameMode ("${gameMode}") invalid for saving. Skipping saveMatchData.`);
   }
 }
 
@@ -3482,9 +3478,7 @@ function sanitizeForFirestore(obj) {
 }
 
 async function saveMatchData() {
-  console.log("[DEBUG-4] saveMatchData entered. gameMode:", gameMode, "getCurrentUser():", getCurrentUser());
   if (gameMode === 'hotseat' || gameMode === 'augmented-hotseat' || !window.isMultiplayer) {
-    console.log("[DEBUG-4.1] saveMatchData returned early for local/hotseat game");
     return;
   }
 
@@ -3533,7 +3527,12 @@ async function saveMatchData() {
     }
     const nickname = pInfo?.nickname || `Player ${p}`;
     const avatarUrl = pInfo?.avatarUrl || null;
-    const totScore = Object.values(scores[p] || {}).reduce(sumObj, 0);
+    const qBonus = (questProgress[p]?.questBonus || 0);
+    let totScore = Object.values(scores[p] || {}).reduce(sumObj, 0);
+    if (activeMutations[p] && activeMutations[p]['yacht'] === 'yacht-bank' && (scores[p] && scores[p]['yacht'] === undefined)) {
+      totScore += Math.min(yachtBankState[p]?.accumulatedScore || 0, 15);
+    }
+    totScore += qBonus;
     const isForfeited = Boolean(forfeitedPlayers[p]);
 
     addUidToPlayerUids(rawUid);
@@ -3548,6 +3547,13 @@ async function saveMatchData() {
       }
     }
 
+    const playerScores = Object.fromEntries(
+      Object.entries(scores[p] || {}).map(([k, v]) => [k, typeof v === 'object' ? v.score : v])
+    );
+    if (qBonus > 0) {
+      playerScores['questBonus'] = qBonus;
+    }
+
     playersData[`p${p}`] = {
       uid: uid,
       nickname: nickname,
@@ -3555,9 +3561,7 @@ async function saveMatchData() {
       totalScore: totScore,
       isForfeited: isForfeited,
       isHost: pInfo ? pInfo.isHost : (p === 1),
-      scores: Object.fromEntries(
-        Object.entries(scores[p] || {}).map(([k, v]) => [k, typeof v === 'object' ? v.score : v])
-      ),
+      scores: playerScores,
       augments: Object.values(activeMutations[p] || {})
     };
   }
@@ -3576,12 +3580,9 @@ async function saveMatchData() {
   const matchDoc = sanitizeForFirestore(rawMatchDoc);
   matchDoc.timestamp = serverTimestamp(); // Sentinel 타입 유지
 
-  console.log("[DEBUG-4.2] Prepared sanitized matchDoc:", matchDoc);
-
   try {
     // 1. matches 컬렉션에 매치 결과 저장
     const docRef = await addDoc(collection(db, "matches"), matchDoc);
-    console.log("[DEBUG-4.3 SUCCESS] Document created with ID:", docRef.id);
 
     // 2. 각 유저별 stats 데이터 누적 업데이트
     const updateStats = async (uid, isWin, score, augmentsList) => {
@@ -3632,13 +3633,12 @@ async function saveMatchData() {
       }
     }
 
-    console.log("[DEBUG-4.4 SUCCESS] Match and stats successfully recorded in Firestore!");
     const currentUser = getCurrentUser();
     if (currentUser?.uid) {
       refreshUserHistory(currentUser.uid);
     }
   } catch (err) {
-    console.error("[DEBUG-4.5 ERROR] Failed to save match data:", err);
+    console.error("Failed to save match data:", err);
   }
 }
 
@@ -3888,22 +3888,20 @@ function updateScoreboard() {
   const sumObj = (sum, val) => sum + (typeof val === 'object' ? val.score + (val.bonus || 0) : val);
 
   for (let p = 1; p <= count; p++) {
-    let pTotal = Object.values(scores[p] || {}).reduce(sumObj, 0);
+    let baseTotal = Object.values(scores[p] || {}).reduce(sumObj, 0);
 
     if (activeMutations[p] && activeMutations[p]['yacht'] === 'yacht-bank' && (scores[p] && scores[p]['yacht'] === undefined)) {
-      pTotal += Math.min(yachtBankState[p]?.accumulatedScore || 0, 15);
+      baseTotal += Math.min(yachtBankState[p]?.accumulatedScore || 0, 15);
     }
 
-    // 퀘스트 완수 보너스 점수 합산
     const qBonus = questProgress[p]?.questBonus || 0;
-    pTotal += qBonus;
 
     const pTotalEl = document.getElementById(`p${p}-total`);
     if (pTotalEl) {
       if (qBonus > 0) {
-        pTotalEl.innerHTML = `${pTotal} <span style="color: #D4AF37;">+${qBonus}</span>`;
+        pTotalEl.innerHTML = `${baseTotal} <span style="color: #D4AF37; font-weight: bold;">+${qBonus}</span>`;
       } else {
-        pTotalEl.textContent = pTotal;
+        pTotalEl.textContent = baseTotal;
       }
     }
   }
