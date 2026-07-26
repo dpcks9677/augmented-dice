@@ -2252,7 +2252,13 @@ function updateMatchProfiles() {
 
   if (myBoxName) myBoxName.textContent = me.nickname || "Player (Me)";
   if (myBoxAvatar) {
-    myBoxAvatar.style.backgroundImage = me.avatarUrl ? `url('${me.avatarUrl}')` : 'none';
+    if (me.avatarUrl) {
+      myBoxAvatar.style.backgroundImage = `url('${me.avatarUrl}')`;
+      myBoxAvatar.style.backgroundSize = 'cover';
+    } else {
+      myBoxAvatar.style.backgroundImage = '';
+      myBoxAvatar.style.backgroundSize = '';
+    }
     myBoxAvatar.setAttribute('data-player-index', myP);
     if (myBoxAvatar.parentElement) {
       myBoxAvatar.parentElement.setAttribute('data-player-index', myP);
@@ -2271,10 +2277,10 @@ function updateMatchProfiles() {
       oppBox.className = `match-player-box ${isCurrentTurn ? 'active-turn' : ''}`;
       oppBox.id = `match-p${oppIdx}-box`;
 
-      const avUrl = opp.avatarUrl ? `url('${opp.avatarUrl}')` : 'none';
+      const avStyle = opp.avatarUrl ? `background-image: url('${opp.avatarUrl}'); background-size: cover;` : '';
       oppBox.innerHTML = `
         <div class="match-avatar-container" data-player-index="${oppIdx}" style="position: relative; display: inline-block;">
-          <div class="match-avatar" id="match-p${oppIdx}-avatar" data-player-index="${oppIdx}" style="background-image: ${avUrl}; background-color: #ccc;"></div>
+          <div class="match-avatar" id="match-p${oppIdx}-avatar" data-player-index="${oppIdx}" style="${avStyle}"></div>
           <div class="disconnect-overlay hidden" id="match-p${oppIdx}-disconnect">
             <svg class="unplug-svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="overflow: visible;">
               <path d="m19 5 3-3"></path>
@@ -2417,6 +2423,16 @@ function showAugmentSelectionModal(player, onSelect) {
 
   if (!modal || !title || !optionsContainer) return;
 
+  // 증강 선택 중에는 메인 턴 타이머를 정지하고 -- (모래시계 멈춤) 상태로 변경
+  stopTurnTimer();
+  const mainTimerElem = document.getElementById('turn-timer') || els.turnTimer;
+  const mainTimerText = document.getElementById('turn-timer-text');
+  if (mainTimerText) mainTimerText.textContent = '--';
+  if (mainTimerElem) {
+    mainTimerElem.classList.add('paused');
+    mainTimerElem.classList.remove('warning');
+  }
+
   if (augmentTimerInterval) {
     clearInterval(augmentTimerInterval);
     augmentTimerInterval = null;
@@ -2445,7 +2461,6 @@ function showAugmentSelectionModal(player, onSelect) {
     if (window.applyMutation) window.applyMutation(player, aug.augmentId);
     if (onSelect) {
       onSelect();
-      resumeTurnTimer();
     }
   };
 
@@ -3466,8 +3481,8 @@ function sanitizeForFirestore(obj) {
 
 async function saveMatchData() {
   console.log("[DEBUG-4] saveMatchData entered. gameMode:", gameMode, "getCurrentUser():", getCurrentUser());
-  if (gameMode === 'hotseat') {
-    console.log("[DEBUG-4.1] saveMatchData returned early because gameMode === 'hotseat'");
+  if (gameMode === 'hotseat' || gameMode === 'augmented-hotseat' || !window.isMultiplayer) {
+    console.log("[DEBUG-4.1] saveMatchData returned early for local/hotseat game");
     return;
   }
 

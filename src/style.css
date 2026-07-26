@@ -216,10 +216,14 @@ body {
 .profile-avatar-placeholder {
   width: 120px;
   height: 120px;
-  background-color: #e0e0e0;
+  background-color: #cbd5e1;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 60%;
   border-radius: 12px;
   margin-bottom: 16px;
-  border: 2px solid #cccccc;
+  border: 2px solid #94a3b8;
 }
 
 .profile-user-info {
@@ -2171,12 +2175,17 @@ body {
   justify-content: center;
 }
 
-.match-avatar {
+.match-avatar,
+.player-avatar,
+.history-avatar-mini {
   width: 100%;
   height: 100%;
   border-radius: 12px;
-  background-size: cover;
+  background-color: #cbd5e1;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/><circle cx='12' cy='7' r='4'/></svg>");
+  background-repeat: no-repeat;
   background-position: center;
+  background-size: 60%;
 }
 
 .match-avatar-container.disconnected .match-avatar {
