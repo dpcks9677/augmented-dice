@@ -9,7 +9,7 @@
 
 ### 상단 구역 (Upper Section)
 
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"> <path d="M7 6 H17 L11 20" fill="none" stroke="#222" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/> <path d="M4 12 L8 12 M6 10 L6 14" stroke="#222" stroke-width="1.5" stroke-linecap="round"/> </svg> 1. 럭키 세븐 (Lucky Sevens)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M 12 12 C 9.5 9 7.5 6.2 9.5 4.2 C 11.2 2.5 12 5.2 12 5.2 C 12 5.2 12.8 2.5 14.5 4.2 C 16.5 6.2 14.5 9 12 12 Z" fill="none" stroke="#222" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/><g transform="rotate(90 12 12)"><path d="M 12 12 C 9.5 9 7.5 6.2 9.5 4.2 C 11.2 2.5 12 5.2 12 5.2 C 12 5.2 12.8 2.5 14.5 4.2 C 16.5 6.2 14.5 9 12 12 Z" fill="none" stroke="#222" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></g><g transform="rotate(180 12 12)"><path d="M 12 12 C 9.5 9 7.5 6.2 9.5 4.2 C 11.2 2.5 12 5.2 12 5.2 C 12 5.2 12.8 2.5 14.5 4.2 C 16.5 6.2 14.5 9 12 12 Z" fill="none" stroke="#222" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></g><g transform="rotate(270 12 12)"><path d="M 12 12 C 9.5 9 7.5 6.2 9.5 4.2 C 11.2 2.5 12 5.2 12 5.2 C 12 5.2 12.8 2.5 14.5 4.2 C 16.5 6.2 14.5 9 12 12 Z" fill="none" stroke="#222" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></g></svg> 1. 럭키 세븐 (Lucky Sevens)**
     *   **대상:** 에이스 (Aces)
     *   **족보 표기:** L. Sevens
     *   **조건:** 주사위 눈금 총합이 7, 17, 27 중 하나일 때 기입 가능
@@ -60,7 +60,7 @@
 
 ### 하단 구역 (Lower Section)
 
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M12 2 C12 2 4 10 4 15 C4 18 7 20 10 20 C11 20 12 19 12 17 C12 19 13 20 14 20 C17 20 20 18 20 15 C20 10 12 2 12 2 Z M12 17 L10 22 H14 Z" fill="#222"/></svg> 9. 갬블러 (Gambler)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M 10 3.5 C 7.5 4 6 5.5 6 9 C 8 8 10 7.5 12 8 C 10.5 10.5 5 11 2.5 12.5 C 6 11 14 10.5 21.5 12.5 C 19 10.5 16.5 9.5 16.5 7 C 17.5 5.5 15.5 3 12.5 3 C 11.5 3 10.5 3.2 10 3.5 Z M 7.5 13.5 C 7 15 7.5 16.5 9.5 15.5 C 12 14.5 15.5 15 18.5 16.5 C 18 14.5 16 13.5 14.5 14 Z M 5.5 17 L 7.5 21 C 12 18.5 16.5 19 21.5 20.5 C 20.5 17 17.5 15 14.5 14 Z" fill="#222"/></svg> 9. 갬블러 (Gambler)**
     *   **대상:** 초이스 (Choice)
     *   **족보 표기:** Gambler
     *   **조건:** 주사위 눈금 총합이 24 이상일 때 기입 가능 (24 미만 기입 시 0점)
@@ -78,7 +78,7 @@
     *   **조건:** '4'를 4개 이상 모아 포카인드 달성 시 추가 보상 (다른 숫자로 달성 시 페널티)
     *   **효과:** 4로 달성 시 총합 +10점 / 다른 숫자로 달성 시 총합 -4점
     *   **텍스트:** 포카인드 족보를 포 바이 포 족보로 변경합니다. '4'를 4개 이상 모아 포카인드를 달성하면 [ 주사위 눈금 총합 + 10 ] 점을 얻을 수 있습니다. (다른 숫자로 달성 시 총합 - 4점 적용)
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M12 4 L4 12 v8 h16 v-8 Z" fill="#222" stroke="#222" stroke-width="1.5" stroke-linejoin="round"/></svg> 12. 타이니 하우스 (Tiny House)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M 3 11 L 12 3 L 21 11 M 5.5 9.5 V 20.5 H 18.5 V 9.5" fill="none" stroke="#222" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M 9.5 20.5 V 15 A 1.5 1.5 0 0 1 11 13.5 H 13 A 1.5 1.5 0 0 1 14.5 15 V 20.5" fill="none" stroke="#222" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> 12. 타이니 하우스 (Tiny House)**
     *   **대상:** 풀하우스 (Full House)
     *   **족보 표기:** Tiny House
     *   **조건:** '5'와 '6'을 제외한 눈금만으로 풀하우스 달성
@@ -120,7 +120,7 @@
     *   **조건:** 모든 눈금이 소수(2, 3, 5)이며, 2, 3, 5가 최소 1개씩 포함될 때 기입 가능
     *   **효과:** 고정 35점 획득
     *   **텍스트:** 라지 스트레이트 족보를 프라임 컬렉션 족보로 변경합니다. 모든 눈금이 소수(2, 3, 5)이고 종류별로 최소 1개 이상 포함될 때 기입이 가능하며, 족보의 조건을 만족하면 고정 35점을 얻을 수 있습니다.
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"> <path d="M6 7 L2 11 v7 h8 v-7 Z" fill="none" stroke="#222" stroke-width="2" stroke-linejoin="round"/> <path d="M18 7 L14 11 v7 h8 v-7 Z" fill="none" stroke="#222" stroke-width="2" stroke-linejoin="round"/> </svg> 19. 땅콩주택 (Duplex House)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M 2 11 L 7.5 5.5 L 13 11 M 4 9.5 V 20.5 H 11 V 9.5" fill="none" stroke="#222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M 6.5 20.5 V 16.5 A 1 1 0 0 1 7.5 15.5 H 8.5 A 1 1 0 0 1 9.5 16.5 V 20.5" fill="none" stroke="#222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M 11 11 L 16.5 5.5 L 22 11 M 13 V 20.5 H 20 V 9.5" fill="none" stroke="#222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M 15.5 20.5 V 16.5 A 1 1 0 0 1 16.5 15.5 H 17.5 A 1 1 0 0 1 18.5 16.5 V 20.5" fill="none" stroke="#222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> 19. 땅콩주택 (Duplex House)**
     *   **대상:** 라지 스트레이트 (Large Straight)
     *   **족보 표기:** D. House
     *   **조건:** 정확히 1차이 나는 두 개의 숫자로만 이루어진 풀하우스일 때 기입 가능 (예: 2-3, 4-5)
@@ -159,8 +159,8 @@
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"> <path d="M12 3 L3 9 h18 Z" fill="#222" stroke-linejoin="round"/> <rect x="4" y="10" width="2" height="8" fill="#222"/> <rect x="11" y="10" width="2" height="8" fill="#222"/> <rect x="18" y="10" width="2" height="8" fill="#222"/> <rect x="2" y="19" width="20" height="2" fill="#222"/> </svg> 25. 요트 뱅크 (Yacht Bank)**
     *   **대상:** 요트 (Yacht)
     *   **족보 표기:** Bank
-    *   **조건/효과:** 이 칸이 비어있으면 매 라운드 종료 시 뱅크에 +2점 누적. 요트가 아닌 주사위 조합으로 족보를 기입할 때는 쌓인 이자만큼 점수를 획득하고, 요트 주사위 조합으로 족보를 기입할 때는 현재 이자의 두 배만큼 점수를 획득합니다. (상대가 먼저 요트를 달성하면 뱅크가 잠김)
-    *   **텍스트:** 요트 족보를 요트 뱅크 족보로 변경합니다. 빈칸인 동안 뱅크에 점수가 누적됩니다. 요트가 아닌 주사위 조합으로 족보를 기입할 때는 쌓인 이자만큼 점수를 획득하고, 요트 주사위 조합으로 족보를 기입할 때는 현재 이자의 두 배만큼 점수를 획득합니다. (상대가 요트를 달성하면 뱅크가 잠깁니다.)
+    *   **조건/효과:** 증강 획득 후 3턴 동안, 턴 종료 시 킵 존에 남아있는 주사위 눈금의 총합만큼 뱅크 점수 누적(최대 15점). 킵 존의 주사위는 족보 점수 계산에서 제외됨. 4번째 턴 시작 시 뱅크 누적 점수 자동 기입.
+    *   **텍스트:** 요트 족보를 요트 뱅크 족보로 변경합니다. 증강 획득 후 3턴 동안, 턴 종료 시 킵 존에 남아있는 주사위 눈금의 총합만큼 뱅크 점수가 누적됩니다. (최대 15점) 단, 킵 존의 주사위는 해당 턴 족보 점수 계산에서 제외됩니다. 4번째 턴 시작 시 뱅크에 누적된 점수가 요트 뱅크 족보에 자동 기입됩니다.
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"> <circle cx="12" cy="12" r="10" fill="none" stroke="#222" stroke-width="1.5"/> <circle cx="12" cy="12" r="8" fill="none" stroke="#222" stroke-width="4" stroke-dasharray="3.1416 3.1416"/> <circle cx="12" cy="12" r="6" fill="none" stroke="#222" stroke-width="1.5"/> </svg> 26. 블랙잭 21 (Blackjack 21)**
     *   **대상:** 요트 (Yacht)
     *   **족보 표기:** Blackjack
@@ -185,7 +185,7 @@
     *   **조건:** 상단 구역(Aces ~ Sixes) 족보를 무조건 위에서부터 아래로 순서대로 기입
     *   **보상:** Sixes 완료 즉시, 상단 보너스 점수가 +35점에서 +55점으로 영구 강화
     *   **텍스트:** 퀘스트: 상단 구역(Aces부터 Sixes까지)을 위에서부터 순서대로 기입해야 합니다. 성공적으로 모두 기입하면 상단 보너스가 55점으로 강화됩니다. (순서를 어길 시 퀘스트 실패)
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"> <path d="M4 13 l4 -4 l4 4 v6 h-8 z" fill="#222" stroke-linejoin="round"/> <path d="M13 13 l3.5 -3.5 l3.5 3.5 v6 h-7 z" fill="#222" stroke-linejoin="round"/> </svg> 30. 두 집 살림 (Two Households)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><rect x="3.5" y="3.5" width="7" height="17" rx="1" fill="none" stroke="#222" stroke-width="1.8"/><rect x="13.5" y="3.5" width="7" height="17" rx="1" fill="none" stroke="#222" stroke-width="1.8"/><line x1="10.5" y1="9" x2="13.5" y2="9" stroke="#222" stroke-width="1.8" stroke-linecap="round"/><line x1="10.5" y1="15" x2="13.5" y2="15" stroke="#222" stroke-width="1.8" stroke-linecap="round"/><line x1="6" y1="7" x2="8" y2="7" stroke="#222" stroke-width="1.5"/><line x1="6" y1="11" x2="8" y2="11" stroke="#222" stroke-width="1.5"/><line x1="6" y1="15" x2="8" y2="15" stroke="#222" stroke-width="1.5"/><line x1="16" y1="7" x2="18" y2="7" stroke="#222" stroke-width="1.5"/><line x1="16" y1="11" x2="18" y2="11" stroke="#222" stroke-width="1.5"/><line x1="16" y1="15" x2="18" y2="15" stroke="#222" stroke-width="1.5"/></svg> 30. 두 집 살림 (Two Households)**
     *   **조건:** '초이스' 칸을 기입할 때, 유효한 '풀하우스' 조건(3개+2개)으로 맞추어 기입
     *   **보상:** 기입 즉시 보너스 +10점 획득
     *   **텍스트:** 퀘스트: 풀하우스 족보를 스크래치 하지 않고 기입하고, 초이스 족보를 풀하우스 족보와 동일한 형태로 기입합니다. 퀘스트 완료시 보너스 10점을 획득합니다.
@@ -197,7 +197,7 @@
     *   **조건:** 스몰 스트레이트를 먼저 기입한 후에만, 라지 스트레이트를 기입 가능 (어길 시 실패)
     *   **보상:** 순서대로 모두 기입 완료 시 보너스 +7점 획득
     *   **텍스트:** 퀘스트: 스몰 스트레이트 족보를 채운 후, 라지 스트레이트를 족보를 채웁니다. (순서를 어길 시 퀘스트 실패) 퀘스트 완료 시 보너스 7점을 획득합니다. 
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M3 19 L11 6 L16 13.5 L19 9 L22 19 Z" fill="none" stroke="#222" stroke-width="2" stroke-linejoin="round"/><path d="M8 11 L11 15 L13.5 12.5" fill="none" stroke="#222" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> 33. 티끌 모아 태산 (Every Little Makes a Mickle)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M 2 20 L 8.5 7 L 12.5 13.5 L 16.5 9 L 22.5 20 Z" fill="none" stroke="#222" stroke-width="1.8" stroke-linejoin="round"/><path d="M 8.5 7 Q 10.5 10.5 8 13.5 M 16.5 9 Q 14.5 12 17 15" fill="none" stroke="#222" stroke-width="1.5" stroke-linecap="round"/></svg> 33. 티끌 모아 태산 (Every Little Makes a Mickle)**
     *   **조건:** 족보 기입 시, 포함된 주사위 '1' 눈금의 누적 사용 개수가 총 7개 도달
     *   **보상:** 달성 즉시 보너스 +15점 획득
     *   **텍스트:** 퀘스트: 족보 기입에 1의 눈을 가진 면을 7번 사용합니다. 퀘스트 완료 시 보너스 15점을 획득합니다.
@@ -205,11 +205,11 @@
     *   **조건:** 상대가 입력한 족보를 따라서 3회 기입 (하단 족보를 따라 기입했을 때 족보 값이 동일하다면 즉시 완료)
     *   **보상:** 보너스 +10점 획득
     *   **텍스트:** 퀘스트: 상대가 입력한 족보를 따라서 3회 기입합니다. 하단 족보를 따라 기입했을 때, 족보의 값이 동일하다면 즉시 퀘스트를 완료합니다.<br><br>퀘스트 완료 시, 보너스 10점을 획득합니다.
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><rect x="4" y="4" width="8" height="8" rx="2" fill="none" stroke="#222" stroke-width="2"/><rect x="12" y="12" width="8" height="8" rx="2" fill="none" stroke="#222" stroke-width="2"/><path d="M8 12v4h4" fill="none" stroke="#222" stroke-width="2"/></svg> 35. 더블링 (Doubling)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><rect x="4" y="4" width="8" height="8" rx="2" fill="none" stroke="#222" stroke-width="2"/><rect x="12" y="12" width="8" height="8" rx="2" fill="none" stroke="#222" stroke-width="2"/></svg> 35. 더블링 (Doubling)**
     *   **조건:** 동일한 점수로 족보를 두 번 등록 (스크래치 제외)
     *   **보상:** 보너스 +10점 획득
     *   **텍스트:** 퀘스트: 동일한 점수로 족보를 두 번 등록합니다. (스크래치 제외)<br><br>퀘스트 완료 시, 보너스 10점을 획득합니다.
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M 1.5 10.5 L 3.5 11.5 C 7 12 10.5 10 14.5 7.5 L 20 2 C 18 5 17.5 7.5 18 9 L 22 5 C 19.5 8.5 19.5 10.5 20.5 12.5 C 18 13 16 14.5 15.5 17 C 13.5 20 10 21.5 7 21.5 C 10 18.5 11 16 9 14.5 C 6 15 3.5 15.5 3 16.5 L 8 13.5 C 5 13.5 3 12.5 2.5 14.5 C 2 12.5 2 11.5 1.5 10.5 Z" fill="none" stroke="#222" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><path d="M 5 14 C 3.5 15 3.8 16.2 5.2 16.2" fill="none" stroke="#222" stroke-width="1.4" stroke-linecap="round"/><polygon points="10.5,9 13.5,8.2 12.5,10" fill="#222"/></svg> 36. 노즈도르무 (Nozdormu)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M 1.5 10.5 L 3.5 11.5 C 7 12 10.5 10 14.5 7.5 L 20 2 C 18 5 17.5 7.5 18 9 L 22 5 C 19.5 8.5 19.5 10.5 20.5 12.5 C 18 13 16 14.5 15.5 17 C 13.5 20 10 21.5 7 21.5 C 10 18.5 11 16 9 14.5 C 6 15 3.5 15.5 3 16.5 L 8 13.5 C 5 13.5 3 12.5 2.5 14.5 C 2 12.5 2 11.5 1.5 10.5 Z" fill="none" stroke="#222" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg> 36. 노즈도르무 (Nozdormu)**
     *   **조건:** 다음 페이즈 전까지 나의 턴 타이머를 15초로 설정하여 플레이
     *   **보상:** 보너스 +9점 획득
     *   **텍스트:** 퀘스트: 다음 페이즈 전까지 나의 턴 타이머를 15초로 설정합니다.<br><br>퀘스트 완료 시, 보너스 9점을 획득합니다.
@@ -219,10 +219,10 @@
 ## 📌 3. 강화 (Enhancement)
 내 주사위의 구성이나 족보 기입 규칙 자체를 지속적이고 유리하게 바꿔줍니다.
 
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M 12 3 L 20.5 7.5 L 20.5 16.5 L 12 21 L 3.5 16.5 L 3.5 7.5 Z" fill="none" stroke="#222" stroke-width="1.8" stroke-linejoin="round"/><path d="M 12 3 L 12 12 M 12 12 L 3.5 7.5 M 12 12 L 20.5 7.5" fill="none" stroke="#222" stroke-width="1.8" stroke-linejoin="round"/><circle cx="8" cy="6.8" r="0.9" fill="#222"/><circle cx="12" cy="5" r="0.9" fill="#222"/><circle cx="16" cy="6.8" r="0.9" fill="#222"/><circle cx="8" cy="10" r="0.9" fill="#222"/><circle cx="12" cy="8.2" r="0.9" fill="#222"/><circle cx="16" cy="10" r="0.9" fill="#222"/><circle cx="6" cy="10.5" r="0.9" fill="#222"/><circle cx="9.5" cy="12" r="0.9" fill="#222"/><circle cx="7.75" cy="14.2" r="0.9" fill="#222"/><circle cx="6" cy="16.5" r="0.9" fill="#222"/><circle cx="9.5" cy="18" r="0.9" fill="#222"/><circle cx="14.5" cy="12" r="0.9" fill="#222"/><circle cx="18" cy="10.5" r="0.9" fill="#222"/><circle cx="14.5" cy="18" r="0.9" fill="#222"/><circle cx="18" cy="16.5" r="0.9" fill="#222"/></svg> 37. 묵직한 주사위 (Weighted Dice)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M 12 3 L 19.8 7.5 L 19.8 16.5 L 12 21 L 4.2 16.5 L 4.2 7.5 Z" fill="none" stroke="#222" stroke-width="1.8" stroke-linejoin="round"/><path d="M 12 12 L 19.8 7.5 M 12 12 L 12 21 M 12 12 L 4.2 7.5" fill="none" stroke="#222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> 37. 묵직한 주사위 (Weighted Dice)**
     *   **효과:** 내 주사위 중 1개를 [4, 4, 5, 5, 6, 6] 눈금이 적힌 주사위로 영구 교체
     *   **텍스트:** 기본 주사위를 묵직한 주사위로 변경합니다.<br><br>묵직한 주사위는 [4, 4, 5, 5, 6, 6] 눈을 가집니다.
-*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M12 2 l4 8 v8 l-4 -2 l-4 2 v-8 z" fill="#222" stroke-linejoin="round"/></svg> 38. 추진력 (Momentum)**
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><circle cx="15" cy="5" r="2.2" fill="#222"/><path d="M 13 8 L 11 13.5 M 13 8 L 9.5 7.5 L 7.5 10.5 M 13 8 L 15 11 L 18.5 9.5 M 11 13.5 L 8 16.5 L 4.5 14.5 M 11 13.5 L 14.5 16 L 14.5 21.5" fill="none" stroke="#222" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg> 38. 추진력 (Momentum)**
     *   **효과:** 내가 족보에 처음으로 0점(스크래치)을 기록했을 때 발동. 내 다음 턴에 '하단 구역' 족보를 완성하여 기입하면 획득 점수가 1.5배로 증가 (단 1회 발동)
     *   **텍스트:** 족보에 처음으로 0점(스크래치)을 기록했을 때 발동합니다. 다음 턴에 '하단 구역' 족보를 완성하여 기입하면 획득 점수가 1.5배로 증가합니다. (단 1회 발동)
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="#222" stroke-width="2"/><path d="M 12 5.5 L 13.8 9.2 L 17.8 9.8 L 14.9 12.6 L 15.6 16.5 L 12 14.6 L 8.4 16.5 L 9.1 12.6 L 6.2 9.8 L 10.2 9.2 Z" fill="#222" stroke="#222" stroke-width="0.8" stroke-linejoin="round"/></svg> 39. 황금 주사위 (Golden Die)**

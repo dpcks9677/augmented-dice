@@ -153,11 +153,10 @@ export const mutationDefinitions = {
     calculate: (dice, counts, sum) => 30 - sum
   },
   'yacht-bank': {
-    id: 'yacht-bank', name: '요트 뱅크', target: 'yacht', enName: 'Bank', excludeFromUpper: false,
+    id: 'yacht-bank', name: '요트 뱅크', target: 'yacht', enName: 'Bank', excludeFromUpper: false, isQuest: true,
     calculate: (dice, counts, sum, context) => {
-      const isYacht = Object.values(counts).some(c => c >= 5);
       const bank = context ? (context.bank || 0) : 0;
-      return isYacht ? bank * 2 : bank; 
+      return Math.min(bank, 15);
     }
   },
   'blackjack-21': {

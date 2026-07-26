@@ -225,6 +225,8 @@ export class DiceEngine {
     this.container.addEventListener('mousemove', this.onMouseMove.bind(this));
     
     this.isRollSettling = false; // 굴림 후 정렬 대기 중 상태 플래그
+    this.currentSlotOpacity = 1.0;
+    this.targetSlotOpacity = 1.0;
   }
 
   updateKeepSlots() {
@@ -257,12 +259,28 @@ export class DiceEngine {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
     ctx.lineWidth = 12;
     ctx.lineJoin = 'round';
-    
     ctx.beginPath();
     ctx.roundRect(16, 16, 224, 224, 32);
     ctx.stroke();
 
-    const tex = new THREE.CanvasTexture(canvas);
+    // 요트 뱅크 전용 금빛 슬롯 텍스처 생성 (기존 슬롯과 선 두께 동일, 금빛 이펙트 반영)
+    const goldCanvas = document.createElement('canvas');
+    goldCanvas.width = 256;
+    goldCanvas.height = 256;
+    const gCtx = goldCanvas.getContext('2d');
+    gCtx.strokeStyle = '#ffd700';
+    gCtx.lineWidth = 12;
+    gCtx.shadowColor = '#f39c12';
+    gCtx.shadowBlur = 16;
+    gCtx.lineJoin = 'round';
+    gCtx.beginPath();
+    gCtx.roundRect(16, 16, 224, 224, 32);
+    gCtx.stroke();
+
+    this.defaultSlotTex = new THREE.CanvasTexture(canvas);
+    this.goldSlotTex = new THREE.CanvasTexture(goldCanvas);
+
+    const tex = this.isYachtBankActive ? this.goldSlotTex : this.defaultSlotTex;
     
     // 주사위 크기(1.26)보다 살짝 작게 설정
     const size = 1.19; // 기존 1.7에서 70% 축소
@@ -277,29 +295,90 @@ export class DiceEngine {
     const keptStartX = -2 * spacing;
     
     for (let i = 0; i < 5; i++) {
-      const slotMesh = new THREE.Mesh(geo, mat);
-      slotMesh.rotation.x = -Math.PI / 2; // 바닥에 눕히기
-      
       // 주사위가 놓일 실제 목표 좌표 (Y=0)
       const targetX = keptStartX + i * spacing;
       const targetZ = keepZoneCenterZ;
 
       // 카메라에서 주사위를 바라보는 시선(Ray)이 바닥에 위치한 목표 지점을 지나도록 패럴랙스 교정
       const camY = this.camera.position.y;
-      const slotY = 0.05;
+      const slotY = 0.15; // 3D 바닥 매트 z-fighting 파묻힘 방지 높이 상향
       
       // 닮음비를 이용해 시각적 위치가 일치하도록 물리적 X, Z 좌표를 안쪽으로 당김
       const slotX = targetX * (camY - slotY) / camY;
       const slotZ = targetZ * (camY - slotY) / camY;
 
       if (this.slotMeshes.length <= i) {
+        const slotMat = new THREE.MeshBasicMaterial({ 
+          map: tex, 
+          transparent: true, 
+          depthWrite: false 
+        });
+        const slotMesh = new THREE.Mesh(geo, slotMat);
+        slotMesh.rotation.x = -Math.PI / 2; // 바닥에 눕히기
         slotMesh.position.set(slotX, slotY, slotZ);
+        slotMesh.renderOrder = 10; // 바닥 매트보다 위에 렌더링되도록 최상단 보장
         this.scene.add(slotMesh);
         this.slotMeshes.push(slotMesh);
       } else {
         this.slotMeshes[i].position.set(slotX, slotY, slotZ);
+        this.slotMeshes[i].renderOrder = 10;
+        if (this.slotMeshes[i].material) {
+          this.slotMeshes[i].material.map = tex;
+          this.slotMeshes[i].material.needsUpdate = true;
+        }
       }
     }
+  }
+
+  setYachtBankActive(active) {
+    const wasActive = this.isYachtBankActive;
+    this.isYachtBankActive = !!active;
+
+    console.log(`[YachtBank Debug] setYachtBankActive called with active=${active}, wasActive=${wasActive}, slotMeshesCount=${this.slotMeshes?.length || 0}`);
+
+    // slotMeshes가 아직 생성되지 않았다면 3D 킵 존 슬롯 5개를 즉시 생성
+    if (!this.slotMeshes || this.slotMeshes.length === 0) {
+      this.updateKeepSlots();
+    }
+
+    if (active) {
+      if (!wasActive) {
+        this.currentSlotOpacity = 0.2; // 0.2에서 켜짐(fade-in) 시작
+      }
+      this.targetSlotOpacity = 1.0;
+      if (this.slotMeshes && this.slotMeshes.length > 0) {
+        this.slotMeshes.forEach(mesh => {
+          if (mesh && mesh.material) {
+            mesh.material.map = this.goldSlotTex;
+            mesh.material.color.setHex(0xffffff);
+            mesh.material.opacity = this.currentSlotOpacity;
+            mesh.material.transparent = true;
+            mesh.material.needsUpdate = true;
+          }
+        });
+      }
+    } else {
+      if (wasActive) {
+        // 활성화 상태에서 비활성화로 전환 시: 황금 텍스처 상태에서 opacity 0.2로 fade-out 진행
+        this.targetSlotOpacity = 0.2;
+      } else {
+        this.currentSlotOpacity = 1.0;
+        this.targetSlotOpacity = 1.0;
+        if (this.slotMeshes && this.slotMeshes.length > 0) {
+          this.slotMeshes.forEach(mesh => {
+            if (mesh && mesh.material) {
+              mesh.material.map = this.defaultSlotTex;
+              mesh.material.color.setHex(0xffffff);
+              mesh.material.opacity = 1.0;
+              mesh.material.transparent = true;
+              mesh.material.needsUpdate = true;
+            }
+          });
+        }
+      }
+    }
+
+    this.startRenderLoop();
   }
 
   initCannon() {
@@ -418,13 +497,10 @@ export class DiceEngine {
                        + (btn ? btn.offsetHeight : 0) 
                        + paddingY + margins;
                        
-      let baseWidth = appContainer.clientWidth;
-      if (appContainer.classList.contains('mode-select-state')) {
-        // In mode-select, app-container shrinks to max-content, so use window width to avoid infinite shrink loop
-        baseWidth = window.innerWidth;
-      }
+      const playableSection = document.getElementById('playable-section');
+      const playableSectionWidth = playableSection ? playableSection.clientWidth : 830;
                        
-      maxW = baseWidth * 0.78 - paddingX;
+      maxW = playableSectionWidth - paddingX;
       maxH = availableTotalHeight - usedHeight;
     }
     
@@ -1232,7 +1308,8 @@ export class DiceEngine {
   animate() {
     const hasClearing = this.diceArray.some(d => d.isClearing || d.isSpecialClearing);
     const hasAnimating = this.diceArray.some(d => d.animationProgress !== undefined && d.animationProgress < 1.0);
-    const needsRender = this.physicsActive || hasAnimating || hasClearing || this.confettiArray.length > 0;
+    const hasSlotOpacityAnim = Math.abs(this.currentSlotOpacity - this.targetSlotOpacity) > 0.001;
+    const needsRender = this.physicsActive || hasAnimating || hasClearing || this.confettiArray.length > 0 || hasSlotOpacityAnim;
     
     if (!needsRender) {
       this.renderer.render(this.scene, this.camera);
@@ -1261,9 +1338,9 @@ export class DiceEngine {
           transforms.push(null);
         }
       });
-      if (this.onPhysicsUpdate) {
-        this.onPhysicsUpdate(transforms);
-      }
+    if (this.onPhysicsUpdate) {
+      this.onPhysicsUpdate(transforms);
+    }
     } else {
       // 개별 주사위 애니메이션 처리
       this.diceArray.forEach(die => {
@@ -1407,6 +1484,34 @@ export class DiceEngine {
 
       // 죽은 파티클 정리
       this.confettiArray = this.confettiArray.filter(c => !c.isDead);
+    }
+
+    // 요트 뱅크 킵 슬롯 0.5초(500ms) 페이드인 & 페이드아웃 애니메이션 처리
+    if (this.slotMeshes && this.slotMeshes.length > 0 && Math.abs(this.currentSlotOpacity - this.targetSlotOpacity) > 0.001) {
+      const speed = 1.6; // 0.5초 완충
+      if (this.currentSlotOpacity < this.targetSlotOpacity) {
+        this.currentSlotOpacity = Math.min(this.targetSlotOpacity, this.currentSlotOpacity + dt * speed);
+      } else {
+        this.currentSlotOpacity = Math.max(this.targetSlotOpacity, this.currentSlotOpacity - dt * speed);
+        // 페이드아웃이 완료되어 0.2에 도달하고 비활성화 상태인 경우 기본 슬롯 텍스처(opacity 1.0)로 복원
+        if (!this.isYachtBankActive && Math.abs(this.currentSlotOpacity - this.targetSlotOpacity) <= 0.001) {
+          this.currentSlotOpacity = 1.0;
+          this.targetSlotOpacity = 1.0;
+          this.slotMeshes.forEach(mesh => {
+            if (mesh && mesh.material) {
+              mesh.material.map = this.defaultSlotTex;
+              mesh.material.opacity = 1.0;
+              mesh.material.needsUpdate = true;
+            }
+          });
+        }
+      }
+      this.slotMeshes.forEach(mesh => {
+        if (mesh && mesh.material && this.isYachtBankActive) {
+          mesh.material.opacity = this.currentSlotOpacity;
+          mesh.material.needsUpdate = true;
+        }
+      });
     }
 
     this.renderer.render(this.scene, this.camera);

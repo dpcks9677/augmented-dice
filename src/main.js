@@ -408,8 +408,12 @@ let activeMutations = { 1: {}, 2: {}, 3: {}, 4: {} };
 let extraTurns = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let isExtraTurnPhase = false;
 let upperBonusThreshold = { 1: 63, 2: 63, 3: 63, 4: 63 };
-let playerYachtBank = { 1: 0, 2: 0, 3: 0, 4: 0 };
-let yachtBankLocked = { 1: false, 2: false, 3: false, 4: false };
+let yachtBankState = {
+  1: { turnsLeft: 3, accumulatedScore: 0, initialized: false, completed: false },
+  2: { turnsLeft: 3, accumulatedScore: 0, initialized: false, completed: false },
+  3: { turnsLeft: 3, accumulatedScore: 0, initialized: false, completed: false },
+  4: { turnsLeft: 3, accumulatedScore: 0, initialized: false, completed: false }
+};
 let destroyedStrangeDice = { 1: false, 2: false, 3: false, 4: false };
 let promotionConsumed = { 1: false, 2: false, 3: false, 4: false };
 let questProgress = { 1: {}, 2: {}, 3: {}, 4: {} };
@@ -2101,10 +2105,14 @@ function resetGameSession() {
   extraTurns = { 1: 0, 2: 0, 3: 0, 4: 0 };
   isExtraTurnPhase = false;
   upperBonusThreshold[1] = 63; upperBonusThreshold[2] = 63; upperBonusThreshold[3] = 63; upperBonusThreshold[4] = 63;
-  playerYachtBank[1] = 0; playerYachtBank[2] = 0; playerYachtBank[3] = 0; playerYachtBank[4] = 0;
-  yachtBankLocked[1] = false; yachtBankLocked[2] = false; yachtBankLocked[3] = false; yachtBankLocked[4] = false;
   destroyedStrangeDice[1] = false; destroyedStrangeDice[2] = false; destroyedStrangeDice[3] = false; destroyedStrangeDice[4] = false;
   promotionConsumed[1] = false; promotionConsumed[2] = false; promotionConsumed[3] = false; promotionConsumed[4] = false;
+  yachtBankState = {
+    1: { turnsLeft: 3, accumulatedScore: 0, initialized: false, completed: false },
+    2: { turnsLeft: 3, accumulatedScore: 0, initialized: false, completed: false },
+    3: { turnsLeft: 3, accumulatedScore: 0, initialized: false, completed: false },
+    4: { turnsLeft: 3, accumulatedScore: 0, initialized: false, completed: false }
+  };
   momentumState[1] = 'ready'; momentumState[2] = 'ready'; momentumState[3] = 'ready'; momentumState[4] = 'ready';
   momentumGainedScore[1] = 0; momentumGainedScore[2] = 0; momentumGainedScore[3] = 0; momentumGainedScore[4] = 0;
   if (typeof disconnectGrace !== 'undefined') {
@@ -2354,8 +2362,37 @@ function startMultiplayerGame() {
 let augmentTimerInterval = null;
 
 function getSeededAugments(round, player) {
+  const isHotseat = gameMode === 'hotseat' || gameMode === 'augmented-hotseat';
+
+  if (isHotseat) {
+    // 핫시트 플레이 시 강력한 무작위(Crypto API 및 Math.random) 기반 Fisher-Yates 셔플 사용
+    const list = [...augmentData];
+    for (let i = list.length - 1; i > 0; i--) {
+      let rVal = Math.random();
+      if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+        const randArr = new Uint32Array(1);
+        window.crypto.getRandomValues(randArr);
+        rVal = randArr[0] / (0xffffffff + 1);
+      }
+      const j = Math.floor(rVal * (i + 1));
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+
+    // [테스트용 임시 로직] P1 증강 선택 시 요트 뱅크를 1번 슬롯(0번 인덱스)에 강제 고정 배치
+    if (player === 1) {
+      const yachtBankIdx = list.findIndex(a => a.mutationId === 'yacht-bank');
+      if (yachtBankIdx !== -1) {
+        const [yachtBankAug] = list.splice(yachtBankIdx, 1);
+        list.unshift(yachtBankAug);
+      }
+    }
+
+    return list.slice(0, 3);
+  }
+
+  // 멀티플레이 모드 시 방 코드(PIN) 기반 시드 셔플 사용
   const roomCode = els.lobbyCodeDisplay?.textContent?.trim() || networkEngine.roomCode || window.currentRoomCode || 'DEFAULT';
-  let seedStr = `${roomCode}_R${round}_P${player}`;
+  const seedStr = `${roomCode}_R${round}_P${player}`;
   
   let hash = 0;
   for (let i = 0; i < seedStr.length; i++) {
@@ -2492,7 +2529,7 @@ function startTurnTimer(overrideTime = null) {
     }
   }
 
-  const isUnlimitedTimer = !window.gameSessionStarted || gameMode === 'none' || gameMode === 'hotseat' || gameMode === 'augmented-hotseat';
+  const isUnlimitedTimer = !window.gameSessionStarted || gameMode === 'none';
   if (isUnlimitedTimer) {
     updateTurnTimerUI();
     return;
@@ -2530,7 +2567,7 @@ function pauseTurnTimer() {
 }
 
 function resumeTurnTimer() {
-  const isUnlimitedTimer = !window.gameSessionStarted || gameMode === 'none' || gameMode === 'hotseat' || gameMode === 'augmented-hotseat';
+  const isUnlimitedTimer = !window.gameSessionStarted || gameMode === 'none';
   if (isUnlimitedTimer) {
     updateTurnTimerUI();
     return;
@@ -2555,7 +2592,7 @@ function resumeTurnTimer() {
 function updateTurnTimerUI() {
   const timerElem = document.getElementById('turn-timer') || els.turnTimer;
   const textEl = document.getElementById('turn-timer-text');
-  const isUnlimitedTimer = !window.gameSessionStarted || gameMode === 'none' || gameMode === 'hotseat' || gameMode === 'augmented-hotseat';
+  const isUnlimitedTimer = !window.gameSessionStarted || gameMode === 'none';
 
   if (isUnlimitedTimer) {
     if (textEl) textEl.textContent = "--";
@@ -2707,9 +2744,6 @@ function startTurn() {
   if (diceEngine) {
     diceEngine.clearAll();
   }
-  updateRollsUI();
-  clearScorePreviews();
-
   els.gameStatus.textContent = `P${currentPlayer}의 턴 (라운드 ${currentRound}/12)`;
 
   updateMatchProfiles();
@@ -2725,10 +2759,41 @@ function startTurn() {
     addGameLog('게임 시작!', 'turn-start', true, 0);
   }
 
+  // 요트 뱅크: 3턴 진행 완료(turnsLeft === 0) 후 4번째 턴 진입 시 자동 기입 및 턴 자동 넘김
+  if (activeMutations[currentPlayer] && activeMutations[currentPlayer]['yacht'] === 'yacht-bank') {
+    if (!yachtBankState[currentPlayer]) {
+      yachtBankState[currentPlayer] = { turnsLeft: 3, accumulatedScore: 0, initialized: true, completed: false };
+    }
+    const bankState = yachtBankState[currentPlayer];
+    if (bankState.turnsLeft === 0 && scores[currentPlayer] && scores[currentPlayer]['yacht'] === undefined) {
+      bankState.completed = true;
+      const finalScore = Math.min(bankState.accumulatedScore, 15);
+      scores[currentPlayer]['yacht'] = { score: finalScore, bonus: 0, bonusDetails: [] };
+      addGameLog({ type: 'system', message: `[Bank] 요트 뱅크 증강의 효과로 ${finalScore}점이 Bank 족보에 자동으로 기록되었습니다.` }, 'system', window.isMultiplayer, currentPlayer);
+      updateScoreboard();
+
+      // 족보 자동 기록 완료 후 약 0.8초 연출/로그 안내 후 다음 턴으로 자동으로 넘어가도록 스케줄링
+      setTimeout(() => {
+        advanceTurnAfterScore();
+      }, 800);
+      return;
+    }
+  }
+
   window.proceedTurnStart = function () {
     startTurnTimer();
     addGameLog({ type: 'turn-start', player: currentPlayer, round: currentRound }, 'turn-start', true, currentPlayer);
+    clearScorePreviews();
     updateRollsUI();
+
+    // [이벤트 트리거 1: 내 턴이 시작되었을 때 불이 들어옴]
+    const bankSt = yachtBankState[currentPlayer];
+    const hasYachtBank = Boolean(activeMutations[currentPlayer] && activeMutations[currentPlayer]['yacht'] === 'yacht-bank');
+    const shouldLightUp = hasYachtBank && !bankSt?.completed && (bankSt?.turnsLeft === undefined || bankSt?.turnsLeft > 0);
+
+    if (typeof diceEngine !== 'undefined' && diceEngine && typeof diceEngine.setYachtBankActive === 'function') {
+      diceEngine.setYachtBankActive(shouldLightUp);
+    }
   };
   const proceedTurnStart = window.proceedTurnStart;
 
@@ -2777,8 +2842,22 @@ function updateRollsUI() {
     let baseDiceCount = 5;
     const totalDiceAllowed = baseDiceCount + (activeMuts.includes('strange-die') && !destroyedStrangeDice[currentPlayer] ? 1 : 0);
 
-    // 주사위를 1회 이상 굴렸을 때(rollsLeft < 3) 킵/언킵 조작을 허용
-    diceEngine.allowKeep = isMyTurn && (rollsLeft < 3);
+    // 요트 뱅크 활성화 기간 조건: 증강 보유 중이고 퀘스트 미완료이며 turnsLeft가 남아있거나 방금 선택된 턴인 경우
+    const bankSt = yachtBankState[currentPlayer];
+    const hasYachtBank = Boolean(activeMutations[currentPlayer] && activeMutations[currentPlayer]['yacht'] === 'yacht-bank');
+    const isYachtBankActive = hasYachtBank && !bankSt?.completed && (bankSt?.turnsLeft === undefined || bankSt?.turnsLeft > 0);
+
+    diceEngine.allowKeep = isMyTurn && (rollsLeft < 3 || isYachtBankActive);
+
+    // 요트 뱅크 활성화 시 킵 존 테두리 금빛 강조 연출 (CSS)
+    const diceBoardElem = document.getElementById('dice-board-area');
+    if (diceBoardElem) {
+      if (isYachtBankActive) {
+        diceBoardElem.classList.add('yacht-bank-active');
+      } else {
+        diceBoardElem.classList.remove('yacht-bank-active');
+      }
+    }
   }
 }
 
@@ -2920,18 +2999,18 @@ function updateScorePreviews() {
     return;
   }
 
-  const allDice = [...keptDice, ...activeDice];
+  // 요트 뱅크: 킵 존 주사위는 족보 점수 계산에서 제외
+  const isYachtBankActive = (activeMutations[currentPlayer] && activeMutations[currentPlayer]['yacht'] === 'yacht-bank' && yachtBankState[currentPlayer]?.turnsLeft > 0);
+  const evalDice = isYachtBankActive ? [...activeDice] : [...keptDice, ...activeDice];
 
-  if (allDice.length > 5) {
+  if (evalDice.length > 5) {
     if (keptDice.length === 5) {
       previewScores(keptDice);
     } else {
       showNotSelectedState(5 - keptDice.length);
     }
   } else {
-    if (allDice.length === 5) {
-      previewScores(allDice);
-    }
+    previewScores(evalDice);
   }
 }
 
@@ -2961,12 +3040,11 @@ function showNotSelectedState(neededCount) {
 function previewScores(diceArray) {
   if (!scores[currentPlayer]) scores[currentPlayer] = {};
   if (!activeMutations[currentPlayer]) activeMutations[currentPlayer] = {};
-  if (playerYachtBank[currentPlayer] === undefined) playerYachtBank[currentPlayer] = 0;
+  if (!yachtBankState[currentPlayer]) yachtBankState[currentPlayer] = { turnsLeft: 0, accumulatedScore: 0 };
 
   // Get full dice array from engine to pass configs to scoreEngine if needed
   const fullDiceObjects = diceEngine.diceArray.map(d => ({ value: d.value, type: d.config.type }));
-  if (diceArray.length !== 5) return;
-  const potentialScores = calculateScores(diceArray, activeMutations[currentPlayer], { bank: playerYachtBank[currentPlayer], fullDice: fullDiceObjects });
+  const potentialScores = calculateScores(diceArray, activeMutations[currentPlayer], { bank: yachtBankState[currentPlayer].accumulatedScore, fullDice: fullDiceObjects });
 
   categories.forEach(cat => {
     if (cat.isDivider) return;
@@ -2992,9 +3070,11 @@ function previewScores(diceArray) {
       scoreText += ` <span style="color: #D4AF37;">+${scoreObj.bonus}</span>`;
     }
 
-    // 요트 뱅크: 미리보기 시에도 뱅크 이자 값을 함께 표시 (예: 0 (+4))
-    if (cat.id === 'yacht' && activeMutations[currentPlayer]['yacht'] === 'yacht-bank') {
-      scoreText = `${scoreObj.score} (+${playerYachtBank[currentPlayer]})`;
+    // 요트 뱅크 미리보기 및 잠금 처리
+    const isYachtBankCell = (cat.id === 'yacht' && activeMutations[currentPlayer]['yacht'] === 'yacht-bank');
+    if (isYachtBankCell) {
+      const bankVal = Math.min(yachtBankState[currentPlayer]?.accumulatedScore || 0, 15);
+      scoreText = `${bankVal}`;
     }
 
     cell.innerHTML = scoreText;
@@ -3002,7 +3082,7 @@ function previewScores(diceArray) {
 
     // 턴 주체 여부에 따라 클래스 구분 (본인 턴: suggested, 상대방 턴: suggested-readonly 호버 무반응)
     const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
-    if (isMyTurn) {
+    if (isMyTurn && !isYachtBankCell) {
       cell.classList.remove('suggested-readonly');
       cell.classList.add('suggested');
       cell.onclick = () => lockScore(cat.id, potentialScores[cat.id]);
@@ -3167,19 +3247,31 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
 
   const totalCount = getActivePlayerCount();
 
-  // 라운드 마지막 플레이어 턴 종료 시 요트 뱅크 이자 적립
-  if (currentPlayer === totalCount) {
-    for (let p = 1; p <= totalCount; p++) {
-      if (activeMutations[p] && activeMutations[p]['yacht'] === 'yacht-bank' && !yachtBankLocked[p] && scores[p]['yacht'] === undefined) {
-        playerYachtBank[p] += 2;
+  updateQuestProgress(currentPlayer, catId, scoreObj);
+
+  // 요트 뱅크: 턴 종료 시 킵 존 주사위 눈금 누적 (최대 15점) 및 남은 턴 차감
+  if (activeMutations[currentPlayer] && activeMutations[currentPlayer]['yacht'] === 'yacht-bank') {
+    const bankState = yachtBankState[currentPlayer];
+    if (bankState && bankState.turnsLeft > 0) {
+      const keptSum = keptDice.reduce((a, b) => a + b, 0);
+      if (keptSum > 0) {
+        bankState.accumulatedScore = Math.min(bankState.accumulatedScore + keptSum, 15);
+        addGameLog({ type: 'system', message: `[Bank] 요트 뱅크 족보에 주사위 [${keptDice.join(', ')}]를 적립해 ${keptSum}점이 누적되었습니다. (${bankState.accumulatedScore}/15점)` }, 'system', window.isMultiplayer, currentPlayer);
+      }
+      bankState.turnsLeft--;
+      if (bankState.turnsLeft === 0) {
+        bankState.completed = true; // 3턴 진행 완료
       }
     }
   }
 
-  updateQuestProgress(currentPlayer, catId, scoreObj);
-
   clearScorePreviews();
   updateScoreboard();
+
+  // [이벤트 트리거 2: 내 턴이 끝났을 때 불이 꺼짐]
+  if (typeof diceEngine !== 'undefined' && diceEngine && typeof diceEngine.setYachtBankActive === 'function') {
+    diceEngine.setYachtBankActive(false);
+  }
 
   // 주사위 정리 및 리셋 애니메이션 재생 동안 대기 후 다음 턴 전환 (장고 타이머는 턴 시작 시 가동)
   const animDelay = isSpecial ? 1000 : 600;
@@ -3765,7 +3857,7 @@ function updateScoreboard() {
             cell.title = '';
           } else if (!cell.classList.contains('suggested')) {
             if (cat.id === 'yacht' && activeMutations[p] && activeMutations[p]['yacht'] === 'yacht-bank') {
-              cell.textContent = playerYachtBank[p] || 0;
+              cell.textContent = Math.min(yachtBankState[p]?.accumulatedScore || 0, 15);
               cell.style.color = '#888';
               cell.className = 'score-cell';
               cell.title = '';
@@ -3787,7 +3879,7 @@ function updateScoreboard() {
     let pTotal = Object.values(scores[p] || {}).reduce(sumObj, 0);
 
     if (activeMutations[p] && activeMutations[p]['yacht'] === 'yacht-bank' && (scores[p] && scores[p]['yacht'] === undefined)) {
-      pTotal += (playerYachtBank[p] || 0);
+      pTotal += Math.min(yachtBankState[p]?.accumulatedScore || 0, 15);
     }
 
     // 퀘스트 완수 보너스 점수 합산
@@ -4083,6 +4175,13 @@ function getQuestProgressText(player, mutId) {
       const rem = Math.max(0, targetR - currentRound);
       questLines.push(line(`턴 타이머가 15초인 상태로 플레이하기 (${rem}턴 남음!)`, prog.nozdormuRewarded));
       break;
+
+    case 'yacht-bank':
+      const bankSt = yachtBankState[player] || { turnsLeft: 3, accumulatedScore: 0, completed: false };
+      const isDone = bankSt.completed || (bankSt.initialized && bankSt.turnsLeft === 0);
+      if (isDone) status = 'completed';
+      questLines.push(line(`족보를 등록하기 전 킵 존에 주사위를 넣어 보너스 점수를 적립하세요. (${bankSt.turnsLeft}턴 남음!)`, isDone));
+      break;
   }
 
   let resultHTML = '';
@@ -4249,6 +4348,10 @@ window.applyMutation = function (player, mutationId, isRemote = false) {
     if (!questProgress[player].nozdormuTargetRound) {
       questProgress[player].nozdormuTargetRound = currentRound <= 3 ? 3 : (currentRound <= 6 ? 6 : 12);
     }
+  }
+
+  if (mutationId === 'yacht-bank') {
+    yachtBankState[player] = { turnsLeft: 3, accumulatedScore: 0, initialized: false, completed: false };
   }
 
   // 족보 제목 UI 변경 (선택된 플레이어 방향만)
