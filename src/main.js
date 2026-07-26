@@ -416,6 +416,7 @@ let yachtBankState = {
 };
 let destroyedStrangeDice = { 1: false, 2: false, 3: false, 4: false };
 let promotionConsumed = { 1: false, 2: false, 3: false, 4: false };
+let playerTableFlipUsed = { 1: false, 2: false, 3: false, 4: false };
 let questProgress = { 1: {}, 2: {}, 3: {}, 4: {} };
 let momentumState = { 1: 'ready', 2: 'ready', 3: 'ready', 4: 'ready' };
 let momentumGainedScore = { 1: 0, 2: 0, 3: 0, 4: 0 };
@@ -1633,7 +1634,7 @@ networkEngine.on('ingame_message', (data) => {
 
   if (data.type === 'apply_mutation' || data.subType === 'apply_mutation') {
     if (window.applyMutation) {
-      window.applyMutation(data.player, data.mutationId, true);
+      window.applyMutation(data.player, data.augmentId, true);
     }
     let expectedCount = 0;
     if (currentRound >= 1) expectedCount = 1;
@@ -2173,6 +2174,7 @@ function resetGameSession() {
 
 function startHotseatGame(mode = 'hotseat') {
   resetGameSession();
+  window.gameSessionStarted = true;
   window.isMultiplayer = false;
   gameMode = mode;
   window.lobbyPlayers = null;
@@ -2329,6 +2331,7 @@ function startMultiplayerGame() {
   yachtBankLocked = { 1: false, 2: false };
   destroyedStrangeDice = { 1: false, 2: false };
   promotionConsumed = { 1: false, 2: false };
+  playerTableFlipUsed = { 1: false, 2: false };
 
   const isNormalMode = window.pendingLobbyMode === 'normal';
   gameMode = isNormalMode ? 'normal' : 'augmented';
@@ -2376,15 +2379,6 @@ function getSeededAugments(round, player) {
       }
       const j = Math.floor(rVal * (i + 1));
       [list[i], list[j]] = [list[j], list[i]];
-    }
-
-    // [테스트용 임시 로직] P1 증강 선택 시 요트 뱅크를 1번 슬롯(0번 인덱스)에 강제 고정 배치
-    if (player === 1) {
-      const yachtBankIdx = list.findIndex(a => a.mutationId === 'yacht-bank');
-      if (yachtBankIdx !== -1) {
-        const [yachtBankAug] = list.splice(yachtBankIdx, 1);
-        list.unshift(yachtBankAug);
-      }
     }
 
     return list.slice(0, 3);
@@ -2448,7 +2442,7 @@ function showAugmentSelectionModal(player, onSelect) {
       augmentTimerInterval = null;
     }
     modal.classList.add('hidden');
-    if (window.applyMutation) window.applyMutation(player, aug.mutationId);
+    if (window.applyMutation) window.applyMutation(player, aug.augmentId);
     if (onSelect) {
       onSelect();
       resumeTurnTimer();
@@ -2461,7 +2455,7 @@ function showAugmentSelectionModal(player, onSelect) {
     let desc = aug.description || aug.name + ' 증강이 적용됩니다.';
 
     const catEnName = getAugmentCategoryEnName(aug);
-    const icon = getVariantSvg(aug.mutationId) || '';
+    const icon = getVariantSvg(aug.augmentId) || '';
     btn.innerHTML = `
       <div class="modal-compendium-type-text">${catEnName}</div>
       <div class="aug-slot-header">${icon} <span class="aug-slot-name">${aug.name}</span></div>
@@ -2480,7 +2474,7 @@ function showAugmentSelectionModal(player, onSelect) {
             type: 'augment_selecting',
             player,
             optionIndex: idx,
-            mutationId: aug.mutationId
+            augmentId: aug.augmentId
           });
         }
 
@@ -2859,6 +2853,7 @@ function updateRollsUI() {
       }
     }
   }
+
 }
 
 // 주사위 굴림
@@ -4080,7 +4075,7 @@ function updateQuestProgress(player, catId, scoreObj) {
   // 10. 노즈도르무 (nozdormu): 페이즈 종료 시점 달성 (+9점)
   if (myMutations.includes('nozdormu') && !prog.nozdormuRewarded) {
     if (!prog.nozdormuTargetRound) {
-      prog.nozdormuTargetRound = currentRound <= 3 ? 3 : (currentRound <= 6 ? 6 : 12);
+      prog.nozdormuTargetRound = currentRound <= 5 ? 5 : (currentRound <= 8 ? 8 : 12);
     }
     if (currentRound >= prog.nozdormuTargetRound) {
       prog.nozdormuRewarded = true;
@@ -4171,8 +4166,8 @@ function getQuestProgressText(player, mutId) {
 
     case 'nozdormu':
       if (prog.nozdormuRewarded) status = 'completed';
-      const targetR = prog.nozdormuTargetRound || (currentRound <= 3 ? 3 : (currentRound <= 6 ? 6 : 12));
-      const rem = Math.max(0, targetR - currentRound);
+      const targetR = prog.nozdormuTargetRound || (currentRound <= 5 ? 5 : (currentRound <= 8 ? 8 : 12));
+      const rem = Math.max(0, targetR - currentRound + 1);
       questLines.push(line(`턴 타이머가 15초인 상태로 플레이하기 (${rem}턴 남음!)`, prog.nozdormuRewarded));
       break;
 
@@ -4248,17 +4243,17 @@ window.updateAugmentSidebar = function (player) {
     if (!slot) continue;
 
     if (i < muts.length) {
-      const mutationId = muts[i];
-      const mut = mutationDefinitions[mutationId];
+      const augmentId = muts[i];
+      const mut = mutationDefinitions[augmentId];
       if (!mut) continue;
       const augInfo = augmentData.find(a => a.name.includes(mut.name) || (a.mark && mut.enName && a.mark === mut.enName)) || {};
-      const svgIcon = getVariantSvg(mutationId);
+      const svgIcon = getVariantSvg(augmentId);
       let description = augInfo.description || mut.name + ' 증강이 적용되었습니다.';
 
       let extraHTML = '';
       if (mut.isQuest && typeof getQuestProgressText === 'function') {
-        extraHTML = `<div class="aug-quest-container" style="margin-top: auto; width: 100%; padding-top: 6px;">${getQuestProgressText(targetPlayer, mutationId)}</div>`;
-      } else if (mutationId === 'momentum') {
+        extraHTML = `<div class="aug-quest-container" style="margin-top: auto; width: 100%; padding-top: 6px;">${getQuestProgressText(targetPlayer, augmentId)}</div>`;
+      } else if (augmentId === 'momentum') {
         const mState = momentumState[targetPlayer] || 'ready';
         if (mState === 'active') {
           extraHTML = `<div style="margin-top: auto; width: 100%; padding-top: 6px; color: #27ae60; font-weight: bold; text-align: left;">이번 턴에 발동합니다!</div>`;
@@ -4266,10 +4261,20 @@ window.updateAugmentSidebar = function (player) {
           const gained = momentumGainedScore[targetPlayer] || 0;
           extraHTML = `<div style="margin-top: auto; width: 100%; padding-top: 6px; color: #888; font-size: 0.85em; font-style: italic; text-align: left;">이 증강은 소모되었습니다 (${gained}점 획득함)</div>`;
         }
+      } else if (augmentId === 'table-flip') {
+        const isUsed = playerTableFlipUsed[targetPlayer];
+        extraHTML = `
+          <div class="table-flip-container" style="margin-top: auto; width: 100%; padding-top: 6px; display: flex; align-items: center; gap: 8px;">
+            <button class="btn-table-flip ${isUsed ? 'used' : ''}">
+              ${isUsed ? '판 뒤집음' : '판 뒤집기!'}
+            </button>
+            <span class="table-flip-warning" style="display: none;">이미 판을 한 번 뒤집었습니다!</span>
+          </div>
+        `;
       }
 
       slot.classList.add('filled');
-      if (mutationId === 'momentum' && momentumState[targetPlayer] === 'used') {
+      if (augmentId === 'momentum' && momentumState[targetPlayer] === 'used') {
         slot.style.opacity = '0.65';
       } else {
         slot.style.opacity = '1';
@@ -4282,6 +4287,79 @@ window.updateAugmentSidebar = function (player) {
           ${extraHTML}
         </div>
       `;
+
+      if (augmentId === 'table-flip') {
+        const btnFlip = slot.querySelector('.btn-table-flip');
+        const warnText = slot.querySelector('.table-flip-warning');
+
+        if (btnFlip) {
+          btnFlip.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const isMyTurn = !window.isMultiplayer || targetPlayer === window.myPlayerIndex;
+            if (!isMyTurn || targetPlayer !== currentPlayer) return;
+
+            if (playerTableFlipUsed[targetPlayer]) {
+              if (warnText) {
+                const shakeAnims = ['shake3d-1', 'shake3d-2', 'shake3d-3', 'shake3d-4'];
+                const randomShake = shakeAnims[Math.floor(Math.random() * shakeAnims.length)];
+                warnText.style.display = 'inline-block';
+                warnText.style.animation = 'none';
+                void warnText.offsetWidth; // reflow
+                warnText.style.animation = `${randomShake} 0.5s ease-in-out`;
+                if (window.tableFlipWarnTimeout) clearTimeout(window.tableFlipWarnTimeout);
+                window.tableFlipWarnTimeout = setTimeout(() => {
+                  warnText.style.display = 'none';
+                }, 2000);
+              }
+              return;
+            }
+
+            if (rollsLeft >= 3 || !diceEngine || diceEngine.physicsActive) return;
+
+            playerTableFlipUsed[targetPlayer] = true;
+            btnFlip.classList.add('used');
+            btnFlip.textContent = '판 뒤집음';
+
+            // 5시 방향 주먹 내리침 덜컹 연출 및 판 뒤집기 타격음 재생 (약 0.07초 타격점 offset 스킵 재생)
+            if (diceEngine) {
+              diceEngine.playCardboardHitSound(0.07, 0.8);
+            }
+            const diceBoardElem = document.getElementById('dice-board-area');
+            if (diceBoardElem) {
+              diceBoardElem.classList.remove('fist-impact-anim');
+              void diceBoardElem.offsetWidth;
+              diceBoardElem.classList.add('fist-impact-anim');
+              setTimeout(() => {
+                diceBoardElem.classList.remove('fist-impact-anim');
+              }, 750);
+            }
+
+            stopTurnTimer();
+            els.btnRoll.disabled = true;
+
+            if (window.isMultiplayer && networkEngine) {
+              networkEngine.sendMessage({ type: 'table_flip', player: targetPlayer });
+            }
+
+            addGameLog({ type: 'system', message: `[Table Flip] Player ${targetPlayer}가 판 뒤집기를 사용하여 주사위를 솟구쳐 올렸습니다!` }, 'system', window.isMultiplayer, targetPlayer);
+
+            await diceEngine.flipTable();
+
+            diceEngine.diceArray.forEach(die => die.isKept = false);
+            keptDice = [];
+            activeDice = diceEngine.diceArray.filter(d => d.config?.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
+
+            addGameLog({ type: 'roll-result', player: targetPlayer, meta: { values: activeDice } }, 'roll-result', window.isMultiplayer, targetPlayer);
+            diceEngine.arrangeAll(true);
+
+            updateScorePreviews();
+
+            resumeTurnTimer();
+            if (diceEngine) diceEngine.isRollSettling = false;
+            updateRollsUI();
+          });
+        }
+      }
     } else {
       slot.classList.remove('filled');
       let roundText = i === 0 ? "1턴" : (i === 1 ? "6턴" : "9턴");
@@ -4307,15 +4385,15 @@ document.getElementById('btn-toggle-opponent-augments')?.addEventListener('click
   }
 });
 
-window.applyMutation = function (player, mutationId, isRemote = false) {
-  const mut = mutationDefinitions[mutationId];
+window.applyMutation = function (player, augmentId, isRemote = false) {
+  const mut = mutationDefinitions[augmentId];
   if (!mut) return;
 
   if (!isRemote && window.isMultiplayer && networkEngine) {
     networkEngine.sendMessage({
       type: 'apply_mutation',
       player,
-      mutationId
+      augmentId
     });
   }
 
@@ -4333,24 +4411,24 @@ window.applyMutation = function (player, mutationId, isRemote = false) {
     }, 'system', window.isMultiplayer, player);
   }
 
-  activeMutations[player][targetCat] = mutationId;
+  activeMutations[player][targetCat] = augmentId;
 
   const augInfo = augmentData.find(a => a.name.includes(mut.name) || (a.mark && mut.enName && a.mark === mut.enName)) || {};
-  addGameLog({ type: 'augment-action', player, meta: { mutationId, name: augInfo.name || mut.name } }, 'augment-action', window.isMultiplayer, player);
+  addGameLog({ type: 'augment-action', player, meta: { augmentId, name: augInfo.name || mut.name } }, 'augment-action', window.isMultiplayer, player);
 
   // 더블 라지 스트레이트 등 특수 효과 즉시 적용
-  if (mutationId === 'double-large-straight') {
+  if (augmentId === 'double-large-straight') {
     upperBonusThreshold[player] = 60;
   }
 
-  if (mutationId === 'nozdormu') {
+  if (augmentId === 'nozdormu') {
     if (!questProgress[player]) questProgress[player] = {};
     if (!questProgress[player].nozdormuTargetRound) {
-      questProgress[player].nozdormuTargetRound = currentRound <= 3 ? 3 : (currentRound <= 6 ? 6 : 12);
+      questProgress[player].nozdormuTargetRound = currentRound <= 5 ? 5 : (currentRound <= 8 ? 8 : 12);
     }
   }
 
-  if (mutationId === 'yacht-bank') {
+  if (augmentId === 'yacht-bank') {
     yachtBankState[player] = { turnsLeft: 3, accumulatedScore: 0, initialized: false, completed: false };
   }
 
@@ -4358,7 +4436,7 @@ window.applyMutation = function (player, mutationId, isRemote = false) {
   const targetTh = document.getElementById(player === 1 ? `cat-title-left-${mut.target}` : `cat-title-right-${mut.target}`);
 
   if (targetTh) {
-    const svgIcon = getVariantSvg(mutationId);
+    const svgIcon = getVariantSvg(augmentId);
     targetTh.innerHTML = `${svgIcon} ${mut.enName}`;
     targetTh.style.backgroundColor = '#87CEEB'; // Sky Blue
     targetTh.style.color = '#222';
@@ -4628,11 +4706,14 @@ function getAugmentCategoryName(aug) {
 
   if (aug.id >= 1 && aug.id <= 26) return '변형';
   if (aug.id >= 27 && aug.id <= 36) return '퀘스트';
-  if (aug.id >= 37 && aug.id <= 45) return '강화';
+  if (aug.id >= 37 && aug.id <= 46) return '강화';
   return '기타';
 }
 
 function getAugmentCategoryEnName(aug) {
+  if (aug.augmentId === 'yacht-bank' || (Array.isArray(aug.types) && aug.types.includes('Modification') && aug.types.includes('Quest'))) {
+    return 'Modification<br>Quest';
+  }
   const catName = getAugmentCategoryName(aug);
   if (catName === '변형') return 'Modification';
   if (catName === '퀘스트') return 'Quest';
@@ -4659,6 +4740,9 @@ function renderCompendiumAugments(category = 'all') {
 
   const filtered = augmentData.filter(aug => {
     if (category === 'all') return true;
+    if (aug.augmentId === 'yacht-bank' || (Array.isArray(aug.types) && aug.types.includes('Modification') && aug.types.includes('Quest'))) {
+      return category === '변형' || category === '퀘스트';
+    }
     const catName = getAugmentCategoryName(aug);
     return catName === category;
   });
@@ -4674,7 +4758,7 @@ function renderCompendiumAugments(category = 'all') {
     
     const catEnName = getAugmentCategoryEnName(aug);
     const desc = aug.description || (aug.name + ' 증강이 적용됩니다.');
-    const icon = getVariantSvg(aug.mutationId) || '';
+    const icon = getVariantSvg(aug.augmentId) || '';
 
     item.innerHTML = `
       <div class="modal-compendium-type-text">${catEnName}</div>

@@ -59,6 +59,8 @@ export class DiceEngine {
       const audio = new Audio(`/sounds/${fileName}`);
       this.hitSounds.push(audio);
     });
+
+    this.cardboardHitSound = new Audio('/sounds/cardboard_hit.wav');
   }
 
   playHitSound(velocity) {
@@ -76,6 +78,18 @@ export class DiceEngine {
     const sound = this.hitSounds[Math.floor(Math.random() * this.hitSounds.length)];
     const clone = sound.cloneNode();
     clone.volume = volume;
+    clone.play().catch(e => { /* 브라우저 자동 재생 정책에 막힌 경우 무시 */ });
+  }
+
+  playCardboardHitSound(startTime = 0.07, volume = 0.8) {
+    if (!this.cardboardHitSound) return;
+    const clone = this.cardboardHitSound.cloneNode();
+    clone.volume = volume;
+    try {
+      clone.currentTime = startTime;
+    } catch (e) {
+      /* ignore if currentTime cannot be set prior to play */
+    }
     clone.play().catch(e => { /* 브라우저 자동 재생 정책에 막힌 경우 무시 */ });
   }
 
@@ -334,8 +348,6 @@ export class DiceEngine {
     const wasActive = this.isYachtBankActive;
     this.isYachtBankActive = !!active;
 
-    console.log(`[YachtBank Debug] setYachtBankActive called with active=${active}, wasActive=${wasActive}, slotMeshesCount=${this.slotMeshes?.length || 0}`);
-
     // slotMeshes가 아직 생성되지 않았다면 3D 킵 존 슬롯 5개를 즉시 생성
     if (!this.slotMeshes || this.slotMeshes.length === 0) {
       this.updateKeepSlots();
@@ -399,17 +411,17 @@ export class DiceEngine {
     this.world.addContactMaterial(contactMaterial);
     this.world.defaultMaterial = defaultMaterial;
 
-    // Floor (use a massive Box instead of Plane to avoid tunneling issues)
-    const floorShape = new CANNON.Box(new CANNON.Vec3(100, 1, 100));
+    // Floor (use a massive thick Box to prevent tunneling issues on high velocity drop)
+    const floorShape = new CANNON.Box(new CANNON.Vec3(200, 20, 200));
     const floorBody = new CANNON.Body({ mass: 0, shape: floorShape });
-    floorBody.position.set(0, -1, 0); // top surface is at y=0
+    floorBody.position.set(0, -20, 0); // top surface is at y=0
     this.world.addBody(floorBody);
     
     this.wallBodies = [];
     this.updateWalls();
   }
 
-  updateWalls() {
+  updateWalls(isTableFlipping = false) {
     // Remove old physics walls
     this.wallBodies.forEach(b => this.world.removeBody(b));
     this.wallBodies = [];
@@ -422,23 +434,23 @@ export class DiceEngine {
     const viewHeight = 2 * Math.tan(vFov / 2) * this.camera.position.y;
     const viewWidth = viewHeight * this.camera.aspect;
     
-    const h = this.container.clientHeight; // w == h in symmetric layout
+    const h = this.container.clientHeight;
     const matSize = h / 1.25;
-    const frameThickness = matSize * 0.125;
     const matSize3D = viewHeight * (matSize / h);
     
     const wallThickness = 10;
-    // 패딩을 0으로 설정하여 물리 벽이 플레이매트 외곽선과 정확히 일치하도록 함
     const padding = 0;
     
-    // The center of the container is perfectly at (0, 0, 0)
-    // The playable area bounds are from -matSize3D/2 to matSize3D/2
-    
-    // Create Top, Bottom, Left, Right invisible physics boxes
+    // 일반 굴림(isTableFlipping === false) 시 Y=20 천장으로 버건디 매트 이탈 차단
+    // 판 뒤집기(isTableFlipping === true) 시 Y=250 수직 벽 및 Y=110 상공 천장으로 높이 솟구침 허용
+    const wallHeight = isTableFlipping ? 250 : 20;
+    const wallYPos = isTableFlipping ? 125 : 10;
+    const ceilingYPos = isTableFlipping ? 110 : 20;
+
     const createWall = (w, d, x, z, rotX = 0, rotZ = 0) => {
-      const shape = new CANNON.Box(new CANNON.Vec3(w/2, 20, d/2));
+      const shape = new CANNON.Box(new CANNON.Vec3(w/2, wallHeight, d/2));
       const body = new CANNON.Body({ mass: 0, shape });
-      body.position.set(x, 10, z);
+      body.position.set(x, wallYPos, z);
       
       const qX = new CANNON.Quaternion();
       qX.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), rotX);
@@ -450,18 +462,25 @@ export class DiceEngine {
       this.wallBodies.push(body);
     };
 
-    // 주사위가 벽에 기대어 비스듬히 서지 못하도록 안쪽으로 15도(오버행) 기울임
-    const tilt = 15 * Math.PI / 180;
-    const shift = 10 * Math.tan(tilt); // 바닥(Y=0) 기준 경계선이 유지되도록 중심 보정
+    // 버건디 매트 사각형 영역 바깥으로 1mm도 벗어나지 못하도록 직각 수직 기둥 벽 구축 (tilt = 0)
+    const tilt = 0;
+    const shift = 0;
 
     // Top (-z)
-    createWall(matSize3D + wallThickness * 2, wallThickness, 0, -matSize3D/2 - wallThickness/2 + padding + shift, tilt, 0);
+    createWall(matSize3D + wallThickness * 2, wallThickness, 0, -matSize3D/2 - wallThickness/2 + padding, 0, 0);
     // Bottom (+z)
-    createWall(matSize3D + wallThickness * 2, wallThickness, 0, matSize3D/2 + wallThickness/2 - padding - shift, -tilt, 0);
+    createWall(matSize3D + wallThickness * 2, wallThickness, 0, matSize3D/2 + wallThickness/2 - padding, 0, 0);
     // Left (-x)
-    createWall(wallThickness, matSize3D + wallThickness * 2, -matSize3D/2 - wallThickness/2 + padding + shift, 0, 0, -tilt);
+    createWall(wallThickness, matSize3D + wallThickness * 2, -matSize3D/2 - wallThickness/2 + padding, 0, 0, 0);
     // Right (+x)
-    createWall(wallThickness, matSize3D + wallThickness * 2, matSize3D/2 + wallThickness/2 - padding - shift, 0, 0, tilt);
+    createWall(wallThickness, matSize3D + wallThickness * 2, matSize3D/2 + wallThickness/2 - padding, 0, 0, 0);
+
+    // 버건디 규격 수평 천장 물리 벽 (일반 굴림 Y=20, 판 뒤집기 Y=110)
+    const ceilingShape = new CANNON.Box(new CANNON.Vec3(matSize3D / 2, 5, matSize3D / 2));
+    const ceilingBody = new CANNON.Body({ mass: 0, shape: ceilingShape });
+    ceilingBody.position.set(0, ceilingYPos, 0);
+    this.world.addBody(ceilingBody);
+    this.wallBodies.push(ceilingBody);
   }
 
 
@@ -839,6 +858,88 @@ export class DiceEngine {
           
           // arrangeAll is handled by main.js after unkeeping the dice
           this.isRollSettling = true; // 정렬(arrangeAll) 호출 전까지 호버 방지
+          resolve();
+        }
+      }, 100);
+    });
+  }
+
+  async flipTable() {
+    return new Promise((resolve) => {
+      const unkeptDice = this.diceArray.filter(d => !d.isKept);
+      if (unkeptDice.length === 0) {
+        resolve();
+        return;
+      }
+
+      this.physicsActive = true;
+      this.isAnimating = false;
+      this.updateWalls(true); // 판 뒤집기 전용 상공 천장(Y=110) 개방
+      this.startRenderLoop();
+
+      // 킵되지 않은 주사위들을 하늘 위로 수직으로 강하게 솟구쳐 올리기
+      unkeptDice.forEach(die => {
+        // 이미 물리 바디가 벗겨졌다면 재초기화
+        if (!die.body) {
+          const shape = new CANNON.Box(new CANNON.Vec3(0.63, 0.63, 0.63));
+          const body = new CANNON.Body({ mass: 1, shape: shape });
+          body.position.copy(die.mesh.position);
+          body.quaternion.copy(die.mesh.quaternion);
+          this.world.addBody(body);
+          die.body = body;
+        }
+
+        die.body.wakeUp();
+        // 상향 수직 속도 & X/Z 대각선 힘 및 자연스러운 3D 스핀 회전 부과
+        die.body.velocity.set(
+          (Math.random() - 0.5) * 8.0,
+          130 + Math.random() * 25,
+          (Math.random() - 0.5) * 8.0
+        );
+        die.body.angularVelocity.set(
+          (Math.random() - 0.5) * 90,
+          (Math.random() - 0.5) * 90,
+          (Math.random() - 0.5) * 90
+        );
+      });
+
+      let attempts = 0;
+      const checkFlip = setInterval(() => {
+        attempts++;
+        let allSleeping = true;
+        unkeptDice.forEach(die => {
+          if (die.body) {
+            // Y축 하한선 강제 클램프 구출 안전망 (바닥 밑 Y=0.63 이하 뚫림 방지)
+            if (die.body.position.y < 0.63) {
+              die.body.position.y = 0.63;
+              if (die.body.velocity.y < 0) die.body.velocity.y = 0;
+            }
+
+            // 주사위가 다시 바닥에 안착했고 속도가 줄었을 때 강제 sleep
+            if (die.body.position.y < 3 && die.body.velocity.lengthSquared() < 0.1 && die.body.angularVelocity.lengthSquared() < 0.1) {
+              die.body.sleep();
+            }
+            if (die.body.sleepState !== CANNON.Body.SLEEPING) {
+              allSleeping = false;
+            }
+          }
+        });
+
+        // 높은 솟구침에 맞춰 4.5초(45회 * 100ms) 지나면 굴림 종료
+        if (allSleeping || attempts >= 45) {
+          clearInterval(checkFlip);
+          this.physicsActive = false;
+
+          unkeptDice.forEach(die => {
+            if (die.body) {
+              this.world.removeBody(die.body);
+              die.body = null;
+            }
+            die.value = this.calculateDieValue(die.mesh.quaternion, die.config);
+          });
+
+          this.updateWalls(false); // 일반 굴림 전용 버건디 천장(Y=20)으로 원복
+          this.isRollSettling = false;
           resolve();
         }
       }, 100);

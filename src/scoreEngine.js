@@ -187,7 +187,8 @@ export const mutationDefinitions = {
   'strange-die': { id: 'strange-die', name: '이상한 주사위', target: 'eh7', enName: 'Strange', isEnhancement: true },
   'promotion-die': { id: 'promotion-die', name: '프로모션 주사위', target: 'eh8', enName: 'Promotion', isEnhancement: true },
   'couple-dice': { id: 'couple-dice', name: '커플 주사위', target: 'eh9', enName: 'Couple', isEnhancement: true },
-  'sevens-dice': { id: 'sevens-dice', name: '세븐스 다이스', target: 'eh10', enName: 'Sevens', isEnhancement: true }
+  'sevens-dice': { id: 'sevens-dice', name: '세븐스 다이스', target: 'eh10', enName: 'Sevens', isEnhancement: true },
+  'table-flip': { id: 'table-flip', name: '판 뒤집기', target: 'eh11', enName: 'Table Flip', isEnhancement: true }
 };
 
 export function calculateScores(dice, activeMutations = {}, context = {}) {
@@ -225,8 +226,8 @@ export function calculateScores(dice, activeMutations = {}, context = {}) {
   };
 
   // 활성화된 증강 덮어씌우기
-  for (const [targetCat, mutationId] of Object.entries(activeMutations)) {
-    const mut = mutationDefinitions[mutationId];
+  for (const [targetCat, augmentId] of Object.entries(activeMutations)) {
+    const mut = mutationDefinitions[augmentId];
     if (mut && !mut.isEnhancement && !mut.isQuest) {
       scores[targetCat] = mut.calculate(dice, counts, sum, context);
     }

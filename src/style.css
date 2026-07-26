@@ -3075,6 +3075,117 @@ svg.lucide-icon {
   background: #f8fafc;
 }
 
+/* 판 뒤집기 5시 방향 묵직한 '쾅!' 타격감 연출 */
+.fist-impact-anim {
+  animation: boardFistImpact 0.75s cubic-bezier(0.12, 0.95, 0.15, 1) !important;
+}
+
+@keyframes boardFistImpact {
+  0% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  10% { transform: translate(-28px, -24px) rotate(5deg) scale(0.92); }
+  25% { transform: translate(14px, 12px) rotate(-3deg) scale(1.03); }
+  45% { transform: translate(-10px, -8px) rotate(1.8deg) scale(0.985); }
+  70% { transform: translate(4px, 3px) rotate(-0.8deg); }
+  100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+}
+
+/* 판 뒤집기 3D 입체 푸시 버튼 & 경고 흔들림 스타일 */
+.table-flip-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  position: relative;
+}
+
+.btn-table-flip {
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-bottom: 4px solid #1e40af;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 5px 0 #1d4ed8, 0 6px 12px rgba(0, 0, 0, 0.3);
+  transform: translateY(0);
+  transition: all 0.08s ease;
+}
+
+.btn-table-flip:hover:not(.used) {
+  background-color: #1d4ed8;
+}
+
+.btn-table-flip:active {
+  transform: translateY(4px) !important;
+  border-bottom-width: 1px !important;
+  box-shadow: 0 1px 0 #1d4ed8, 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+.btn-table-flip.used {
+  background-color: #9ca3af !important;
+  color: #e5e7eb !important;
+  border-bottom: 3px solid #6b7280 !important;
+  cursor: pointer;
+  transform: translateY(0);
+  box-shadow: 0 3px 0 #4b5563, 0 4px 6px rgba(0, 0, 0, 0.2) !important;
+}
+
+.table-flip-warning {
+  color: #ef4444;
+  font-size: 0.8rem;
+  font-weight: 800;
+  white-space: nowrap;
+  animation: shake3d-1 0.5s ease-in-out;
+}
+
+/* 경고 메시지 무작위 3D 흔들림 4방향 */
+@keyframes shake3d {
+  0%, 100% { transform: translate(0, 0); }
+  15% { transform: translate(-3px, -2px); }
+  30% { transform: translate(3px, 2px); }
+  45% { transform: translate(-2.5px, 1.5px); }
+  60% { transform: translate(2px, -1.5px); }
+  75% { transform: translate(-1px, 1px); }
+}
+
+@keyframes shake3d-1 {
+  0%, 100% { transform: translate(0, 0); }
+  15% { transform: translate(-4px, -2.5px); }
+  30% { transform: translate(3.5px, 2.5px); }
+  45% { transform: translate(-2.5px, 2px); }
+  60% { transform: translate(2px, -1.5px); }
+  75% { transform: translate(-1px, 1px); }
+}
+
+@keyframes shake3d-2 {
+  0%, 100% { transform: translate(0, 0); }
+  15% { transform: translate(4px, -2.5px); }
+  30% { transform: translate(-3.5px, 2.5px); }
+  45% { transform: translate(2.5px, 2px); }
+  60% { transform: translate(-2px, -1.5px); }
+  75% { transform: translate(1px, 1px); }
+}
+
+@keyframes shake3d-3 {
+  0%, 100% { transform: translate(0, 0); }
+  15% { transform: translate(-3.5px, 3px); }
+  30% { transform: translate(3px, -3px); }
+  45% { transform: translate(-2px, -2px); }
+  60% { transform: translate(1.5px, 1.5px); }
+  75% { transform: translate(-1px, -0.5px); }
+}
+
+@keyframes shake3d-4 {
+  0%, 100% { transform: translate(0, 0); }
+  15% { transform: translate(3.5px, 3px); }
+  30% { transform: translate(-3px, -3px); }
+  45% { transform: translate(2px, -2px); }
+  60% { transform: translate(-1.5px, 1.5px); }
+  75% { transform: translate(1px, -0.5px); }
+}
+
 
 
 
