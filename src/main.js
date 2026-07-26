@@ -2333,7 +2333,6 @@ function startMultiplayerGame() {
   scores = { 1: {}, 2: {} };
   activeMutations = { 1: {}, 2: {} };
   upperBonusThreshold = { 1: 63, 2: 63 };
-  playerYachtBank = { 1: 0, 2: 0 };
   yachtBankLocked = { 1: false, 2: false };
   destroyedStrangeDice = { 1: false, 2: false };
   promotionConsumed = { 1: false, 2: false };
@@ -2656,7 +2655,7 @@ async function handleTurnTimeout() {
   }
 
   const fullDiceObjects = diceEngine?.diceArray ? diceEngine.diceArray.map(d => ({ value: d.value, type: d.config.type })) : [];
-  const potentialScores = typeof calculateScores === 'function' ? calculateScores(dice5, activeMutations[currentPlayer] || {}, { bank: playerYachtBank[currentPlayer], fullDice: fullDiceObjects }) : {};
+  const potentialScores = typeof calculateScores === 'function' ? calculateScores(dice5, activeMutations[currentPlayer] || {}, { bank: (yachtBankState[currentPlayer]?.accumulatedScore || 0), fullDice: fullDiceObjects }) : {};
 
   let bestCatId = null;
   let maxScoreVal = -1;
