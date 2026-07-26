@@ -155,7 +155,7 @@ export const mutationDefinitions = {
   'yacht-bank': {
     id: 'yacht-bank', name: '요트 뱅크', target: 'yacht', enName: 'Bank', excludeFromUpper: false, isQuest: true,
     calculate: (dice, counts, sum, context) => {
-      const bank = context ? (context.bank || 0) : 0;
+      const bank = Math.max(0, Number(context?.bank) || 0);
       return Math.min(bank, 15);
     }
   },

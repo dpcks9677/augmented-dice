@@ -3049,11 +3049,11 @@ function showNotSelectedState(neededCount) {
 function previewScores(diceArray) {
   if (!scores[currentPlayer]) scores[currentPlayer] = {};
   if (!activeMutations[currentPlayer]) activeMutations[currentPlayer] = {};
-  if (!yachtBankState[currentPlayer]) yachtBankState[currentPlayer] = { turnsLeft: 0, accumulatedScore: 0 };
+  if (!yachtBankState[currentPlayer]) yachtBankState[currentPlayer] = { turnsLeft: 0, accumulatedScore: 0, initialized: false, completed: false };
 
   // Get full dice array from engine to pass configs to scoreEngine if needed
   const fullDiceObjects = diceEngine.diceArray.map(d => ({ value: d.value, type: d.config.type }));
-  const potentialScores = calculateScores(diceArray, activeMutations[currentPlayer], { bank: yachtBankState[currentPlayer].accumulatedScore, fullDice: fullDiceObjects });
+  const potentialScores = calculateScores(diceArray, activeMutations[currentPlayer] || {}, { bank: (yachtBankState[currentPlayer]?.accumulatedScore || 0), fullDice: fullDiceObjects });
 
   categories.forEach(cat => {
     if (cat.isDivider) return;
@@ -3209,10 +3209,11 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
     isYacht = counts.some(c => c >= 5);
   }
 
-  // 요트 뱅크 로직 처리: 상대방이 요트 달성 시 모두의 뱅크 잠김
+  // 요트 뱅크 로직 처리: 요트 달성 시 요트 뱅크 퀘스트 마감
   if (catId === 'yacht' && isYacht) {
-    yachtBankLocked[1] = true;
-    yachtBankLocked[2] = true;
+    [1, 2, 3, 4].forEach(p => {
+      if (yachtBankState[p]) yachtBankState[p].completed = true;
+    });
   }
 
   // 보너스(63점 이상 달성 시 35점 추가) 체크
@@ -3260,8 +3261,11 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
 
   // 요트 뱅크: 턴 종료 시 킵 존 주사위 눈금 누적 (최대 15점) 및 남은 턴 차감
   if (activeMutations[currentPlayer] && activeMutations[currentPlayer]['yacht'] === 'yacht-bank') {
+    if (!yachtBankState[currentPlayer]) {
+      yachtBankState[currentPlayer] = { turnsLeft: 3, accumulatedScore: 0, initialized: true, completed: false };
+    }
     const bankState = yachtBankState[currentPlayer];
-    if (bankState && bankState.turnsLeft > 0) {
+    if (bankState && bankState.turnsLeft > 0 && !bankState.completed) {
       const keptSum = keptDice.reduce((a, b) => a + b, 0);
       if (keptSum > 0) {
         bankState.accumulatedScore = Math.min(bankState.accumulatedScore + keptSum, 15);
