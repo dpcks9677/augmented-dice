@@ -771,8 +771,8 @@ function renderHistoryCard(container, matches, myUid) {
     const primaryOpponent = otherPlayers[0] || { nickname: '상대방', avatarUrl: null };
     const extraCount = otherPlayers.length > 1 ? otherPlayers.length - 1 : 0;
 
-    const myAvatarStyle = myPlayer?.avatarUrl ? `background-image: url('${myPlayer.avatarUrl}');` : '';
-    const oppAvatarStyle = primaryOpponent?.avatarUrl ? `background-image: url('${primaryOpponent.avatarUrl}');` : '';
+    const myAvatarStyle = myPlayer?.avatarUrl ? `background-image: url('${myPlayer.avatarUrl}'); background-size: cover;` : '';
+    const oppAvatarStyle = primaryOpponent?.avatarUrl ? `background-image: url('${primaryOpponent.avatarUrl}'); background-size: cover;` : '';
 
     let oppHtml = `<span class="history-player-name">${escapeHtml(primaryOpponent.nickname || 'Guest')}</span>`;
 
@@ -2333,7 +2333,6 @@ function startMultiplayerGame() {
   scores = { 1: {}, 2: {} };
   activeMutations = { 1: {}, 2: {} };
   upperBonusThreshold = { 1: 63, 2: 63 };
-  yachtBankLocked = { 1: false, 2: false };
   destroyedStrangeDice = { 1: false, 2: false };
   promotionConsumed = { 1: false, 2: false };
   playerTableFlipUsed = { 1: false, 2: false };
@@ -4407,6 +4406,13 @@ window.applyMutation = function (player, augmentId, isRemote = false) {
   const mut = mutationDefinitions[augmentId];
   if (!mut) return;
 
+  const targetCat = mut.target;
+
+  // 이미 해당 족보 슬롯에 동일한 증강이 적용된 경우 중복 실행 및 중복 로그 생성 방지
+  if (activeMutations[player] && activeMutations[player][targetCat] === augmentId) {
+    return;
+  }
+
   if (!isRemote && window.isMultiplayer && networkEngine) {
     networkEngine.sendMessage({
       type: 'apply_mutation',
@@ -4414,8 +4420,6 @@ window.applyMutation = function (player, augmentId, isRemote = false) {
       augmentId
     });
   }
-
-  const targetCat = mut.target;
 
   // 이미 기입된 족보 칸을 덮어씌워 선택한 경우 점수 삭제 및 추가 턴 부여
   if (scores[player] && scores[player][targetCat] !== undefined) {
