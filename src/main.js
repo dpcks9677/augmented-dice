@@ -416,6 +416,7 @@ let yachtBankState = {
 };
 let destroyedStrangeDice = { 1: false, 2: false, 3: false, 4: false };
 let promotionConsumed = { 1: false, 2: false, 3: false, 4: false };
+let promotionAcquiredRound = { 1: null, 2: null, 3: null, 4: null };
 let playerTableFlipUsed = { 1: false, 2: false, 3: false, 4: false };
 let questProgress = { 1: {}, 2: {}, 3: {}, 4: {} };
 let momentumState = { 1: 'ready', 2: 'ready', 3: 'ready', 4: 'ready' };
@@ -2106,9 +2107,11 @@ function resetGameSession() {
   extraTurns = { 1: 0, 2: 0, 3: 0, 4: 0 };
   isExtraTurnPhase = false;
   isGameEnded = false;
+  isViewingOpponentAugments = false;
   upperBonusThreshold[1] = 63; upperBonusThreshold[2] = 63; upperBonusThreshold[3] = 63; upperBonusThreshold[4] = 63;
   destroyedStrangeDice[1] = false; destroyedStrangeDice[2] = false; destroyedStrangeDice[3] = false; destroyedStrangeDice[4] = false;
   promotionConsumed[1] = false; promotionConsumed[2] = false; promotionConsumed[3] = false; promotionConsumed[4] = false;
+  promotionAcquiredRound[1] = null; promotionAcquiredRound[2] = null; promotionAcquiredRound[3] = null; promotionAcquiredRound[4] = null;
   yachtBankState = {
     1: { turnsLeft: 3, accumulatedScore: 0, initialized: false, completed: false },
     2: { turnsLeft: 3, accumulatedScore: 0, initialized: false, completed: false },
@@ -2795,10 +2798,13 @@ function startTurn() {
 
   const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
 
-  if (!window.isMultiplayer && typeof updateAugmentSidebar === 'function') {
-    updateAugmentSidebar(currentPlayer);
+  if (!window.isMultiplayer) {
+    isViewingOpponentAugments = false;
+    if (typeof updateAugmentSidebar === 'function') {
+      updateAugmentSidebar(currentPlayer);
+    }
   }
-  updateQuestProgress(currentPlayer === 1 ? 'p1' : 'p2', null, null);
+  updateQuestProgress(currentPlayer, null, null);
 
   // 게임 최선두 1라운드 P1 시작 시 '게임 시작!' 로그 기록
   if (currentRound === 1 && currentPlayer === 1 && (!window.matchLogHistory || window.matchLogHistory.length === 0)) {
@@ -2844,13 +2850,14 @@ function startTurn() {
   const proceedTurnStart = window.proceedTurnStart;
 
   if (gameMode === 'augmented' || gameMode === 'augmented-hotseat') {
+    const isDraftRound = (currentRound === 1 || currentRound === 6 || currentRound === 9);
     const currentAugCount = Object.keys(activeMutations[currentPlayer] || {}).length;
     let expectedCount = 0;
     if (currentRound >= 1) expectedCount = 1;
     if (currentRound >= 6) expectedCount = 2;
     if (currentRound >= 9) expectedCount = 3;
 
-    if (currentAugCount < expectedCount) {
+    if (isDraftRound && currentAugCount < expectedCount) {
       // P1이 증강 선택을 처음 시작할 때 페이즈 안내 로그 출력
       if (currentPlayer === 1) {
         addGameLog(`${expectedCount}페이즈 증강 선택`, 'turn-start', false, 0);
@@ -2952,7 +2959,9 @@ els.btnRoll.addEventListener('click', async () => {
     specialConfigs.push({ type: 'weird' });
   }
   if (activeMuts.includes('promotion-die') && !promotionConsumed[currentPlayer]) {
-    specialConfigs.push({ type: 'promotion', promotionLevel: currentRound - 1 });
+    const acqRound = promotionAcquiredRound[currentPlayer] || currentRound;
+    const pLevel = Math.max(0, currentRound - acqRound);
+    specialConfigs.push({ type: 'promotion', promotionLevel: pLevel });
   }
 
   let heavyCount = activeMuts.includes('weighted-dice') ? 1 : 0;
@@ -3139,6 +3148,10 @@ function previewScores(diceArray) {
       cell.onclick = null;
     }
   });
+
+  if (typeof updateAugmentSidebar === 'function') {
+    updateAugmentSidebar();
+  }
 }
 
 function clearScorePreviews() {
@@ -3434,7 +3447,12 @@ function endGame() {
       ? window.initialMatchPlayers[p - 1]
       : (window.lobbyPlayers ? window.lobbyPlayers[p - 1] : null);
     const nickname = pData ? pData.nickname : `Player ${p}`;
-    const avatarUrl = pData ? pData.avatarUrl : null;
+    let avatarUrl = pData ? pData.avatarUrl : null;
+
+    if (!avatarUrl && (window.myPlayerIndex === p || p === 1)) {
+      avatarUrl = window.myPlayerInfo?.avatarUrl || getCurrentUser()?.photoURL || null;
+    }
+
     playerStats.push({ playerIndex: p, nickname, totalScore: tot, avatarUrl, isForfeited: Boolean(forfeitedPlayers[p]) });
   }
 
@@ -3468,7 +3486,9 @@ function endGame() {
       const card = document.createElement('div');
       card.className = `endgame-score-card ${isWinner ? 'winner-card' : ''} ${stat.isForfeited ? 'forfeit-card' : ''}`;
 
-      const avatarStyle = stat.avatarUrl ? `background-image: url('${stat.avatarUrl}');` : 'background-color: #ccc;';
+      const avatarStyle = stat.avatarUrl 
+        ? `background-image: url('${stat.avatarUrl}'); background-size: cover; background-position: center; background-repeat: no-repeat;` 
+        : 'background-color: #ccc;';
       const forfeitText = '';
       const scoreDisplayStyle = stat.isForfeited ? 'text-decoration: line-through !important; color: #888 !important;' : '';
 
@@ -3998,14 +4018,15 @@ setTimeout(() => {
 }, 100);
 
 function updateQuestProgress(player, catId, scoreObj) {
-  if (!questProgress[player]) questProgress[player] = {};
-  const prog = questProgress[player];
-  const s = scores[player] || {};
-  const myMutations = Object.values(activeMutations[player] || {});
+  const p = (typeof player === 'string' && player.startsWith('p')) ? parseInt(player.slice(1), 10) : Number(player || 1);
+  if (!questProgress[p]) questProgress[p] = {};
+  const prog = questProgress[p];
+  const s = scores[p] || {};
+  const myMutations = Object.values(activeMutations[p] || {});
 
   const addReward = (questName, bonusAmount) => {
     prog.questBonus = (prog.questBonus || 0) + bonusAmount;
-    addGameLog({ type: 'system', message: `${getPlayerLabel(player)}이 [${questName}] 퀘스트를 달성하여 보너스 +${bonusAmount}점을 획득했습니다!` }, 'system', window.isMultiplayer, player);
+    addGameLog({ type: 'system', message: `${getPlayerLabel(p)}이 [${questName}] 퀘스트를 달성하여 보너스 +${bonusAmount}점을 획득했습니다!` }, 'system', window.isMultiplayer, p);
   };
 
   // 1. 티끌 모아 태산 (every-little): 1의 눈이 1개 이상 포함된 족보 기입 (+15점)
@@ -4100,14 +4121,16 @@ function updateQuestProgress(player, catId, scoreObj) {
 
   // 8. 카피캣 (copycat): 상대가 입력한 족보를 따라서 3회 기입 (+10점) / 하단 족보 동점 기입 시 즉시 달성
   if (myMutations.includes('copycat') && !prog.copycatRewarded) {
-    const otherPlayer = player === 'p1' ? 'p2' : 'p1';
+    const pNum = (typeof player === 'string' && player.startsWith('p')) ? parseInt(player.slice(1), 10) : Number(player || 1);
+    const otherPlayer = pNum === 1 ? 2 : 1;
     const otherScores = scores[otherPlayer] || {};
     if (otherScores[catId] !== undefined) {
       prog.copycatCount = (prog.copycatCount || 0) + 1;
-      const lowerCats = ['choice', '3-of-a-kind', '4-of-a-kind', 'fullhouse', 's-straight', 'l-straight', 'yacht'];
-      const myScore = scoreObj ? scoreObj.score : (s[catId]?.score || 0);
-      const oppScore = otherScores[catId]?.score || 0;
-      if (lowerCats.includes(catId) && myScore === oppScore) {
+      const lowerCats = ['choice', '4oak', 'fullhouse', 's-straight', 'l-straight', 'yacht'];
+      const myScore = scoreObj ? (typeof scoreObj === 'object' ? scoreObj.score : scoreObj) : (s[catId]?.score !== undefined ? s[catId].score : s[catId]);
+      const oppScore = typeof otherScores[catId] === 'object' ? otherScores[catId].score : otherScores[catId];
+      
+      if (lowerCats.includes(catId) && myScore === oppScore && myScore > 0) {
         prog.copycatSpecialCleared = true;
         prog.copycatRewarded = true;
         addReward('카피캣', 10);
@@ -4120,15 +4143,17 @@ function updateQuestProgress(player, catId, scoreObj) {
 
   // 9. 더블링 (doubling): 동일한 점수로 족보를 두 번 등록 (스크래치 제외, +10점)
   if (myMutations.includes('doubling') && !prog.doublingRewarded) {
-    const currentScore = scoreObj ? scoreObj.score : (s[catId]?.score || 0);
-    if (currentScore > 0) {
-      const hasSameScore = Object.entries(s).some(([catKey, catVal]) => {
-        return catKey !== catId && catVal !== undefined && catVal.score === currentScore && catVal.score > 0;
-      });
-      if (hasSameScore) {
-        prog.doublingRewarded = true;
-        addReward('더블링', 10);
+    const validScores = [];
+    Object.values(s).forEach(val => {
+      const sc = typeof val === 'object' ? val.score : val;
+      if (sc !== undefined && sc > 0) {
+        validScores.push(sc);
       }
+    });
+    const hasSameScore = validScores.some((sc, idx) => validScores.indexOf(sc) !== idx);
+    if (hasSameScore) {
+      prog.doublingRewarded = true;
+      addReward('더블링', 10);
     }
   }
 
@@ -4149,8 +4174,9 @@ function updateQuestProgress(player, catId, scoreObj) {
 // -----------------------------------------------------
 // 좌측 증강 섹션(UI) 업데이트 함수
 function getQuestProgressText(player, mutId) {
-  const prog = questProgress[player] || {};
-  const s = scores[player] || {};
+  const p = (typeof player === 'string' && player.startsWith('p')) ? parseInt(player.slice(1), 10) : Number(player || 1);
+  const prog = questProgress[p] || {};
+  const s = scores[p] || {};
   let questLines = [];
   let status = 'in-progress';
 
@@ -4259,15 +4285,13 @@ function getQuestProgressText(player, mutId) {
 let isViewingOpponentAugments = false;
 
 function getAugmentSidebarTargetPlayer(explicitPlayer = null) {
-  let basePlayer = explicitPlayer;
-  if (!basePlayer) {
-    if (window.isMultiplayer && window.myPlayerIndex) {
-      basePlayer = window.myPlayerIndex;
-    } else if (typeof currentPlayer !== 'undefined' && currentPlayer) {
-      basePlayer = currentPlayer;
-    } else {
-      basePlayer = 1;
-    }
+  let basePlayer;
+  if (window.isMultiplayer) {
+    // 온라인 멀티플레이 모드: 턴 전환/인자 전달과 상관없이 항상 내 클라이언트(window.myPlayerIndex) 기준 고정
+    basePlayer = window.myPlayerIndex || 1;
+  } else {
+    // 핫시트 모드: 명시적 인자 또는 현재 턴 플레이어(currentPlayer) 기준 턴 스위칭
+    basePlayer = explicitPlayer || (typeof currentPlayer !== 'undefined' ? currentPlayer : 1);
   }
 
   if (isViewingOpponentAugments) {
@@ -4277,24 +4301,37 @@ function getAugmentSidebarTargetPlayer(explicitPlayer = null) {
 }
 
 window.updateAugmentSidebar = function (player) {
-  const targetPlayer = getAugmentSidebarTargetPlayer(player || 1);
+  const targetPlayer = getAugmentSidebarTargetPlayer(player);
   const isOpponent = isViewingOpponentAugments;
 
   const btnToggle = document.getElementById('btn-toggle-opponent-augments');
   const labelTarget = document.getElementById('aug-view-target-label');
+  const titleElem = document.querySelector('.aug-title-text');
 
   if (btnToggle) {
     if (isOpponent) {
       btnToggle.classList.add('active');
-      btnToggle.setAttribute('title', '내 증강 보기');
+      btnToggle.setAttribute('title', '이전 증강 보기');
     } else {
       btnToggle.classList.remove('active');
       btnToggle.setAttribute('title', '상대방 증강 보기');
     }
   }
 
-  if (labelTarget) {
-    labelTarget.textContent = isOpponent ? '(상대)' : '';
+  if (!window.isMultiplayer) {
+    if (titleElem) {
+      titleElem.textContent = `Augments (P${targetPlayer})`;
+    }
+    if (labelTarget) {
+      labelTarget.textContent = '';
+    }
+  } else {
+    if (titleElem) {
+      titleElem.textContent = 'Augments';
+    }
+    if (labelTarget) {
+      labelTarget.textContent = isOpponent ? '(상대)' : '';
+    }
   }
 
   const muts = Object.values(activeMutations[targetPlayer] || {});
@@ -4321,6 +4358,10 @@ window.updateAugmentSidebar = function (player) {
           const gained = momentumGainedScore[targetPlayer] || 0;
           extraHTML = `<div style="margin-top: auto; width: 100%; padding-top: 6px; color: #888; font-size: 0.85em; font-style: italic; text-align: left;">이 증강은 소모되었습니다 (${gained}점 획득함)</div>`;
         }
+      } else if (['lucky-sevens', 'perfect-squares', 'gambler', 'blackjack-21', 'high-dice'].includes(augmentId)) {
+        const allDice = [...keptDice, ...activeDice];
+        const currentDiceSum = allDice.length > 0 ? allDice.reduce((a, b) => a + b, 0) : 0;
+        extraHTML = `<div class="aug-sum-container" style="margin-top: auto; width: 100%; padding-top: 6px; font-size: 0.9em; text-align: left;"><strong><u>현재 눈</u></strong>: ${currentDiceSum}</div>`;
       } else if (augmentId === 'table-flip') {
         const isUsed = playerTableFlipUsed[targetPlayer];
         extraHTML = `
@@ -4441,7 +4482,7 @@ window.updateAugmentSidebar = function (player) {
 document.getElementById('btn-toggle-opponent-augments')?.addEventListener('click', () => {
   isViewingOpponentAugments = !isViewingOpponentAugments;
   if (typeof updateAugmentSidebar === 'function') {
-    updateAugmentSidebar(typeof currentPlayer !== 'undefined' ? currentPlayer : 1);
+    updateAugmentSidebar();
   }
 });
 
@@ -4491,6 +4532,14 @@ window.applyMutation = function (player, augmentId, isRemote = false) {
     if (!questProgress[player].nozdormuTargetRound) {
       questProgress[player].nozdormuTargetRound = currentRound <= 5 ? 5 : (currentRound <= 8 ? 8 : 12);
     }
+  }
+
+  if (augmentId === 'doubling') {
+    updateQuestProgress(player, null, null);
+  }
+
+  if (augmentId === 'promotion-die') {
+    promotionAcquiredRound[player] = currentRound;
   }
 
   if (augmentId === 'yacht-bank') {
@@ -4776,6 +4825,9 @@ function getAugmentCategoryName(aug) {
 }
 
 function getAugmentCategoryEnName(aug) {
+  if (aug.type && aug.type.includes('Phase 1')) {
+    return 'Quest<br>Phase 1';
+  }
   if (aug.augmentId === 'yacht-bank' || (Array.isArray(aug.types) && aug.types.includes('Modification') && aug.types.includes('Quest'))) {
     return 'Modification<br>Quest';
   }

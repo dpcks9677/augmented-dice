@@ -237,9 +237,9 @@
     "name": "재빠른 스트레이트",
     "en-name": "Fast Straight",
     "target": "q1",
-    "type": "Quest",
+    "type": "Quest / Phase 1",
     "reward": "보너스 +15점 획득",
-    "description": "<strong><u>퀘스트</strong></u>: (1페이즈 전용) 8턴 이내에 스몰 스트레이트와 라지 스트레이트를 모두 족보에 기입합니다.<br><br>퀘스트 완료 시, 보너스 15점을 획득합니다.",
+    "description": "<strong><u>퀘스트</strong></u>: 8턴 이내에 스몰 스트레이트와 라지 스트레이트를 모두 족보에 기입합니다.<br><br>퀘스트 완료 시, 보너스 15점을 획득합니다.",
     "augmentId": "fast-straight"
   },
   {
@@ -257,9 +257,9 @@
     "name": "차근차근",
     "en-name": "Step by Step",
     "target": "q3",
-    "type": "Quest",
+    "type": "Quest / Phase 1",
     "reward": "Sixes 완료 즉시, 상단 보너스 점수가 +35점에서 +55점으로 영구 강화",
-    "description": "<strong><u>퀘스트</strong></u>: (1페이즈 전용) 숫자 족보들을 위에서부터 순서대로 기입해야 합니다.(Aces부터 Sixes까지)<br><br>퀘스트 완료 시, 상단 보너스가 55점으로 강화됩니다.",
+    "description": "<strong><u>퀘스트</strong></u>: 숫자 족보들을 위에서부터 순서대로 기입해야 합니다.(Aces부터 Sixes까지)<br><br>퀘스트 완료 시, 상단 보너스가 55점으로 강화됩니다.",
     "augmentId": "step-by-step"
   },
   {
