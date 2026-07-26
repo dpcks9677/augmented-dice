@@ -1645,11 +1645,15 @@ networkEngine.on('ingame_message', (data) => {
     const p2Count = Object.keys(activeMutations[2] || {}).length;
 
     if (p1Count < expectedCount) {
-      if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(1);
+      if (!window.isMultiplayer && typeof updateAugmentSidebar === 'function') updateAugmentSidebar(1);
       showAugmentSelectionModal(1);
     } else if (p2Count < expectedCount) {
-      if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(2);
-      showAugmentSelectionModal(2);
+      if (!window.isMultiplayer && typeof updateAugmentSidebar === 'function') updateAugmentSidebar(2);
+      showAugmentSelectionModal(2, () => {
+        const modal = document.getElementById('augment-selection-modal');
+        if (modal) modal.classList.add('hidden');
+        if (typeof window.proceedTurnStart === 'function') window.proceedTurnStart();
+      });
     } else {
       const modal = document.getElementById('augment-selection-modal');
       if (modal) {
@@ -1659,7 +1663,7 @@ networkEngine.on('ingame_message', (data) => {
         }
         modal.classList.add('hidden');
       }
-      if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(currentPlayer);
+      if (!window.isMultiplayer && typeof updateAugmentSidebar === 'function') updateAugmentSidebar(currentPlayer);
       if (typeof window.proceedTurnStart === 'function') window.proceedTurnStart();
       if (typeof updateRollsUI === 'function') updateRollsUI();
     }
@@ -2096,10 +2100,12 @@ function resetGameSession() {
   });
 
   forfeitedPlayers = { 1: false, 2: false, 3: false, 4: false };
+  forfeitedPlayerUids = {};
   scores[1] = {}; scores[2] = {}; scores[3] = {}; scores[4] = {};
   activeMutations[1] = {}; activeMutations[2] = {}; activeMutations[3] = {}; activeMutations[4] = {};
   extraTurns = { 1: 0, 2: 0, 3: 0, 4: 0 };
   isExtraTurnPhase = false;
+  isGameEnded = false;
   upperBonusThreshold[1] = 63; upperBonusThreshold[2] = 63; upperBonusThreshold[3] = 63; upperBonusThreshold[4] = 63;
   destroyedStrangeDice[1] = false; destroyedStrangeDice[2] = false; destroyedStrangeDice[3] = false; destroyedStrangeDice[4] = false;
   promotionConsumed[1] = false; promotionConsumed[2] = false; promotionConsumed[3] = false; promotionConsumed[4] = false;
@@ -2111,6 +2117,21 @@ function resetGameSession() {
   };
   momentumState[1] = 'ready'; momentumState[2] = 'ready'; momentumState[3] = 'ready'; momentumState[4] = 'ready';
   momentumGainedScore[1] = 0; momentumGainedScore[2] = 0; momentumGainedScore[3] = 0; momentumGainedScore[4] = 0;
+  if (typeof playerTableFlipUsed !== 'undefined') {
+    playerTableFlipUsed[1] = false; playerTableFlipUsed[2] = false; playerTableFlipUsed[3] = false; playerTableFlipUsed[4] = false;
+  }
+  if (typeof questProgress !== 'undefined') {
+    questProgress = {
+      1: { questBonus: 0 },
+      2: { questBonus: 0 },
+      3: { questBonus: 0 },
+      4: { questBonus: 0 },
+      p1: { questBonus: 0 },
+      p2: { questBonus: 0 },
+      p3: { questBonus: 0 },
+      p4: { questBonus: 0 }
+    };
+  }
   if (typeof disconnectGrace !== 'undefined') {
     disconnectGrace[1] = 60; disconnectGrace[2] = 60; disconnectGrace[3] = 60; disconnectGrace[4] = 60;
   }
@@ -2124,6 +2145,10 @@ function resetGameSession() {
 
   if (els.gameLogContainer) {
     els.gameLogContainer.innerHTML = '<div class="log-empty-text">게임 로그가 없습니다.</div>';
+  }
+
+  if (typeof updateScoreboard === 'function') {
+    updateScoreboard();
   }
 
   [els.matchP1Box, els.matchP2Box].forEach(box => {
@@ -2365,10 +2390,23 @@ let augmentTimerInterval = null;
 
 function getSeededAugments(round, player) {
   const isHotseat = gameMode === 'hotseat' || gameMode === 'augmented-hotseat';
+  let pool = [...augmentData];
+
+  // 2페이즈(6라운드 이상) 및 3페이즈(9라운드 이상) 드래프트 시 1페이즈 전용 증강 제외
+  if (round >= 6) {
+    const phase1Only = ['step-by-step', 'fast-straight'];
+    pool = pool.filter(aug => !phase1Only.includes(aug.augmentId));
+  }
+
+  // 해당 플레이어가 이미 획득하여 가지고 있는 증강은 다음 드래프트 생성 후보 풀에서 제거
+  const ownedAugmentIds = Object.values(activeMutations[player] || {});
+  if (ownedAugmentIds.length > 0) {
+    pool = pool.filter(aug => !ownedAugmentIds.includes(aug.augmentId));
+  }
 
   if (isHotseat) {
     // 핫시트 플레이 시 강력한 무작위(Crypto API 및 Math.random) 기반 Fisher-Yates 셔플 사용
-    const list = [...augmentData];
+    const list = [...pool];
     for (let i = list.length - 1; i > 0; i--) {
       let rVal = Math.random();
       if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
@@ -2397,7 +2435,7 @@ function getSeededAugments(round, player) {
     return hash / 0x7fffffff;
   };
 
-  const list = [...augmentData];
+  const list = [...pool];
   for (let i = list.length - 1; i > 0; i--) {
     const j = Math.floor(pseudoRandom() * (i + 1));
     [list[i], list[j]] = [list[j], list[i]];
@@ -2757,7 +2795,9 @@ function startTurn() {
 
   const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
 
-  if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(currentPlayer);
+  if (!window.isMultiplayer && typeof updateAugmentSidebar === 'function') {
+    updateAugmentSidebar(currentPlayer);
+  }
   updateQuestProgress(currentPlayer === 1 ? 'p1' : 'p2', null, null);
 
   // 게임 최선두 1라운드 P1 시작 시 '게임 시작!' 로그 기록
@@ -3366,7 +3406,12 @@ function checkExtraTurnsOrEndGame() {
   startTurn();
 }
 
+let isGameEnded = false;
+
 function endGame() {
+  if (isGameEnded) return;
+  isGameEnded = true;
+
   if (window.isMultiplayer) {
     networkEngine.sendMessage({ type: 'game_ended' });
   }
