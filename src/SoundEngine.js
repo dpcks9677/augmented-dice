@@ -5,9 +5,10 @@ class SoundEngine {
     this.bgmGainNode = null;
     this.sfxGainNode = null;
     this.currentBgmSource = null;
-    this.bgmStartTime = 0; // audioCtx.currentTime timestamp when BGM timeline t=0 started
+    this.bgmStartTime = 0;
     this.isBgmPlaying = false;
     this.isDucked = false;
+    this.pendingBgmTime = null;
 
     const basePath = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) ? import.meta.env.BASE_URL : './';
     const cleanBase = basePath.endsWith('/') ? basePath : basePath + '/';
@@ -44,6 +45,9 @@ class SoundEngine {
   async loadSound(url) {
     try {
       const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const arrayBuffer = await response.arrayBuffer();
       return await this.audioCtx.decodeAudioData(arrayBuffer);
     } catch (err) {
@@ -56,14 +60,12 @@ class SoundEngine {
     if (this.isLoaded) return;
     const promises = [];
 
-    // 48초 단일 통음원 BGM 로드
     promises.push(
       this.loadSound(this.bgmFile).then(buffer => {
         if (buffer) this.buffers['bgm'] = buffer;
       })
     );
 
-    // 효과음 SFX 로드
     Object.entries(this.sfxFiles).forEach(([name, file]) => {
       promises.push(
         this.loadSound(file).then(buffer => {
@@ -74,6 +76,14 @@ class SoundEngine {
 
     await Promise.all(promises);
     this.isLoaded = true;
+    console.log('[SoundEngine] All sounds loaded successfully.');
+
+    if (this.pendingBgmTime !== null) {
+      const pendingT = this.pendingBgmTime;
+      this.pendingBgmTime = null;
+      console.log('[SoundEngine] Starting pending BGM at t =', pendingT);
+      this.startBGM(pendingT);
+    }
   }
 
   ensureContext() {
@@ -82,17 +92,23 @@ class SoundEngine {
       return;
     }
     if (this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume();
+      this.audioCtx.resume().catch(e => console.warn('[SoundEngine] Resume failed:', e));
     }
   }
 
   startBGM(elapsedTime = 0.0, forceRestart = false) {
     this.ensureContext();
-    if (!this.audioCtx || !this.isLoaded) return;
+    if (!this.audioCtx) return;
 
+    if (!this.isLoaded) {
+      console.log('[SoundEngine] BGM start requested during sound loading. Pending elapsedTime:', elapsedTime);
+      this.pendingBgmTime = elapsedTime;
+      return;
+    }
+
+    this.pendingBgmTime = null;
     let t = Math.max(0, Math.min(47.9, elapsedTime));
 
-    // 이미 재생 중인 경우, 타임라인 시간차가 미세(0.8초 이내)하면 음원을 재시작하지 않고 유지
     if (!forceRestart && this.isBgmPlaying && this.currentBgmSource) {
       const currentTimelineT = this.audioCtx.currentTime - this.bgmStartTime;
       if (Math.abs(currentTimelineT - t) < 0.8) {
@@ -103,14 +119,16 @@ class SoundEngine {
     this.stopBGM();
 
     const buffer = this.buffers['bgm'];
-    if (!buffer) return;
+    if (!buffer) {
+      console.warn('[SoundEngine] BGM buffer not available');
+      return;
+    }
 
     const source = this.audioCtx.createBufferSource();
     source.buffer = buffer;
     source.connect(this.bgmGainNode);
 
     const now = this.audioCtx.currentTime;
-    // 이전 턴의 Ducking/감쇄 상태 해제 및 새 턴 시작 시 볼륨 100%(1.0) 원상 복구 보장
     this.bgmGainNode.gain.cancelScheduledValues(now);
     this.bgmGainNode.gain.setValueAtTime(1.0, now);
     this.isDucked = false;
@@ -141,7 +159,7 @@ class SoundEngine {
     const now = this.audioCtx.currentTime;
     this.bgmGainNode.gain.cancelScheduledValues(now);
     this.bgmGainNode.gain.setValueAtTime(this.bgmGainNode.gain.value || 1.0, now);
-    this.bgmGainNode.gain.linearRampToValueAtTime(0.0, now + 0.3); // 0.3초 동안 0.0(무음)으로 감쇄
+    this.bgmGainNode.gain.linearRampToValueAtTime(0.0, now + 0.3);
   }
 
   restoreBGM(exactElapsedTime = null) {
@@ -150,12 +168,11 @@ class SoundEngine {
     const now = this.audioCtx.currentTime;
     this.bgmGainNode.gain.cancelScheduledValues(now);
 
-    // 페이드인 시작 지점을 0.0(무음)으로 고정하여 0부터 3초 페이드인 보장
     const startVol = 0.0;
     this.isDucked = false;
 
     this.bgmGainNode.gain.setValueAtTime(startVol, now);
-    this.bgmGainNode.gain.linearRampToValueAtTime(1.0, now + 3.0); // 0.0에서 1.0으로 3초 동안 서서히 페이드인
+    this.bgmGainNode.gain.linearRampToValueAtTime(1.0, now + 3.0);
 
     if (exactElapsedTime !== null && exactElapsedTime !== undefined && !this.isBgmPlaying) {
       this.startBGM(exactElapsedTime);
