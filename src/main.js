@@ -15,7 +15,6 @@ import defaultAugmentsData from "./augments.json";
 import { soundEngine } from "./SoundEngine.js";
 
 let augmentData = defaultAugmentsData || [];
-fetch('/src/augments.json').then(r => r.json()).then(d => { if (d && d.length) augmentData = d; }).catch(e => console.error(e));
 
 // 첫 사용자 인터랙션 시 Web Audio Context 초기화
 const initSoundEngineOnUserGesture = () => {
