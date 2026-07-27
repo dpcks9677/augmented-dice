@@ -12,8 +12,20 @@ import { subscribeAuthState, signInWithGoogle, setNickname, getCurrentUser, save
 import Cropper from "cropperjs";
 import defaultAugmentsData from "./augments.json";
 
+import { soundEngine } from "./SoundEngine.js";
+
 let augmentData = defaultAugmentsData || [];
 fetch('/src/augments.json').then(r => r.json()).then(d => { if (d && d.length) augmentData = d; }).catch(e => console.error(e));
+
+// 첫 사용자 인터랙션 시 Web Audio Context 초기화
+const initSoundEngineOnUserGesture = () => {
+  soundEngine.init();
+  soundEngine.ensureContext();
+  window.removeEventListener('pointerdown', initSoundEngineOnUserGesture);
+  window.removeEventListener('keydown', initSoundEngineOnUserGesture);
+};
+window.addEventListener('pointerdown', initSoundEngineOnUserGesture);
+window.addEventListener('keydown', initSoundEngineOnUserGesture);
 
 export function escapeHtml(str) {
   if (!str || typeof str !== 'string') return str || '';
@@ -2603,9 +2615,9 @@ function showAugmentSelectionModal(player, onSelect) {
   modal.classList.remove('hidden');
 }
 
-// === 턴 타임아웃 45초 제어 시스템 ===
+// === 턴 타임아웃 45.99초 제어 시스템 ===
 let turnTimerInterval = null;
-let turnTimeRemaining = 45;
+let turnTimeRemaining = 45.99;
 
 function startTurnTimer(overrideTime = null) {
   stopTurnTimer();
@@ -2622,13 +2634,17 @@ function startTurnTimer(overrideTime = null) {
   const isUnlimitedTimer = !window.gameSessionStarted || gameMode === 'none';
   if (isUnlimitedTimer) {
     updateTurnTimerUI();
+    soundEngine.stopBGM();
     return;
   }
 
-  turnTimeRemaining = overrideTime !== null ? overrideTime : 45;
+  turnTimeRemaining = overrideTime !== null ? overrideTime : 45.99;
   const timerElem = document.getElementById('turn-timer') || els.turnTimer;
   if (timerElem) timerElem.classList.remove('paused');
   updateTurnTimerUI();
+
+  const elapsedTime = Math.max(0, 45.99 - turnTimeRemaining);
+  soundEngine.startBGM(elapsedTime);
 
   turnTimerInterval = setInterval(() => {
     turnTimeRemaining--;
@@ -2660,6 +2676,7 @@ function resumeTurnTimer() {
   const isUnlimitedTimer = !window.gameSessionStarted || gameMode === 'none';
   if (isUnlimitedTimer) {
     updateTurnTimerUI();
+    soundEngine.stopBGM();
     return;
   }
 
@@ -2667,6 +2684,9 @@ function resumeTurnTimer() {
     const timerElem = document.getElementById('turn-timer') || els.turnTimer;
     if (timerElem) timerElem.classList.remove('paused');
     updateTurnTimerUI();
+
+    const elapsedTime = Math.max(0, 45.99 - turnTimeRemaining);
+    soundEngine.startBGM(elapsedTime);
 
     turnTimerInterval = setInterval(() => {
       turnTimeRemaining--;
@@ -2693,15 +2713,16 @@ function updateTurnTimerUI() {
     return;
   }
 
-  if (textEl) textEl.textContent = `${turnTimeRemaining}s`;
+  const displayTime = Math.max(0, Math.floor(turnTimeRemaining));
+  if (textEl) textEl.textContent = `${displayTime}s`;
   if (timerElem) {
     timerElem.classList.remove('paused');
-    if (turnTimeRemaining <= 10) timerElem.classList.add('warning');
+    if (displayTime <= 10) timerElem.classList.add('warning');
     else timerElem.classList.remove('warning');
 
     const hourglassSvg = timerElem.querySelector('.hourglass-svg');
     if (hourglassSvg) {
-      const isOdd = (turnTimeRemaining % 2 !== 0);
+      const isOdd = (displayTime % 2 !== 0);
       hourglassSvg.classList.toggle('flip', isOdd);
     }
   }
@@ -2844,6 +2865,9 @@ function startTurn() {
   updateTurnHighlights();
 
   const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
+  if (isMyTurn) {
+    soundEngine.playSFX('turn_change');
+  }
 
   if (!window.isMultiplayer) {
     isViewingOpponentAugments = false;
@@ -2992,6 +3016,8 @@ els.btnRoll.addEventListener('click', async () => {
   if (!isMyTurn || rollsLeft <= 0) return;
 
   pauseTurnTimer(); // 주사위 굴리는 동안 타이머 정지
+  soundEngine.playSFX('dice_roll');
+  soundEngine.duckBGM();
   rollsLeft--;
   updateRollsUI();
   els.btnRoll.disabled = true; // 굴리는 중 비활성화
@@ -3089,6 +3115,7 @@ els.btnRoll.addEventListener('click', async () => {
     const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
     els.btnRoll.disabled = !isMyTurn || rollsLeft <= 0;
     resumeTurnTimer(); // 롤링 완료 후 타이머 재개
+    soundEngine.restoreBGM(Math.max(0, 45 - turnTimeRemaining));
     updateScorePreviews(); // 롤링 완료 후 족보 미리보기 및 기입 버튼 활성화
   }, 100); // 틱틱거림 방지를 위해 딜레이 대폭 축소
 });
@@ -3239,6 +3266,10 @@ function getUpperSum(player) {
 
 function lockScore(catId, scoreInfo, isSync = false, force = false) {
   stopTurnTimer();
+  soundEngine.playSFX('scoreboard');
+  if (!force) {
+    soundEngine.stopBGM();
+  }
   if (!force && rollsLeft === 3 && activeDice.length === 0 && keptDice.length === 0) return;
   if (!scores[currentPlayer]) scores[currentPlayer] = {};
 
@@ -3384,8 +3415,8 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
     diceEngine.setYachtBankActive(false);
   }
 
-  // 주사위 정리 및 리셋 애니메이션 재생 동안 대기 후 다음 턴 전환 (장고 타이머는 턴 시작 시 가동)
-  const animDelay = isSpecial ? 1000 : 600;
+  // 족보 점수 기입 및 결과/로그 확인 유예시간 3초(3000ms) 적용
+  const animDelay = 3000;
   setTimeout(() => {
     if (diceEngine) {
       diceEngine.clearAll();
