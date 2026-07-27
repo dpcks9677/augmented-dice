@@ -9,12 +9,15 @@ class SoundEngine {
     this.isBgmPlaying = false;
     this.isDucked = false;
 
-    this.bgmFile = '/sounds/roll_45.mp3';
+    const basePath = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) ? import.meta.env.BASE_URL : './';
+    const cleanBase = basePath.endsWith('/') ? basePath : basePath + '/';
+
+    this.bgmFile = `${cleanBase}sounds/roll_45.mp3`;
 
     this.sfxFiles = {
-      dice_roll: '/sounds/dice_roll.mp3',
-      scoreboard: '/sounds/scoreboard.mp3',
-      turn_change: '/sounds/turn_change.mp3'
+      dice_roll: `${cleanBase}sounds/dice_roll.mp3`,
+      scoreboard: `${cleanBase}sounds/scoreboard.mp3`,
+      turn_change: `${cleanBase}sounds/turn_change.mp3`
     };
 
     this.isLoaded = false;
