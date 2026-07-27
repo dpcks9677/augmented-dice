@@ -1183,10 +1183,57 @@ if (btnEditStatus && profileStatus && profileStatusInput) {
   });
 }
 
-els.btnSubmitNickname?.addEventListener('click', async () => {
-  const nickname = els.nicknameInput?.value.trim();
+function validateNickname(nickname) {
   if (!nickname) {
-    alert("닉네임을 입력해주세요!");
+    return { valid: false, message: "닉네임을 입력해주세요!" };
+  }
+
+  // 1. 기본 문자 검사 (공백 포함: 한글, 영문, 숫자, ., _, 공백만 허용)
+  const allowedChars = /^[가-힣a-zA-Z0-9._ ]+$/;
+  if (!allowedChars.test(nickname)) {
+    return { valid: false, message: "한글, 영문, 숫자, 마침표(.), 언더바(_), 공백만 사용 가능합니다." };
+  }
+
+  // 2. 시작과 끝 문자 제한 검사 (공백, ., _ 로 시작하거나 끝날 수 없음)
+  const invalidEnds = /^[._ ]|[._ ]$/;
+  if (invalidEnds.test(nickname)) {
+    return { valid: false, message: "닉네임의 처음과 끝에는 공백, 마침표(.), 언더바(_)를 사용할 수 없습니다." };
+  }
+
+  // 3. 연속 중복 사용 검사
+  // 연속 공백("  "), 연속 마침표(".."), 연속 언더바("__") 방지
+  if (nickname.includes('  ') || nickname.includes('..') || nickname.includes('__')) {
+    return { valid: false, message: "공백, 마침표(.), 언더바(_)를 연속해서 사용할 수 없습니다." };
+  }
+
+  // 4. 특수문자 및 공백 간의 부자연스러운 인접 방지 (예: ". ", "_ ", " .", " _")
+  if (nickname.includes('. ') || nickname.includes(' .') || nickname.includes('_ ') || nickname.includes(' _')) {
+    return { valid: false, message: "특수문자(., _)와 공백은 붙여서 사용할 수 없습니다." };
+  }
+
+  // 5. 가중치 길이 계산 (한글 2점, 나머지 1점)
+  let score = 0;
+  for (let i = 0; i < nickname.length; i++) {
+    const char = nickname.charCodeAt(i);
+    if (char >= 0xAC00 && char <= 0xD7A3) {
+      score += 2;
+    } else {
+      score += 1;
+    }
+  }
+
+  if (score < 4 || score > 16) {
+    return { valid: false, message: "닉네임 길이는 한글 기준 최대 8자, 영문 기준 최대 16자 내외여야 합니다." };
+  }
+
+  return { valid: true };
+}
+
+els.btnSubmitNickname?.addEventListener('click', async () => {
+  const nickname = els.nicknameInput?.value || "";
+  const validation = validateNickname(nickname);
+  if (!validation.valid) {
+    alert(validation.message);
     return;
   }
 

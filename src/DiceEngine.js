@@ -1193,9 +1193,9 @@ export class DiceEngine {
     }
 
     // --- 2. 애니메이션 시작 위치 갱신 ---
-    // 굴린 직후에는 모든 주사위 애니메이션, 클릭 시에는 클릭된 주사위만 애니메이션
+    // 굴린 직후에는 모든 주사위, 클릭/상태 변경 시에는 클릭된 주사위 및 플레이매트에 있는 주사위 전체 애니메이션 시작
     this.diceArray.forEach(die => {
-      if (isFreshRoll || die === clickedDie) {
+      if (isFreshRoll || die === clickedDie || !die.isKept) {
         die.startPosition = die.mesh.position.clone();
         die.startQuaternion = die.mesh.quaternion.clone();
         die.animationProgress = 0.0;
@@ -1206,9 +1206,16 @@ export class DiceEngine {
 
     // --- 3. 목표 위치 계산 ---
     
-    // (A) 플레이매트(Active Zone) 기준 좌표
+    // (A) 플레이매트(Active Zone) 기준 동적 중앙 정렬 좌표 계산
     const activeZoneCenter = 0;
-    const activeStartX = activeZoneCenter - (this.diceArray.length - 1) * spacing / 2;
+    const activeDice = this.diceArray.filter(d => !d.isKept).sort((a, b) => a.activeSlot - b.activeSlot);
+    const activeCount = activeDice.length;
+    const activeStartX = activeCount > 0 ? activeZoneCenter - (activeCount - 1) * spacing / 2 : 0;
+
+    // 플레이매트에 남아 있는 주사위들의 동적 중앙 정렬 위치 부여
+    activeDice.forEach((die, index) => {
+      die.targetPosition = new THREE.Vector3(activeStartX + index * spacing, 1, 0);
+    });
 
     // (B) 킵존(Keep Zone) 기준 좌표
     const vFov = this.camera.fov * Math.PI / 180;
@@ -1240,9 +1247,6 @@ export class DiceEngine {
           this.world.removeBody(die.body);
           die.body = null;
         }
-      } else {
-        // 플레이매트 주사위: 자신의 고유 activeSlot 위치로 이동 (또는 복귀)
-        die.targetPosition = new THREE.Vector3(activeStartX + die.activeSlot * spacing, 1, 0);
       }
       
       die.targetQuaternion = this.getTargetRotationForValue(die.value, die.targetPosition, die.config);
