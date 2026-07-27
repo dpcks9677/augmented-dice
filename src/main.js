@@ -136,9 +136,11 @@ const els = {
   endgameWinner: document.getElementById('endgame-winner'),
   btnReturnLobby: document.getElementById('btn-return-lobby'),
 
+  btnMenuSettings: document.getElementById('btn-menu-settings'),
   btnMenuAchievements: document.getElementById('btn-menu-achievements'),
   btnMenuCompendium: document.getElementById('btn-menu-compendium'),
   btnMenuHelp: document.getElementById('btn-menu-help'),
+  modalSettings: document.getElementById('modal-settings'),
   modalAchievements: document.getElementById('modal-achievements'),
   modalCompendium: document.getElementById('modal-compendium'),
   modalHelp: document.getElementById('modal-help')
@@ -4861,9 +4863,16 @@ function closeGameModal(modalEl) {
 }
 
 function closeAllGameModals() {
+  if (els.modalSettings) els.modalSettings.classList.add('hidden');
   if (els.modalAchievements) els.modalAchievements.classList.add('hidden');
   if (els.modalCompendium) els.modalCompendium.classList.add('hidden');
   if (els.modalHelp) els.modalHelp.classList.add('hidden');
+}
+
+if (els.btnMenuSettings) {
+  els.btnMenuSettings.addEventListener('click', () => {
+    openGameModal(els.modalSettings);
+  });
 }
 
 if (els.btnMenuAchievements) {

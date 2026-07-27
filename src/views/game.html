@@ -174,6 +174,12 @@
       <section id="play-menu-section">
         <div class="play-menu-card">
           <div class="play-menu-top-bar">
+            <button class="btn-play-submenu-icon" id="btn-menu-settings" title="환경설정">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
             <button class="btn-play-submenu-icon" id="btn-menu-achievements" title="도전과제">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
@@ -390,6 +396,19 @@
           <div class="guide-placeholder-container">
             <p id="help-detail-text" class="modal-placeholder-text">가이드 내용이 여기에 추가될 예정입니다.</p>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 환경 설정 모달 -->
+    <div id="modal-settings" class="game-modal-overlay hidden">
+      <div class="game-modal-content settings-modal">
+        <div class="game-modal-header">
+          <h2>환경 설정</h2>
+          <button class="game-modal-close" data-target="modal-settings">&times;</button>
+        </div>
+        <div class="game-modal-body" style="min-height: 200px;">
+          <!-- 추후 진행 (공백) -->
         </div>
       </div>
     </div>
