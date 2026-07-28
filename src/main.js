@@ -632,10 +632,11 @@ function setupSidebarTabs() {
 setupSidebarTabs();
 
 // 로비용 주사위 엔진 초기화
-setTimeout(() => {
+setTimeout(async () => {
   const landingWrapper = document.getElementById('landing-dice-wrapper');
   if (landingWrapper) {
     landingDiceEngine = new DiceEngine("#landing-dice-wrapper");
+    await landingDiceEngine.ready;
 
     // 엔진 초기화 후 애니메이션 클래스 추가 (페이드 인 & 슬라이드 업)
     requestAnimationFrame(() => {
@@ -644,13 +645,13 @@ setTimeout(() => {
 
     // 자동 굴림 애니메이션 (렌더링 후 약간의 딜레이 뒤에 실행)
     setTimeout(() => {
-      if (landingDiceEngine) {
+      if (landingDiceEngine?.isReady && !landingDiceEngine.physicsActive) {
         landingDiceEngine.roll(5);
       }
     }, 800);
 
     landingWrapper.addEventListener('click', () => {
-      if (landingDiceEngine) {
+      if (landingDiceEngine?.isReady && !landingDiceEngine.physicsActive) {
         landingDiceEngine.roll(5);
       }
     });
@@ -1726,14 +1727,17 @@ networkEngine.on('ingame_message', (data) => {
     updateRollsUI();
     clearScorePreviews();
     window.lastRollStartTime = Date.now();
-    if (diceEngine) diceEngine.roll(data.specialConfigs, true, data.spawnTransforms);
+    if (diceEngine) {
+      diceEngine.ready.then(() => diceEngine.roll(data.specialConfigs, true, data.spawnTransforms));
+    }
   } else if (data.type === 'sync_roll_end') {
     const elapsed = Date.now() - (window.lastRollStartTime || 0);
     const minAnimTime = 1100;
     const remainingDelay = Math.max(0, minAnimTime - elapsed);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       if (diceEngine) {
+        await diceEngine.ready;
         diceEngine.forceRollEnd(data.finalValues, data.finalTransforms);
         diceEngine.diceArray.forEach(die => die.isKept = false);
         keptDice = [];
@@ -4046,7 +4050,7 @@ updateTurnTimerUI();
 // 3D 주사위 엔진 초기화
 let diceEngine;
 
-setTimeout(() => {
+setTimeout(async () => {
   diceEngine = new DiceEngine("#dice-board-area");
 
   diceEngine.onDieClick = (val, isKept, dieIndex) => {
@@ -4067,6 +4071,7 @@ setTimeout(() => {
 
   diceEngine.onPhysicsUpdate = null; // 매 프레임 스트리밍 패킷 전송 비활성화
 
+  await diceEngine.ready;
   diceBoxReady = true;
   removeMainSkeletons();
   if (els.appContainer?.classList.contains('mode-select-state')) {

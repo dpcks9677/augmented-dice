@@ -5,11 +5,14 @@ import { OctahedronGeometry } from 'three';
 import { getOctGeo, getSmoothBeveledOctGeo } from './geometryUtils.js';
 import { getMaterialForDie } from './diceMaterials.js';
 import { YachtTrayModel } from './YachtTrayModel.js';
+import { BOUNDARY_MODES, DiceBoardPhysics } from './DiceBoardPhysics.js';
 
 const DIE_SIZE = 1.62;
 const DIE_HALF_SIZE = DIE_SIZE / 2;
 const ARRANGED_DICE_CAMERA_LIFT = 30;
 const ARRANGED_DICE_SPACING = 2.65;
+const DIE_SURFACE_CLEARANCE = 0.035;
+const INGRESS_TIMEOUT_SECONDS = 1.6;
 
 export class DiceEngine {
   constructor(containerSelector) {
@@ -20,6 +23,11 @@ export class DiceEngine {
     this.physicsActive = false;
     this.isAnimating = false;
     this.onDieClick = null; // callback
+    this.isReady = false;
+    this.boundaryMode = BOUNDARY_MODES.NORMAL;
+    this.ready = new Promise(resolve => {
+      this.resolveReady = resolve;
+    });
 
     this.initThree();
     this.trayModel = new YachtTrayModel(this.scene, {
@@ -27,11 +35,14 @@ export class DiceEngine {
         this.container.classList.add('tray-model-loaded');
         this.container.classList.remove('tray-model-loading', 'tray-model-error');
         this.onWindowResize();
+        this.markReady(true);
       },
       onError: error => {
         console.warn('Yacht tray model failed to load; keeping tray skeleton visible.', error);
         this.container.classList.remove('tray-model-loading');
         this.container.classList.add('tray-model-error');
+        this.onWindowResize();
+        this.markReady(false);
       }
     });
     this.initCannon();
@@ -64,6 +75,42 @@ export class DiceEngine {
     
     this.isRendering = false;
     this.startRenderLoop();
+  }
+
+  markReady(trayLoaded) {
+    if (this.isReady) return;
+    this.isReady = true;
+    this.trayLoaded = trayLoaded;
+    this.updateDebugState();
+    this.resolveReady?.({ trayLoaded });
+    this.resolveReady = null;
+  }
+
+  getViewHeight() {
+    return 2 * Math.tan((this.camera.fov * Math.PI / 180) / 2) * this.camera.position.y;
+  }
+
+  getBoardLayout() {
+    return this.trayModel?.getLayout(this.getViewHeight()) ?? null;
+  }
+
+  updateDebugState() {
+    if (!import.meta.env.DEV) return;
+    this.container.dataset.diceDebug = JSON.stringify({
+      ready: this.isReady,
+      trayLoaded: this.trayLoaded ?? false,
+      physicsActive: this.physicsActive,
+      boundaryMode: this.boundaryMode,
+      bodyCount: this.world?.bodies?.length ?? 0,
+      dice: this.diceArray?.map(die => ({
+        position: die.body
+          ? [die.body.position.x, die.body.position.y, die.body.position.z]
+          : die.mesh.position.toArray(),
+        velocity: die.body
+          ? [die.body.velocity.x, die.body.velocity.y, die.body.velocity.z]
+          : null
+      })) ?? []
+    });
   }
 
   initAudio() {
@@ -465,88 +512,145 @@ export class DiceEngine {
     this.world.addContactMaterial(contactMaterial);
     this.world.defaultMaterial = defaultMaterial;
 
-    // Floor (use a massive thick Box to prevent tunneling issues on high velocity drop)
-    const floorShape = new CANNON.Box(new CANNON.Vec3(200, 20, 200));
-    const floorBody = new CANNON.Body({ mass: 0, shape: floorShape });
-    floorBody.position.set(0, -20, 0); // top surface is at y=0
-    this.world.addBody(floorBody);
-    this.floorBody = floorBody;
-    
-    this.wallBodies = [];
+    this.boardPhysics = new DiceBoardPhysics(this.world);
     this.updateWalls();
   }
 
   updateWalls(isTableFlipping = false) {
-    // Remove old physics walls
-    this.wallBodies.forEach(b => this.world.removeBody(b));
-    this.wallBodies = [];
-    if (this.wallMeshes) {
-      this.wallMeshes.forEach(m => this.scene.remove(m));
+    const requestedMode = isTableFlipping ? BOUNDARY_MODES.FLIP : this.boundaryMode;
+    const layout = this.getBoardLayout();
+    this.boardPhysics?.configure(layout, requestedMode);
+    this.floorBody = this.boardPhysics?.floorBody ?? null;
+    this.currentFloorY = layout?.playSurfaceY ?? this.currentFloorY ?? 0;
+  }
+
+  beginIngress() {
+    this.boundaryMode = BOUNDARY_MODES.INGRESS;
+    this.ingressElapsed = 0;
+    this.updateWalls();
+  }
+
+  finishIngress() {
+    if (this.boundaryMode !== BOUNDARY_MODES.INGRESS) return;
+    this.restoreNormalBoundaries();
+  }
+
+  restoreNormalBoundaries() {
+    if (this.boundaryMode === BOUNDARY_MODES.NORMAL) {
+      this.ingressElapsed = null;
+      return;
     }
-    this.wallMeshes = [];
-    
-    const vFov = this.camera.fov * Math.PI / 180;
-    const viewHeight = 2 * Math.tan(vFov / 2) * this.camera.position.y;
-    const viewWidth = viewHeight * this.camera.aspect;
-    
-    const h = this.container.clientHeight;
-    const matSize = h / 1.25;
-    const matSize3D = viewHeight * (matSize / h);
-    const trayLayout = this.trayModel?.getLayout(viewHeight);
-    const playBounds = trayLayout?.playBounds ?? {
-      minX: -matSize3D / 2,
-      maxX: matSize3D / 2,
-      minZ: -matSize3D / 2,
-      maxZ: matSize3D / 2
+    this.boundaryMode = BOUNDARY_MODES.NORMAL;
+    this.ingressElapsed = null;
+    this.updateWalls();
+  }
+
+  updateIngressState() {
+    if (this.boundaryMode !== BOUNDARY_MODES.INGRESS) return;
+
+    const layout = this.getBoardLayout();
+    if (!layout) return;
+
+    const movingDice = this.diceArray.filter(die => !die.isKept && die.body);
+    if (movingDice.length === 0) {
+      this.finishIngress();
+      return;
+    }
+
+    const isInside = die => {
+      const supportHeight = this.getDieSupportHeight(die.config);
+      return die.body.position.z <= layout.entryEdgeZ - supportHeight - 0.1;
     };
-    const playWidth = playBounds.maxX - playBounds.minX;
-    const playDepth = playBounds.maxZ - playBounds.minZ;
-    const playCenterX = (playBounds.minX + playBounds.maxX) / 2;
-    const playCenterZ = (playBounds.minZ + playBounds.maxZ) / 2;
-    
-    const wallThickness = 10;
-    const padding = 0;
-    
-    // 일반 굴림(isTableFlipping === false) 시 Y=20 천장으로 버건디 매트 이탈 차단
-    // 판 뒤집기(isTableFlipping === true) 시 Y=250 수직 벽 및 Y=110 상공 천장으로 높이 솟구침 허용
-    const wallHeight = isTableFlipping ? 250 : 20;
-    const wallYPos = isTableFlipping ? 125 : 10;
-    const ceilingYPos = isTableFlipping ? 110 : 20;
+    const timedOut = (this.ingressElapsed ?? 0) >= INGRESS_TIMEOUT_SECONDS;
 
-    const createWall = (w, d, x, z, rotX = 0, rotZ = 0) => {
-      const shape = new CANNON.Box(new CANNON.Vec3(w/2, wallHeight, d/2));
-      const body = new CANNON.Body({ mass: 0, shape });
-      body.position.set(x, wallYPos, z);
-      
-      const qX = new CANNON.Quaternion();
-      qX.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), rotX);
-      const qZ = new CANNON.Quaternion();
-      qZ.setFromAxisAngle(new CANNON.Vec3(0, 0, 1), rotZ);
-      body.quaternion = qX.mult(qZ);
-      
-      this.world.addBody(body);
-      this.wallBodies.push(body);
+    if (timedOut) {
+      movingDice.forEach(die => {
+        if (isInside(die)) return;
+        const supportHeight = this.getDieSupportHeight(die.config);
+        die.body.position.z = layout.entryEdgeZ - supportHeight - 0.15;
+        die.body.position.y = Math.max(
+          die.body.position.y,
+          layout.playSurfaceY + supportHeight + DIE_SURFACE_CLEARANCE
+        );
+        die.body.velocity.z = -Math.max(8, Math.abs(die.body.velocity.z));
+      });
+    }
+
+    if (timedOut || movingDice.every(isInside)) {
+      this.finishIngress();
+    }
+  }
+
+  updateLaunchBraking() {
+    this.diceArray.forEach(die => {
+      if (
+        die.isKept ||
+        !die.body ||
+        die.hasReachedLaunchTarget ||
+        !die.launchTarget
+      ) return;
+
+      // 진입 림을 넘은 고속 수평 관성이 12시 벽까지 이어지지 않도록,
+      // 미리 정한 보드 중앙 목표 지점에서 수평 속도만 줄여 자연스럽게 낙하시킨다.
+      if (die.body.velocity.z < 0 && die.body.position.z <= die.launchTarget.z) {
+        die.body.velocity.set(
+          die.body.velocity.x * 0.18,
+          die.body.velocity.y,
+          die.body.velocity.z * 0.1
+        );
+        die.hasReachedLaunchTarget = true;
+      }
+    });
+  }
+
+  getDieSupportHeight(config) {
+    return config?.type === 'octahedron' ? 1.125 : DIE_HALF_SIZE;
+  }
+
+  createLaunchTransform(config, index, count, layout) {
+    const supportHeight = this.getDieSupportHeight(config);
+    const centerIndex = index - (count - 1) / 2;
+    const rowOffset = index % 2;
+    const startX = centerIndex * 2 + (Math.random() - 0.5) * 0.18;
+    const startZ = layout.launchOriginZ + rowOffset * 2;
+    const startY = layout.playSurfaceY + supportHeight + 1.4 + rowOffset * 0.25;
+    const targetX = THREE.MathUtils.clamp(
+      centerIndex * 1.15 + (Math.random() - 0.5) * 0.65,
+      layout.playBounds.minX + supportHeight,
+      layout.playBounds.maxX - supportHeight
+    );
+    const boardCenterZ = (layout.playBounds.minZ + layout.playBounds.maxZ) / 2;
+    const targetZ = boardCenterZ + (Math.random() - 0.5) * 1.1;
+    const landingY = layout.playSurfaceY + supportHeight + 0.12;
+    // 수평 진입은 직전 설정의 절반 시간으로 끝내되, 모델 림을 넘는 상승량은 보장한다.
+    const horizontalTravelTime = 0.31 + Math.random() * 0.05 + rowOffset * 0.02;
+    const gravity = Math.abs(this.world.gravity.y);
+    const horizontalVelocityZ = (targetZ - startZ) / horizontalTravelTime;
+    const rimCrossingTime = Math.max(
+      0.01,
+      (layout.outerBounds.maxZ - startZ) / horizontalVelocityZ
+    );
+    const landingVelocityY = (landingY - startY + 0.5 * gravity * horizontalTravelTime ** 2)
+      / horizontalTravelTime;
+    const rimClearanceY = layout.rimTopY + supportHeight + 0.3;
+    const rimClearVelocityY = (rimClearanceY - startY + 0.5 * gravity * rimCrossingTime ** 2)
+      / rimCrossingTime;
+    const launchVelocityY = Math.max(landingVelocityY, rimClearVelocityY);
+
+    return {
+      position: new CANNON.Vec3(startX, startY, startZ),
+      velocity: new CANNON.Vec3(
+        (targetX - startX) / horizontalTravelTime,
+        launchVelocityY,
+        horizontalVelocityZ
+      ),
+      angularVelocity: new CANNON.Vec3(
+        (Math.random() - 0.5) * 36,
+        (Math.random() - 0.5) * 36,
+        (Math.random() - 0.5) * 36
+      ),
+      target: { x: targetX, z: targetZ }
     };
-
-    // 버건디 매트 사각형 영역 바깥으로 1mm도 벗어나지 못하도록 직각 수직 기둥 벽 구축 (tilt = 0)
-    const tilt = 0;
-    const shift = 0;
-
-    // Top (-z)
-    createWall(playWidth + wallThickness * 2, wallThickness, playCenterX, playBounds.minZ - wallThickness / 2 + padding, 0, 0);
-    // Bottom (+z)
-    createWall(playWidth + wallThickness * 2, wallThickness, playCenterX, playBounds.maxZ + wallThickness / 2 - padding, 0, 0);
-    // Left (-x)
-    createWall(wallThickness, playDepth + wallThickness * 2, playBounds.minX - wallThickness / 2 + padding, playCenterZ, 0, 0);
-    // Right (+x)
-    createWall(wallThickness, playDepth + wallThickness * 2, playBounds.maxX + wallThickness / 2 - padding, playCenterZ, 0, 0);
-
-    // 버건디 규격 수평 천장 물리 벽 (일반 굴림 Y=20, 판 뒤집기 Y=110)
-    const ceilingShape = new CANNON.Box(new CANNON.Vec3(playWidth / 2, 5, playDepth / 2));
-    const ceilingBody = new CANNON.Body({ mass: 0, shape: ceilingShape });
-    ceilingBody.position.set(playCenterX, ceilingYPos, playCenterZ);
-    this.world.addBody(ceilingBody);
-    this.wallBodies.push(ceilingBody);
   }
 
 
@@ -626,18 +730,18 @@ export class DiceEngine {
     this.camera.setViewOffset(w, h, 0, -yShift, w, h);
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
-    const viewHeight = 2 * Math.tan((this.camera.fov * Math.PI / 180) / 2) * this.camera.position.y;
+    const viewHeight = this.getViewHeight();
     this.trayModel?.resize(viewHeight);
-    const trayFloorY = this.trayModel?.getLayout(viewHeight)?.floorY ?? 0;
+    const trayFloorY = this.trayModel?.getLayout(viewHeight)?.playSurfaceY ?? 0;
     this.currentFloorY = trayFloorY;
-    if (this.floorBody) this.floorBody.position.y = trayFloorY - 20;
-    this.updateWalls();
+    this.updateWalls(this.boundaryMode === BOUNDARY_MODES.FLIP);
     this.updateKeepSlots();
     
     this.startRenderLoop();
   }
 
   clearUnkept() {
+    this.restoreNormalBoundaries();
     const unkept = this.diceArray.filter(d => !d.isKept);
     unkept.forEach(die => {
       this.scene.remove(die.mesh);
@@ -648,6 +752,7 @@ export class DiceEngine {
   }
 
   clearAll() {
+    this.restoreNormalBoundaries();
     this.diceArray.forEach(die => {
       this.scene.remove(die.mesh);
       this.removeArrangementShadow(die);
@@ -753,6 +858,7 @@ export class DiceEngine {
       this.clearUnkept();
       this.isObserving = isObserving;
       this.physicsActive = true; 
+      this.physicsElapsed = 0;
       this.isAnimating = false;
       this.currentSpawnTransforms = [];
       this.startRenderLoop();
@@ -774,15 +880,9 @@ export class DiceEngine {
       }
       const octGeo = this.octGeoCache;
 
-      const vFov = this.camera.fov * Math.PI / 180;
-      const viewHeight = 2 * Math.tan(vFov / 2) * this.camera.position.y;
-      
-      const h = this.container.clientHeight;
-      const matSize = h / 1.25;
-      const frameThickness = matSize * 0.125;
-      const matSize3D = viewHeight * (matSize / h);
+      const viewHeight = this.getViewHeight();
       const trayLayout = this.trayModel?.getLayout(viewHeight);
-      const playBounds = trayLayout?.playBounds;
+      this.beginIngress();
 
       for (let i = 0; i < configs.length; i++) {
         const config = configs[i];
@@ -821,51 +921,36 @@ export class DiceEngine {
         body.linearDamping = 0.14;
         body.angularDamping = 0.28;
         
-        const padding = 1.0;
-        const startX = playBounds
-          ? (playBounds.minX + playBounds.maxX) / 2
-          : 0;
-        const startZ = playBounds
-          ? playBounds.maxZ - padding
-          : matSize3D / 2 - padding;
-
+        let launchTarget;
         if (remoteSpawnTransforms && remoteSpawnTransforms[i]) {
           const st = remoteSpawnTransforms[i];
           body.position.set(st.pos.x, st.pos.y, st.pos.z);
           body.quaternion.set(st.quat.x, st.quat.y, st.quat.z, st.quat.w);
           body.velocity.set(st.vel.x, st.vel.y, st.vel.z);
           body.angularVelocity.set(st.angVel.x, st.angVel.y, st.angVel.z);
+          launchTarget = st.target ?? {
+            x: 0,
+            z: (trayLayout.playBounds.minZ + trayLayout.playBounds.maxZ) / 2
+          };
         } else {
-          const spread = (i / Math.max(1, count - 1)) - 0.5;
-          body.position.set(
-            startX + spread * 4.5 + (Math.random() - 0.5) * 3.0,
-            DIE_HALF_SIZE + 0.8 + (i * 0.42) + Math.random(),
-            startZ - (i * 2.1) - Math.random() * 1.5
-          );
+          const launch = this.createLaunchTransform(config, i, count, trayLayout);
+          body.position.copy(launch.position);
           
           body.quaternion.setFromEuler(
             Math.random() * Math.PI,
             Math.random() * Math.PI,
             Math.random() * Math.PI
           );
-          
-          body.velocity.set(
-            (Math.random() - 0.5) * 14 + (spread * 18),
-            12 + Math.random() * 9,
-            -15 - Math.random() * 10
-          );
-          
-          body.angularVelocity.set(
-            (Math.random() - 0.5) * 72,
-            (Math.random() - 0.5) * 72,
-            (Math.random() - 0.5) * 72
-          );
+          body.velocity.copy(launch.velocity);
+          body.angularVelocity.copy(launch.angularVelocity);
+          launchTarget = launch.target;
 
           this.currentSpawnTransforms.push({
             pos: { x: body.position.x, y: body.position.y, z: body.position.z },
             quat: { x: body.quaternion.x, y: body.quaternion.y, z: body.quaternion.z, w: body.quaternion.w },
             vel: { x: body.velocity.x, y: body.velocity.y, z: body.velocity.z },
-            angVel: { x: body.angularVelocity.x, y: body.angularVelocity.y, z: body.angularVelocity.z }
+            angVel: { x: body.angularVelocity.x, y: body.angularVelocity.y, z: body.angularVelocity.z },
+            target: launchTarget
           });
         }
 
@@ -878,7 +963,15 @@ export class DiceEngine {
         });
 
         this.world.addBody(body);
-        this.diceArray.push({ mesh, body, value: 1, isKept: false, config: configs[i] });
+        this.diceArray.push({
+          mesh,
+          body,
+          value: 1,
+          isKept: false,
+          config: configs[i],
+          launchTarget,
+          hasReachedLaunchTarget: false
+        });
       }
 
       // Check sleep (only if running physics locally)
@@ -887,9 +980,7 @@ export class DiceEngine {
         return; // Will be resolved by forceRollEnd
       }
 
-      let attempts = 0;
       const checkSleep = setInterval(() => {
-        attempts++;
         let allSleeping = true;
         this.diceArray.forEach(die => {
           if (!die.isKept && die.body) {
@@ -903,9 +994,10 @@ export class DiceEngine {
           }
         });
 
-        // 2.5초(25회 * 100ms) 지나면 강제로 멈춤
-        if (allSleeping || attempts >= 25) {
+        // 실제 물리 시뮬레이션이 2.5초 진행되면 강제로 멈춤
+        if (allSleeping || this.physicsElapsed >= 2.5) {
           clearInterval(checkSleep);
+          this.finishIngress();
           this.physicsActive = false;
           
           this.diceArray.forEach(die => {
@@ -935,7 +1027,10 @@ export class DiceEngine {
       }
 
       this.physicsActive = true;
+      this.physicsElapsed = 0;
       this.isAnimating = false;
+      this.finishIngress();
+      this.boundaryMode = BOUNDARY_MODES.FLIP;
       this.updateWalls(true); // 판 뒤집기 전용 상공 천장(Y=110) 개방
       this.startRenderLoop();
 
@@ -965,9 +1060,7 @@ export class DiceEngine {
         );
       });
 
-      let attempts = 0;
       const checkFlip = setInterval(() => {
-        attempts++;
         let allSleeping = true;
         unkeptDice.forEach(die => {
           if (die.body) {
@@ -988,8 +1081,8 @@ export class DiceEngine {
           }
         });
 
-        // 높은 솟구침에 맞춰 4.5초(45회 * 100ms) 지나면 굴림 종료
-        if (allSleeping || attempts >= 45) {
+        // 높은 솟구침에 맞춰 물리 시뮬레이션 4.5초가 지나면 굴림 종료
+        if (allSleeping || this.physicsElapsed >= 4.5) {
           clearInterval(checkFlip);
           this.physicsActive = false;
 
@@ -1001,6 +1094,7 @@ export class DiceEngine {
             die.value = this.calculateDieValue(die.mesh.quaternion, die.config);
           });
 
+          this.boundaryMode = BOUNDARY_MODES.NORMAL;
           this.updateWalls(false); // 일반 굴림 전용 버건디 천장(Y=20)으로 원복
           this.isRollSettling = false;
           resolve();
@@ -1025,6 +1119,7 @@ export class DiceEngine {
       clearTimeout(this.observingTimeout);
       this.observingTimeout = null;
     }
+    this.finishIngress();
     this.physicsActive = false;
     this.isObserving = false;
     this.diceArray.forEach((die, index) => {
@@ -1313,7 +1408,8 @@ export class DiceEngine {
         const measuredPoint = trayLayout?.keepPoints?.[die.keepSlot];
         const targetX = measuredPoint?.x ?? keptStartX + die.keepSlot * keepSpacing;
         const targetZ = measuredPoint?.z ?? keepZoneCenterZ;
-        const dieY = trayLayout?.getKeepDieY(DIE_SIZE, die.keepSlot) ?? DIE_HALF_SIZE + 0.025;
+        const supportHeight = this.getDieSupportHeight(die.config);
+        const dieY = trayLayout?.getKeepDieY(supportHeight, die.keepSlot) ?? supportHeight + 0.025;
         const keepFloorY = measuredPoint?.y ?? trayLayout?.floorY ?? 0;
         const screenAlignedPoint = this.getScreenAlignedPoint(
           new THREE.Vector3(targetX, keepFloorY, targetZ),
@@ -1574,6 +1670,7 @@ export class DiceEngine {
   }
 
   animate() {
+    this.updateDebugState();
     const hasClearing = this.diceArray.some(d => d.isClearing || d.isSpecialClearing);
     const hasAnimating = this.diceArray.some(d => d.animationProgress !== undefined && d.animationProgress < 1.0);
     const hasSlotOpacityAnim = Math.abs(this.currentSlotOpacity - this.targetSlotOpacity) > 0.001;
@@ -1593,7 +1690,14 @@ export class DiceEngine {
     this.trayModel?.update(dt);
 
     if (this.physicsActive) {
-      this.world.step(1/60, Math.min(dt, 0.1), 10);
+      const physicsDt = Math.min(dt, 0.1);
+      this.physicsElapsed = (this.physicsElapsed ?? 0) + physicsDt;
+      if (this.boundaryMode === BOUNDARY_MODES.INGRESS) {
+        this.ingressElapsed = (this.ingressElapsed ?? 0) + physicsDt;
+      }
+      this.world.step(1/60, physicsDt, 10);
+      this.updateLaunchBraking();
+      this.updateIngressState();
       
       const transforms = [];
       this.diceArray.forEach(die => {
