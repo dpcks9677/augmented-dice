@@ -89,9 +89,10 @@ export function getMaterialForDie(config) {
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
     materials.push(new THREE.MeshStandardMaterial({ 
-      map: tex, 
-      roughness: type === 'golden' ? 0.05 : 0.15, 
-      metalness: type === 'golden' ? 0.8 : 0.1 
+      map: tex,
+      // 일반 흰 주사위는 무광으로 처리해 강한 하이라이트가 눈을 덮지 않게 한다.
+      roughness: type === 'golden' ? 0.05 : type === 'normal' ? 0.42 : 0.15,
+      metalness: type === 'golden' ? 0.8 : type === 'normal' ? 0 : 0.1
     }));
   }
   

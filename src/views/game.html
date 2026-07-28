@@ -159,12 +159,10 @@
           <span id="rolls-left">남은 굴림: 3</span>
         </div>
         
-        <!-- 주사위 게임 영역 (킵 존 + 버건디 매트) -->
+        <!-- STL 트레이와 로딩 플레이스홀더를 위한 주사위 게임 영역 -->
         <div id="dice-board-area" class="dice-container">
-          <div class="table-frame">
-            <div class="burgundy-mat"></div>
-          </div>
-          <!-- 3D 캔버스가 이 안에 삽입됨 (절대 위치로 전체 덮음) -->
+          <div class="tray-skeleton" aria-hidden="true"></div>
+          <!-- 3D 캔버스가 이 안에 절대 위치로 삽입됨 -->
         </div>
         
         <button id="btn-roll" class="game-btn" disabled>굴리기 (Roll)</button>

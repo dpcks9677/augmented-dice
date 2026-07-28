@@ -4,10 +4,17 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { OctahedronGeometry } from 'three';
 import { getOctGeo, getSmoothBeveledOctGeo } from './geometryUtils.js';
 import { getMaterialForDie } from './diceMaterials.js';
+import { YachtTrayModel } from './YachtTrayModel.js';
+
+const DIE_SIZE = 1.62;
+const DIE_HALF_SIZE = DIE_SIZE / 2;
+const ARRANGED_DICE_CAMERA_LIFT = 30;
+const ARRANGED_DICE_SPACING = 2.65;
 
 export class DiceEngine {
   constructor(containerSelector) {
     this.container = document.querySelector(containerSelector);
+    this.container.classList.add('tray-model-loading');
     this.diceArray = [];
     this.confettiArray = []; // { mesh, body, value, isKept }
     this.physicsActive = false;
@@ -15,7 +22,20 @@ export class DiceEngine {
     this.onDieClick = null; // callback
 
     this.initThree();
+    this.trayModel = new YachtTrayModel(this.scene, {
+      onLoad: () => {
+        this.container.classList.add('tray-model-loaded');
+        this.container.classList.remove('tray-model-loading', 'tray-model-error');
+        this.onWindowResize();
+      },
+      onError: error => {
+        console.warn('Yacht tray model failed to load; keeping tray skeleton visible.', error);
+        this.container.classList.remove('tray-model-loading');
+        this.container.classList.add('tray-model-error');
+      }
+    });
     this.initCannon();
+    this.trayModel.load();
     this.initAudio();
         
     this.lastTime = performance.now();
@@ -40,7 +60,7 @@ export class DiceEngine {
     this.container.addEventListener('click', this.onClick.bind(this));
     
     // 지오메트리 캐싱
-    this.diceGeometry = new RoundedBoxGeometry(1.26, 1.26, 1.26, 4, 0.2);
+    this.diceGeometry = new RoundedBoxGeometry(DIE_SIZE, DIE_SIZE, DIE_SIZE, 4, 0.22);
     
     this.isRendering = false;
     this.startRenderLoop();
@@ -107,14 +127,14 @@ export class DiceEngine {
   initThree() {
     this.scene = new THREE.Scene();
     
-    // Add subtle ambient light and a directional light for shadows
-    // 앰비언트 라이트는 조금 낮추고, 방향광과 스포트라이트로 입체감과 하이라이트를 극대화
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
-    this.scene.add(ambientLight);
-    
-    // 메인 그림자를 형성하는 방향광 (밝기 증가)
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    dirLight.position.set(5, 20, 10);
+    // 모든 영역의 기본 가시성. 킵 존처럼 림에 가려지는 곳도 균일하게 읽힌다.
+    const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x2a1018, 0.72);
+    this.scene.add(hemisphereLight);
+
+    // 접지 그림자만 담당하는 메인광. 짧은 사선으로 입체감은 남긴다.
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.78);
+    // 화면 기준 2시 방향으로 짧은 그림자 방향을 만든다.
+    dirLight.position.set(-7, 28, 7);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048; // 그림자 해상도 증가
     dirLight.shadow.mapSize.height = 2048;
@@ -122,17 +142,17 @@ export class DiceEngine {
     dirLight.shadow.camera.right = 30;
     dirLight.shadow.camera.top = 30;
     dirLight.shadow.camera.bottom = -30;
-    dirLight.shadow.bias = -0.001; // 그림자 픽셀 깨짐(Acne) 방지
+    dirLight.shadow.normalBias = 0.008;
+    dirLight.shadow.bias = -0.00015; // 접지감은 유지하고 그림자 들뜸은 줄임
+    dirLight.shadow.radius = 3;
     this.scene.add(dirLight);
 
-    // 주사위 윗면에 예쁜 하이라이트(광택)를 맺히게 하는 스포트라이트
-    const spotLight = new THREE.SpotLight(0xffffff, 3.0);
-    spotLight.position.set(0, 40, 5); // 정중앙 살짝 아래쪽에서 비춤
-    spotLight.angle = Math.PI / 4;
-    spotLight.penumbra = 0.5;
-    spotLight.decay = 1;
-    spotLight.distance = 100;
-    this.scene.add(spotLight);
+    // 카메라 쪽에서 아주 약하게 채우는 보조광. 눈의 대비는 살리고 그림자는 추가하지 않는다.
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.28);
+    fillLight.position.set(8, 18, 12);
+    fillLight.castShadow = false;
+    this.scene.add(fillLight);
+
     
     // Initialize camera with dummy aspect, will be updated in onWindowResize
     this.camera = new THREE.PerspectiveCamera(10, 1, 0.1, 200);
@@ -141,7 +161,23 @@ export class DiceEngine {
 
     this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 0.95;
     this.container.appendChild(this.renderer.domElement);
+
+    const shadowCanvas = document.createElement('canvas');
+    shadowCanvas.width = 256;
+    shadowCanvas.height = 256;
+    const shadowContext = shadowCanvas.getContext('2d');
+    // 바닥에 닿아 있는 주사위 형태를 연상시키는 둥근 정사각형 그림자.
+    shadowContext.fillStyle = 'rgba(0, 0, 0, 0.9)';
+    shadowContext.shadowColor = 'rgba(0, 0, 0, 0.55)';
+    shadowContext.shadowBlur = 18;
+    shadowContext.beginPath();
+    shadowContext.roundRect(38, 38, 180, 180, 30);
+    shadowContext.fill();
+    this.arrangementShadowTexture = new THREE.CanvasTexture(shadowCanvas);
     
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
@@ -244,13 +280,18 @@ export class DiceEngine {
   }
 
   updateKeepSlots() {
+    // STL 트레이에서는 파여 있는 포켓 자체가 킵 존이다. 선형 오버레이는 CSS 폴백 전용이다.
+    if (this.trayModel?.isReady) {
+      this.slotMeshes?.forEach(mesh => { mesh.visible = false; });
+      return;
+    }
     if (!this.slotMeshes) {
       this.slotMeshes = [];
     }
-    const spacing = 2.5;
+    const fallbackSpacing = 2.5;
     const vFov = this.camera.fov * Math.PI / 180;
     const viewHeight = 2 * Math.tan(vFov / 2) * this.camera.position.y;
-    const viewWidth = viewHeight * this.camera.aspect;
+    const trayLayout = this.trayModel?.getLayout(viewHeight);
     
     // 킵 존은 화면 상단 120px 영역.
     // 3D 뷰에서 해당 영역의 Z 좌표를 계산.
@@ -263,7 +304,9 @@ export class DiceEngine {
     const paddingTop = frameThickness + yShift;
     
     // 킵존 슬롯을 Top 프레임의 정중앙에 배치
-    const keepZoneCenterZ = -viewHeight / 2 + viewHeight * ((paddingTop / 2 - yShift) / h);
+    const fallbackKeepZoneCenterZ = -viewHeight / 2 + viewHeight * ((paddingTop / 2 - yShift) / h);
+    const spacing = trayLayout?.keepSpacing ?? fallbackSpacing;
+    const keepZoneCenterZ = trayLayout?.keepCenterZ ?? fallbackKeepZoneCenterZ;
 
     // 슬롯 외곽선 텍스처(둥근 사각형) 생성
     const canvas = document.createElement('canvas');
@@ -297,8 +340,8 @@ export class DiceEngine {
     const tex = this.isYachtBankActive ? this.goldSlotTex : this.defaultSlotTex;
     
     // 주사위 크기(1.26)보다 살짝 작게 설정
-    const size = 1.19; // 기존 1.7에서 70% 축소
-    const geo = new THREE.PlaneGeometry(size, size);
+    const size = trayLayout?.slotOverlaySize ?? 1.19;
+    const geo = new THREE.PlaneGeometry(1, 1);
     const mat = new THREE.MeshBasicMaterial({ 
       map: tex, 
       transparent: true, 
@@ -306,7 +349,7 @@ export class DiceEngine {
     });
 
     // X축 가로로 5개의 고정 슬롯 배치
-    const keptStartX = -2 * spacing;
+    const keptStartX = trayLayout?.keepStartX ?? -2 * spacing;
     
     for (let i = 0; i < 5; i++) {
       // 주사위가 놓일 실제 목표 좌표 (Y=0)
@@ -315,7 +358,7 @@ export class DiceEngine {
 
       // 카메라에서 주사위를 바라보는 시선(Ray)이 바닥에 위치한 목표 지점을 지나도록 패럴랙스 교정
       const camY = this.camera.position.y;
-      const slotY = 0.15; // 3D 바닥 매트 z-fighting 파묻힘 방지 높이 상향
+      const slotY = trayLayout?.slotOverlayY ?? 0.15;
       
       // 닮음비를 이용해 시각적 위치가 일치하도록 물리적 X, Z 좌표를 안쪽으로 당김
       const slotX = targetX * (camY - slotY) / camY;
@@ -330,23 +373,32 @@ export class DiceEngine {
         const slotMesh = new THREE.Mesh(geo, slotMat);
         slotMesh.rotation.x = -Math.PI / 2; // 바닥에 눕히기
         slotMesh.position.set(slotX, slotY, slotZ);
+        slotMesh.scale.set(size, size, 1);
         slotMesh.renderOrder = 10; // 바닥 매트보다 위에 렌더링되도록 최상단 보장
         this.scene.add(slotMesh);
         this.slotMeshes.push(slotMesh);
       } else {
         this.slotMeshes[i].position.set(slotX, slotY, slotZ);
+        this.slotMeshes[i].scale.set(size, size, 1);
         this.slotMeshes[i].renderOrder = 10;
         if (this.slotMeshes[i].material) {
           this.slotMeshes[i].material.map = tex;
           this.slotMeshes[i].material.needsUpdate = true;
         }
       }
+      this.slotMeshes[i].visible = !trayLayout || this.isYachtBankActive;
     }
   }
 
   setYachtBankActive(active) {
     const wasActive = this.isYachtBankActive;
     this.isYachtBankActive = !!active;
+
+    if (this.trayModel?.isReady) {
+      this.trayModel.setKeepZoneGlow(this.isYachtBankActive);
+      this.startRenderLoop();
+      return;
+    }
 
     // slotMeshes가 아직 생성되지 않았다면 3D 킵 존 슬롯 5개를 즉시 생성
     if (!this.slotMeshes || this.slotMeshes.length === 0) {
@@ -361,6 +413,7 @@ export class DiceEngine {
       if (this.slotMeshes && this.slotMeshes.length > 0) {
         this.slotMeshes.forEach(mesh => {
           if (mesh && mesh.material) {
+            mesh.visible = true;
             mesh.material.map = this.goldSlotTex;
             mesh.material.color.setHex(0xffffff);
             mesh.material.opacity = this.currentSlotOpacity;
@@ -379,6 +432,7 @@ export class DiceEngine {
         if (this.slotMeshes && this.slotMeshes.length > 0) {
           this.slotMeshes.forEach(mesh => {
             if (mesh && mesh.material) {
+              mesh.visible = !this.trayModel?.isReady;
               mesh.material.map = this.defaultSlotTex;
               mesh.material.color.setHex(0xffffff);
               mesh.material.opacity = 1.0;
@@ -395,7 +449,7 @@ export class DiceEngine {
 
   initCannon() {
     this.world = new CANNON.World({
-      gravity: new CANNON.Vec3(0, -90, 0) // Heavy gravity for a fast, forceful drop
+      gravity: new CANNON.Vec3(0, -72, 0)
     });
     this.world.broadphase = new CANNON.NaiveBroadphase();
     this.world.allowSleep = true;
@@ -404,8 +458,8 @@ export class DiceEngine {
     const defaultMaterial = new CANNON.Material('default');
     const contactMaterial = new CANNON.ContactMaterial(
       defaultMaterial, defaultMaterial, {
-        friction: 0.3,
-        restitution: 0.5 // slightly more bouncy for impact
+        friction: 0.62,
+        restitution: 0.16
       }
     );
     this.world.addContactMaterial(contactMaterial);
@@ -416,6 +470,7 @@ export class DiceEngine {
     const floorBody = new CANNON.Body({ mass: 0, shape: floorShape });
     floorBody.position.set(0, -20, 0); // top surface is at y=0
     this.world.addBody(floorBody);
+    this.floorBody = floorBody;
     
     this.wallBodies = [];
     this.updateWalls();
@@ -437,6 +492,17 @@ export class DiceEngine {
     const h = this.container.clientHeight;
     const matSize = h / 1.25;
     const matSize3D = viewHeight * (matSize / h);
+    const trayLayout = this.trayModel?.getLayout(viewHeight);
+    const playBounds = trayLayout?.playBounds ?? {
+      minX: -matSize3D / 2,
+      maxX: matSize3D / 2,
+      minZ: -matSize3D / 2,
+      maxZ: matSize3D / 2
+    };
+    const playWidth = playBounds.maxX - playBounds.minX;
+    const playDepth = playBounds.maxZ - playBounds.minZ;
+    const playCenterX = (playBounds.minX + playBounds.maxX) / 2;
+    const playCenterZ = (playBounds.minZ + playBounds.maxZ) / 2;
     
     const wallThickness = 10;
     const padding = 0;
@@ -467,18 +533,18 @@ export class DiceEngine {
     const shift = 0;
 
     // Top (-z)
-    createWall(matSize3D + wallThickness * 2, wallThickness, 0, -matSize3D/2 - wallThickness/2 + padding, 0, 0);
+    createWall(playWidth + wallThickness * 2, wallThickness, playCenterX, playBounds.minZ - wallThickness / 2 + padding, 0, 0);
     // Bottom (+z)
-    createWall(matSize3D + wallThickness * 2, wallThickness, 0, matSize3D/2 + wallThickness/2 - padding, 0, 0);
+    createWall(playWidth + wallThickness * 2, wallThickness, playCenterX, playBounds.maxZ + wallThickness / 2 - padding, 0, 0);
     // Left (-x)
-    createWall(wallThickness, matSize3D + wallThickness * 2, -matSize3D/2 - wallThickness/2 + padding, 0, 0, 0);
+    createWall(wallThickness, playDepth + wallThickness * 2, playBounds.minX - wallThickness / 2 + padding, playCenterZ, 0, 0);
     // Right (+x)
-    createWall(wallThickness, matSize3D + wallThickness * 2, matSize3D/2 + wallThickness/2 - padding, 0, 0, 0);
+    createWall(wallThickness, playDepth + wallThickness * 2, playBounds.maxX + wallThickness / 2 - padding, playCenterZ, 0, 0);
 
     // 버건디 규격 수평 천장 물리 벽 (일반 굴림 Y=20, 판 뒤집기 Y=110)
-    const ceilingShape = new CANNON.Box(new CANNON.Vec3(matSize3D / 2, 5, matSize3D / 2));
+    const ceilingShape = new CANNON.Box(new CANNON.Vec3(playWidth / 2, 5, playDepth / 2));
     const ceilingBody = new CANNON.Body({ mass: 0, shape: ceilingShape });
-    ceilingBody.position.set(0, ceilingYPos, 0);
+    ceilingBody.position.set(playCenterX, ceilingYPos, playCenterZ);
     this.world.addBody(ceilingBody);
     this.wallBodies.push(ceilingBody);
   }
@@ -534,17 +600,6 @@ export class DiceEngine {
     const w = matSize + frameThickness * 2;
     const h = matSize + frameThickness * 2;
     
-    const yShift = matSize * 0.05; // 플레이매트를 5% 아래로 이동
-    const paddingTop = frameThickness + yShift;
-    const paddingBottom = frameThickness - yShift;
-    const paddingLeft = frameThickness;
-    const paddingRight = frameThickness;
-    
-    const tableFrame = this.container.querySelector('.table-frame');
-    if (tableFrame) {
-      tableFrame.style.padding = `${paddingTop}px ${paddingRight}px ${paddingBottom}px ${paddingLeft}px`;
-    }
-    
     // 컨테이너 크기 강제 고정
     this.container.style.flexGrow = '0';
     // For landing, we shouldn't force the container size because CSS aspect-ratio handles it, 
@@ -560,23 +615,22 @@ export class DiceEngine {
     }
     
     // 자식 요소들 크기 강제 동기화 (CSS flex 버그 방지)
-    const burgundy = this.container.querySelector('.burgundy-mat');
-    if (burgundy) {
-      burgundy.style.width = '100%';
-      burgundy.style.height = matSize + 'px';
-      burgundy.style.flexGrow = '0';
-    }
-    
     const keepZone = this.container.querySelector('.keep-zone-mat');
     if (keepZone) {
       keepZone.style.width = '100%';
     }
     
+    const yShift = 0;
     this.camera.aspect = 1; // w == h
     // 플레이매트가 yShift 만큼 아래로 이동했으므로, 3D 카메라 렌더링 영역도 동일하게 이동시켜 Z=0을 플레이매트 정중앙에 맞춤
     this.camera.setViewOffset(w, h, 0, -yShift, w, h);
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
+    const viewHeight = 2 * Math.tan((this.camera.fov * Math.PI / 180) / 2) * this.camera.position.y;
+    this.trayModel?.resize(viewHeight);
+    const trayFloorY = this.trayModel?.getLayout(viewHeight)?.floorY ?? 0;
+    this.currentFloorY = trayFloorY;
+    if (this.floorBody) this.floorBody.position.y = trayFloorY - 20;
     this.updateWalls();
     this.updateKeepSlots();
     
@@ -587,6 +641,7 @@ export class DiceEngine {
     const unkept = this.diceArray.filter(d => !d.isKept);
     unkept.forEach(die => {
       this.scene.remove(die.mesh);
+      this.removeArrangementShadow(die);
       if (die.body) this.world.removeBody(die.body);
     });
     this.diceArray = this.diceArray.filter(d => d.isKept);
@@ -595,6 +650,7 @@ export class DiceEngine {
   clearAll() {
     this.diceArray.forEach(die => {
       this.scene.remove(die.mesh);
+      this.removeArrangementShadow(die);
       if (die.body) this.world.removeBody(die.body);
     });
     this.diceArray = [];
@@ -711,7 +767,7 @@ export class DiceEngine {
         count = configs.length;
       }
       
-      const size = 1.26;
+      const size = DIE_SIZE;
       const boxGeo = this.diceGeometry;
       if (!this.octGeoCache) {
         this.octGeoCache = getSmoothBeveledOctGeo();
@@ -725,6 +781,8 @@ export class DiceEngine {
       const matSize = h / 1.25;
       const frameThickness = matSize * 0.125;
       const matSize3D = viewHeight * (matSize / h);
+      const trayLayout = this.trayModel?.getLayout(viewHeight);
+      const playBounds = trayLayout?.playBounds;
 
       for (let i = 0; i < configs.length; i++) {
         const config = configs[i];
@@ -760,12 +818,16 @@ export class DiceEngine {
         const mass = isHeavy ? 3 : 1;
         const body = new CANNON.Body({ mass: mass, shape });
         
-        body.linearDamping = 0.1;
-        body.angularDamping = 0.2;
+        body.linearDamping = 0.14;
+        body.angularDamping = 0.28;
         
         const padding = 1.0;
-        const startX = 0; 
-        const startZ = matSize3D / 2 - padding; 
+        const startX = playBounds
+          ? (playBounds.minX + playBounds.maxX) / 2
+          : 0;
+        const startZ = playBounds
+          ? playBounds.maxZ - padding
+          : matSize3D / 2 - padding;
 
         if (remoteSpawnTransforms && remoteSpawnTransforms[i]) {
           const st = remoteSpawnTransforms[i];
@@ -774,10 +836,11 @@ export class DiceEngine {
           body.velocity.set(st.vel.x, st.vel.y, st.vel.z);
           body.angularVelocity.set(st.angVel.x, st.angVel.y, st.angVel.z);
         } else {
+          const spread = (i / Math.max(1, count - 1)) - 0.5;
           body.position.set(
-            startX + (Math.random() - 0.5) * 4.0,
-            2 + (i * 0.5) + Math.random(),
-            startZ - (i * 1.5) - Math.random()
+            startX + spread * 4.5 + (Math.random() - 0.5) * 3.0,
+            DIE_HALF_SIZE + 0.8 + (i * 0.42) + Math.random(),
+            startZ - (i * 2.1) - Math.random() * 1.5
           );
           
           body.quaternion.setFromEuler(
@@ -786,17 +849,16 @@ export class DiceEngine {
             Math.random() * Math.PI
           );
           
-          const spread = (i / Math.max(1, count - 1)) - 0.5;
           body.velocity.set(
-            (Math.random() - 0.5) * 8 + (spread * 12),
-            10 + Math.random() * 10,
-            -10 - Math.random() * 8
+            (Math.random() - 0.5) * 14 + (spread * 18),
+            12 + Math.random() * 9,
+            -15 - Math.random() * 10
           );
           
           body.angularVelocity.set(
-            (Math.random() - 0.5) * 56,
-            (Math.random() - 0.5) * 56,
-            (Math.random() - 0.5) * 56
+            (Math.random() - 0.5) * 72,
+            (Math.random() - 0.5) * 72,
+            (Math.random() - 0.5) * 72
           );
 
           this.currentSpawnTransforms.push({
@@ -881,7 +943,7 @@ export class DiceEngine {
       unkeptDice.forEach(die => {
         // 이미 물리 바디가 벗겨졌다면 재초기화
         if (!die.body) {
-          const shape = new CANNON.Box(new CANNON.Vec3(0.63, 0.63, 0.63));
+          const shape = new CANNON.Box(new CANNON.Vec3(DIE_HALF_SIZE, DIE_HALF_SIZE, DIE_HALF_SIZE));
           const body = new CANNON.Body({ mass: 1, shape: shape });
           body.position.copy(die.mesh.position);
           body.quaternion.copy(die.mesh.quaternion);
@@ -909,9 +971,10 @@ export class DiceEngine {
         let allSleeping = true;
         unkeptDice.forEach(die => {
           if (die.body) {
-            // Y축 하한선 강제 클램프 구출 안전망 (바닥 밑 Y=0.63 이하 뚫림 방지)
-            if (die.body.position.y < 0.63) {
-              die.body.position.y = 0.63;
+            // Y축 하한선 강제 클램프 구출 안전망 (확대된 주사위가 바닥을 뚫지 않도록 보정)
+            const floorY = this.currentFloorY ?? 0;
+            if (die.body.position.y < floorY + DIE_HALF_SIZE) {
+              die.body.position.y = floorY + DIE_HALF_SIZE;
               if (die.body.velocity.y < 0) die.body.velocity.y = 0;
             }
 
@@ -1176,8 +1239,16 @@ export class DiceEngine {
     if (isFreshRoll) {
       this.isRollSettling = false; // 정렬이 시작되었으므로 플래그 해제
     }
+    if (clickedDie?.arrangementShadow && !clickedDie.isKept) {
+      // 킵 해제 후 플레이 영역으로 돌아오는 주사위는 그림자도 다시 페이드인한다.
+      clickedDie.arrangementShadow.userData.hasSettled = false;
+    }
     
-    const spacing = 2.5;
+    const activeSpacing = ARRANGED_DICE_SPACING;
+    const vFov = this.camera.fov * Math.PI / 180;
+    const viewHeight = 2 * Math.tan(vFov / 2) * this.camera.position.y;
+    const trayLayout = this.trayModel?.getLayout(viewHeight);
+    const keepSpacing = trayLayout?.keepSpacing ?? activeSpacing;
 
     // --- 1. 슬롯 초기화 (새로 굴렸을 때만) ---
     if (isFreshRoll) {
@@ -1208,39 +1279,48 @@ export class DiceEngine {
     
     // (A) 플레이매트(Active Zone) 기준 동적 중앙 정렬 좌표 계산
     const activeZoneCenter = 0;
+    const activeZoneCenterZ = trayLayout?.activeCenterZ ?? 0;
     const activeDice = this.diceArray.filter(d => !d.isKept).sort((a, b) => a.activeSlot - b.activeSlot);
     const activeCount = activeDice.length;
-    const activeStartX = activeCount > 0 ? activeZoneCenter - (activeCount - 1) * spacing / 2 : 0;
+    const activeStartX = activeCount > 0 ? activeZoneCenter - (activeCount - 1) * activeSpacing / 2 : 0;
 
     // 플레이매트에 남아 있는 주사위들의 동적 중앙 정렬 위치 부여
     activeDice.forEach((die, index) => {
-      die.targetPosition = new THREE.Vector3(activeStartX + index * spacing, 1, 0);
+      const activeFloorY = trayLayout?.floorY ?? 0;
+      die.targetPosition = new THREE.Vector3(
+        activeStartX + index * activeSpacing,
+        activeFloorY + DIE_HALF_SIZE + ARRANGED_DICE_CAMERA_LIFT,
+        activeZoneCenterZ
+      );
     });
 
     // (B) 킵존(Keep Zone) 기준 좌표
-    const vFov = this.camera.fov * Math.PI / 180;
-    const viewHeight = 2 * Math.tan(vFov / 2) * this.camera.position.y;
     const h = this.container.clientHeight;
     const matSize = h / 1.25;
     const frameThickness = matSize * 0.125;
     
     const yShift = matSize * 0.05;
     const paddingTop = frameThickness + yShift;
-    const keepZoneCenterZ = -viewHeight / 2 + viewHeight * ((paddingTop / 2 - yShift) / h);
-    const keptStartX = -2 * spacing;
+    const fallbackKeepZoneCenterZ = -viewHeight / 2 + viewHeight * ((paddingTop / 2 - yShift) / h);
+    const keepZoneCenterZ = trayLayout?.keepCenterZ ?? fallbackKeepZoneCenterZ;
+    const keptStartX = trayLayout?.keepStartX ?? -2 * keepSpacing;
 
     this.diceArray.forEach(die => {
+      // 정렬 상태에서는 광원 그림자를 제거하고, 바닥의 보조 그림자만 사용한다.
+      die.mesh.castShadow = false;
       if (die.isKept) {
         // 킵 된 주사위: 킵존의 keepSlot 위치로 이동
-        const targetX = keptStartX + die.keepSlot * spacing;
-        const targetZ = keepZoneCenterZ;
-        const camY = this.camera.position.y;
-        
-        const dieY = 1;
-        const dieX = targetX * (camY - dieY) / camY;
-        const dieZ = targetZ * (camY - dieY) / camY;
+        const measuredPoint = trayLayout?.keepPoints?.[die.keepSlot];
+        const targetX = measuredPoint?.x ?? keptStartX + die.keepSlot * keepSpacing;
+        const targetZ = measuredPoint?.z ?? keepZoneCenterZ;
+        const dieY = trayLayout?.getKeepDieY(DIE_SIZE, die.keepSlot) ?? DIE_HALF_SIZE + 0.025;
+        const keepFloorY = measuredPoint?.y ?? trayLayout?.floorY ?? 0;
+        const screenAlignedPoint = this.getScreenAlignedPoint(
+          new THREE.Vector3(targetX, keepFloorY, targetZ),
+          dieY
+        );
 
-        die.targetPosition = new THREE.Vector3(dieX, dieY, dieZ);
+        die.targetPosition = screenAlignedPoint ?? new THREE.Vector3(targetX, dieY, targetZ);
         
         // 킵된 주사위는 물리엔진 제거
         if (die.body) {
@@ -1256,6 +1336,89 @@ export class DiceEngine {
         die.mesh.position.copy(die.targetPosition);
         die.mesh.quaternion.copy(die.targetQuaternion);
       }
+    });
+  }
+
+  getScreenAlignedPoint(surfacePoint, targetY) {
+    const screenPoint = surfacePoint.clone().project(this.camera);
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(new THREE.Vector2(screenPoint.x, screenPoint.y), this.camera);
+    const targetPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -targetY);
+    const result = new THREE.Vector3();
+    return raycaster.ray.intersectPlane(targetPlane, result) ?? null;
+  }
+
+  createArrangementShadow(die) {
+    if (die.arrangementShadow) return die.arrangementShadow;
+
+    const material = new THREE.MeshBasicMaterial({
+      map: this.arrangementShadowTexture,
+      transparent: true,
+      opacity: 0.62,
+      depthWrite: false,
+      toneMapped: false
+    });
+    const shadow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.renderOrder = 2;
+    shadow.visible = false;
+    shadow.userData.baseOpacity = 0.62;
+    shadow.userData.hasSettled = false;
+    this.scene.add(shadow);
+    die.arrangementShadow = shadow;
+    return shadow;
+  }
+
+  removeArrangementShadow(die) {
+    if (!die.arrangementShadow) return;
+    this.scene.remove(die.arrangementShadow);
+    die.arrangementShadow.geometry.dispose();
+    die.arrangementShadow.material.dispose();
+    die.arrangementShadow = null;
+  }
+
+  updateArrangementShadows(dt) {
+    const viewHeight = 2 * Math.tan((this.camera.fov * Math.PI / 180) / 2) * this.camera.position.y;
+    const floorY = this.trayModel?.getLayout(viewHeight)?.floorY ?? this.currentFloorY ?? 0;
+
+    this.diceArray.forEach(die => {
+      const shadow = die.arrangementShadow;
+
+      // 킵되는 주사위는 기존 그림자를 짧게 지워 자연스럽게 정리한다.
+      if (die.isKept) {
+        if (shadow?.visible) {
+          shadow.position.set(die.mesh.position.x + 0.34, floorY + 0.035, die.mesh.position.z - 0.28);
+          shadow.material.opacity = Math.max(0, shadow.material.opacity - dt * 4);
+          shadow.visible = shadow.material.opacity > 0.01;
+        }
+        return;
+      }
+
+      const isArrangedActiveDie = !this.physicsActive
+        && !this.isRollSettling
+        && !die.isDead
+        && !die.isClearing
+        && !!die.targetPosition;
+
+      if (!isArrangedActiveDie) {
+        if (shadow) shadow.visible = false;
+        return;
+      }
+
+      const arrangementShadow = this.createArrangementShadow(die);
+      const progress = THREE.MathUtils.clamp(die.animationProgress ?? 1, 0, 1);
+      const fadeProgress = arrangementShadow.userData.hasSettled
+        ? 1
+        : THREE.MathUtils.smoothstep(progress, 0.02, 0.82);
+      arrangementShadow.position.set(
+        die.mesh.position.x + 0.34,
+        floorY + 0.035,
+        die.mesh.position.z - 0.28
+      );
+      arrangementShadow.scale.set(DIE_SIZE * 1.82, DIE_SIZE * 1.82, 1);
+      arrangementShadow.material.opacity = arrangementShadow.userData.baseOpacity * fadeProgress;
+      arrangementShadow.visible = fadeProgress > 0.01;
+      if (progress >= 1) arrangementShadow.userData.hasSettled = true;
     });
   }
 
@@ -1414,7 +1577,8 @@ export class DiceEngine {
     const hasClearing = this.diceArray.some(d => d.isClearing || d.isSpecialClearing);
     const hasAnimating = this.diceArray.some(d => d.animationProgress !== undefined && d.animationProgress < 1.0);
     const hasSlotOpacityAnim = Math.abs(this.currentSlotOpacity - this.targetSlotOpacity) > 0.001;
-    const needsRender = this.physicsActive || hasAnimating || hasClearing || this.confettiArray.length > 0 || hasSlotOpacityAnim;
+    const hasTrayGlow = this.trayModel?.isKeepGlowActive || this.trayModel?.keepGlow > 0.001;
+    const needsRender = this.physicsActive || hasAnimating || hasClearing || this.confettiArray.length > 0 || hasSlotOpacityAnim || hasTrayGlow;
     
     if (!needsRender) {
       this.renderer.render(this.scene, this.camera);
@@ -1426,6 +1590,7 @@ export class DiceEngine {
     const now = performance.now();
     const dt = (now - this.lastTime) / 1000;
     this.lastTime = now;
+    this.trayModel?.update(dt);
 
     if (this.physicsActive) {
       this.world.step(1/60, Math.min(dt, 0.1), 10);
@@ -1468,6 +1633,8 @@ export class DiceEngine {
         }
       });
     }
+
+    this.updateArrangementShadows(dt);
 
     // 5시 방향 흡수(Vacuum) 애니메이션 처리
     let stillClearing = false;
@@ -1604,6 +1771,7 @@ export class DiceEngine {
           this.targetSlotOpacity = 1.0;
           this.slotMeshes.forEach(mesh => {
             if (mesh && mesh.material) {
+              mesh.visible = !this.trayModel?.isReady;
               mesh.material.map = this.defaultSlotTex;
               mesh.material.opacity = 1.0;
               mesh.material.needsUpdate = true;

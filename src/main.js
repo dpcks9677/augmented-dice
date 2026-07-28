@@ -289,12 +289,6 @@ function initMainSkeletons() {
     historyCard.innerHTML = historySkeletonsHtml;
   }
 
-  // 3. playable-section & 버건디 매트 (모서리가 둥근 사각형)
-  const burgundyMat = document.querySelector('#dice-board-area .burgundy-mat');
-  if (burgundyMat) burgundyMat.classList.add('skeleton-box');
-  const tableFrame = document.querySelector('#dice-board-area .table-frame');
-  if (tableFrame) tableFrame.classList.add('skeleton-frame-box');
-
   const rollsLeftElem = document.getElementById('rolls-left');
   if (rollsLeftElem) rollsLeftElem.classList.add('skeleton-box');
 
@@ -347,12 +341,6 @@ function removeMainSkeletons() {
   document.querySelectorAll('.profile-user-detail .detail-item span:first-child').forEach(el => {
     el.classList.remove('skeleton-box', 'skeleton-detail-label');
   });
-
-  // 2. 버건디 매트 스켈레톤 해제
-  const burgundyMat = document.querySelector('#dice-board-area .burgundy-mat');
-  if (burgundyMat) burgundyMat.classList.remove('skeleton-box');
-  const tableFrame = document.querySelector('#dice-board-area .table-frame');
-  if (tableFrame) tableFrame.classList.remove('skeleton-frame-box');
 
   const rollsLeftElem = document.getElementById('rolls-left');
   if (rollsLeftElem) rollsLeftElem.classList.remove('skeleton-box');
