@@ -724,7 +724,7 @@ body {
   overflow-y: auto;
 }
 
-/* 중앙 플레이어블 섹션 (1920x960 16:9 기준 고정 폭 830px 유지 및 오버플로우 방지) */
+/* 중앙 플레이어블 섹션 (배포 로비와 동일한 1920x960 기준 고정 폭) */
 #playable-section {
   flex: 0 0 830px;
   width: 830px;
@@ -782,7 +782,9 @@ body {
 
 /* 주사위 컨테이너 (킵 존 + 버건디 보드) */
 .dice-container {
-  flex-grow: 1;
+  flex-grow: 0;
+  flex-shrink: 0;
+  aspect-ratio: 1 / 1;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -2665,7 +2667,6 @@ svg.lucide-icon {
 
 /* 버건디 매트 & 카지노 프레임 1:1 정사각형 원본 비율 완전 보존 */
 #playable-section .controls-area,
-#playable-section .dice-container,
 #playable-section #btn-roll {
   width: 100%;
   box-sizing: border-box;
