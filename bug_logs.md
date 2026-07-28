@@ -1,5 +1,11 @@
 # Bug Logs
 
+## 2026-07-29 Dice rotation occurred before result confirmation
+
+- Symptom: Dice rotated on the board after physics stopped but before the game had confirmed the roll result.
+- Cause: an end-of-roll settle-stabilizer animation ran inside `DiceEngine.finalizeRoll()` before `main.js`'s result-confirmation callback.
+- Fix: removed that early animation. Rotation and arranging now occur only through `arrangeAll(true)` after the result is confirmed.
+
 ## 2026-07-29 High-speed ingress reached the 12 o'clock wall
 
 - Symptom: Dice entered quickly from 6 o'clock, contacted the 12 o'clock wall, then fell back toward the center.

@@ -603,6 +603,29 @@ export class DiceEngine {
     });
   }
 
+  finalizeRoll(resolve, { isFlip = false } = {}) {
+    this.finishIngress();
+    this.physicsActive = false;
+    this.isRollSettling = true;
+
+    this.diceArray.forEach(die => {
+      if (die.isKept) return;
+
+      if (die.body) {
+        this.world.removeBody(die.body);
+        die.body = null;
+      }
+      die.value = this.calculateDieValue(die.mesh.quaternion, die.config);
+    });
+
+    if (isFlip) {
+      this.boundaryMode = BOUNDARY_MODES.NORMAL;
+      this.updateWalls(false);
+    }
+
+    resolve();
+  }
+
   getDieSupportHeight(config) {
     return config?.type === 'octahedron' ? 1.125 : DIE_HALF_SIZE;
   }
@@ -997,22 +1020,8 @@ export class DiceEngine {
         // 실제 물리 시뮬레이션이 2.5초 진행되면 강제로 멈춤
         if (allSleeping || this.physicsElapsed >= 2.5) {
           clearInterval(checkSleep);
-          this.finishIngress();
-          this.physicsActive = false;
-          
-          this.diceArray.forEach(die => {
-            if (!die.isKept) {
-              if (die.body) {
-                this.world.removeBody(die.body);
-                die.body = null;
-              }
-              die.value = this.calculateDieValue(die.mesh.quaternion, die.config);
-            }
-          });
-          
-          // arrangeAll is handled by main.js after unkeeping the dice
-          this.isRollSettling = true; // 정렬(arrangeAll) 호출 전까지 호버 방지
-          resolve();
+          // arrangeAll is handled by main.js after unkeeping the dice.
+          this.finalizeRoll(resolve);
         }
       }, 100);
     });
@@ -1084,20 +1093,7 @@ export class DiceEngine {
         // 높은 솟구침에 맞춰 물리 시뮬레이션 4.5초가 지나면 굴림 종료
         if (allSleeping || this.physicsElapsed >= 4.5) {
           clearInterval(checkFlip);
-          this.physicsActive = false;
-
-          unkeptDice.forEach(die => {
-            if (die.body) {
-              this.world.removeBody(die.body);
-              die.body = null;
-            }
-            die.value = this.calculateDieValue(die.mesh.quaternion, die.config);
-          });
-
-          this.boundaryMode = BOUNDARY_MODES.NORMAL;
-          this.updateWalls(false); // 일반 굴림 전용 버건디 천장(Y=20)으로 원복
-          this.isRollSettling = false;
-          resolve();
+          this.finalizeRoll(resolve, { isFlip: true });
         }
       }, 100);
     });
@@ -1318,15 +1314,14 @@ export class DiceEngine {
         }
     }
     
-    // If target position is provided, tilt the die so its top face points exactly at the camera lens.
-    // This completely hides the side faces (perspective distortion) for dice placed off-center.
+    // 정렬된 주사위는 카메라를 향하도록 보정해 윗면을 읽기 쉽게 유지한다.
     if (targetPos) {
       const up = new THREE.Vector3(0, 1, 0);
       const dir = new THREE.Vector3().subVectors(this.camera.position, targetPos).normalize();
       const alignQuat = new THREE.Quaternion().setFromUnitVectors(up, dir);
       return alignQuat.multiply(baseQuat);
     }
-    
+
     return baseQuat;
   }
 

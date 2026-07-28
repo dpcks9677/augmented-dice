@@ -1,5 +1,15 @@
 # Handoff History
 
+## 2026-07-29 Result-timed dice rotation
+
+- Removed the early settle-stability animation after it caused dice to rotate before result confirmation.
+- Rotation and arrangement are again limited to the existing result-confirmation `arrangeAll(true)` flow.
+
+## 2026-07-29 Settle stability plan
+
+- Documented the cause, a separate settle-stabilizer module, low-speed-only correction criteria, multiplayer authority, and the validation matrix.
+- No runtime code changed in this planning task.
+
 ## 2026-07-29 Central landing adjustment
 
 - The high-speed ingress retained its Z-axis momentum after clearing the rim, causing dice to hit the 12 o'clock wall before dropping.

@@ -1,5 +1,15 @@
 # Handoff
 
+## 2026-07-29 Result-timed dice rotation
+
+- Removed the early settle-stabilizer animation because it rotated dice before the game confirmed results.
+- Only the existing result-confirmation path (`arrangeAll(true)`) now rotates and arranges dice.
+
+## 2026-07-29 Settle stability plan
+
+- Added `.documents/dice_settle_stability_plan.md` for correcting dice that finish balanced on an edge or vertex.
+- The plan keeps roll values unchanged and applies a short orientation correction only during the low-speed settling phase.
+
 ## 2026-07-29 Central landing adjustment
 
 - The first throw now targets the board's central range and brakes horizontal velocity at that target, preventing a collision with the 12 o'clock wall before it falls.
