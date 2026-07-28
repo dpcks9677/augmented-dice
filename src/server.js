@@ -6,6 +6,7 @@ export class DiceServer {
     // players map: connectionId -> { uid, nickname, avatarUrl, isHost, isReady, disconnected }
     this.players = {}; 
     this.gameState = 'lobby'; // 'lobby', 'playing'
+    this.gameMode = null;
     this.gameSessionData = {
       scores: { 1: {}, 2: {}, 3: {}, 4: {} },
       activeMutations: { 1: {}, 2: {}, 3: {}, 4: {} },
@@ -153,6 +154,9 @@ export class DiceServer {
         if (wasHost && remainingIds.length > 0) {
           this.players[remainingIds[0]].isHost = true;
         }
+        if (remainingIds.length === 0) {
+          this.gameMode = null;
+        }
         
         this.broadcastState();
       }
@@ -220,8 +224,17 @@ export class DiceServer {
           return;
         }
 
-        if (data.mode) {
-          this.gameMode = data.mode;
+        const requestedMode = data.mode === 'augmented' ? 'augmented' : 'normal';
+        if (this.gameMode && this.gameMode !== requestedMode) {
+          conn.send(JSON.stringify({
+            type: 'error',
+            code: 'ROOM_MODE_MISMATCH',
+            message: '이 방은 선택한 게임 모드와 다릅니다. 같은 모드에서만 입장할 수 있습니다.'
+          }));
+          return;
+        }
+        if (!this.gameMode) {
+          this.gameMode = requestedMode;
         }
         const maxAllowed = (this.gameMode === 'augmented') ? 2 : 4;
 

@@ -367,9 +367,16 @@ function removeMainSkeletons() {
   mainSkeletonsActive = false;
 }
 
+let landingDiceEngine = null;
+
+function silenceLandingDice() {
+  landingDiceEngine?.setSoundEnabled(false);
+}
+
 // 캐시된 로그인 상태 확인 (낙관적 뷰 전환: 새로고침 시 랜딩 뷰 건너뛰고 메인 화면 즉시 노출 + 스켈레톤 활성화)
 const isLoggedInCache = localStorage.getItem('ad_logged_in') === 'true';
 if (isLoggedInCache) {
+  silenceLandingDice();
   els.landingView?.classList.add('hidden');
   els.loginView?.classList.add('hidden');
   els.nicknameSetupView?.classList.add('hidden');
@@ -422,8 +429,6 @@ let playerTableFlipUsed = { 1: false, 2: false, 3: false, 4: false };
 let questProgress = { 1: {}, 2: {}, 3: {}, 4: {} };
 let momentumState = { 1: 'ready', 2: 'ready', 3: 'ready', 4: 'ready' };
 let momentumGainedScore = { 1: 0, 2: 0, 3: 0, 4: 0 };
-
-let landingDiceEngine = null;
 
 function getPlayerLabel(playerIndex) {
   let name = `Player ${playerIndex}`;
@@ -918,6 +923,7 @@ subscribeAuthState(async (user) => {
       // 닉네임이 설정된 로그인 유저: 메인 게임 화면으로 바로 이동
       localStorage.setItem('ad_logged_in', 'true');
       localStorage.setItem('ad_nickname', userData.nickname);
+      silenceLandingDice();
       els.landingView?.classList.add('hidden');
       els.loginView?.classList.add('hidden');
       els.nicknameSetupView?.classList.add('hidden');
@@ -1040,6 +1046,7 @@ subscribeAuthState(async (user) => {
       }
     } else {
       // DB에 회원정보(닉네임)가 없는 경우: 닉네임 설정 화면
+      silenceLandingDice();
       els.landingView?.classList.add('hidden');
       els.loginView?.classList.add('hidden');
       els.appContainer?.classList.add('hidden');
@@ -1056,6 +1063,7 @@ subscribeAuthState(async (user) => {
 });
 
 els.btnGetStarted?.addEventListener('click', () => {
+  silenceLandingDice();
   els.landingView?.classList.add('hidden');
   els.loginView?.classList.remove('hidden');
 });
@@ -1114,6 +1122,7 @@ if (btnLogout) {
       }
 
       if (typeof landingDiceEngine !== 'undefined' && landingDiceEngine) {
+        landingDiceEngine.setSoundEnabled(true);
         setTimeout(() => {
           landingDiceEngine.roll(5);
         }, 100);
@@ -1645,6 +1654,15 @@ networkEngine.on('lobby_state', (data) => {
   }
 });
 
+networkEngine.on('error', (data) => {
+  if (data?.code !== 'ROOM_MODE_MISMATCH') return;
+  networkEngine.disconnect();
+  stopLobbyWaitingAnimation();
+  resetPinInputs();
+  els.appContainer?.classList.remove('lobby-state');
+  els.appContainer?.classList.add('lobby-select-state');
+});
+
 networkEngine.on('game_started', () => {
   stopLobbyWaitingAnimation();
   // 모든 기존 상태 클래스를 제거하고 게임 화면으로 이동
@@ -1727,6 +1745,7 @@ networkEngine.on('ingame_message', (data) => {
     updateRollsUI();
     clearScorePreviews();
     window.lastRollStartTime = Date.now();
+    soundEngine.duckBGM();
     if (diceEngine) {
       diceEngine.ready.then(() => diceEngine.roll(data.specialConfigs, true, data.spawnTransforms));
     }
@@ -1743,6 +1762,7 @@ networkEngine.on('ingame_message', (data) => {
         keptDice = [];
         activeDice = diceEngine.diceArray.filter(d => d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
         diceEngine.arrangeAll(true);
+        soundEngine.restoreBGM(Math.max(0, 45 - turnTimeRemaining));
         updateScorePreviews();
       }
     }, remainingDelay);
@@ -2445,7 +2465,7 @@ let augmentTimerInterval = null;
 
 function getSeededAugments(round, player) {
   const isHotseat = gameMode === 'hotseat' || gameMode === 'augmented-hotseat';
-  let pool = [...augmentData];
+  let pool = augmentData.filter(aug => aug.isAvailable !== false);
 
   // 2페이즈(6라운드 이상) 및 3페이즈(9라운드 이상) 드래프트 시 1페이즈 전용 증강 제외
   if (round >= 6) {
@@ -4950,7 +4970,8 @@ function renderCompendiumAugments(category = 'all') {
 
   filtered.forEach(aug => {
     const item = document.createElement('div');
-    item.className = 'augment-option modal-compendium-item';
+    const isUnavailable = aug.isAvailable === false;
+    item.className = `augment-option modal-compendium-item${isUnavailable ? ' is-unavailable' : ''}`;
     
     const catEnName = getAugmentCategoryEnName(aug);
     const desc = aug.description || (aug.name + ' 증강이 적용됩니다.');
@@ -4958,6 +4979,7 @@ function renderCompendiumAugments(category = 'all') {
 
     item.innerHTML = `
       <div class="modal-compendium-type-text">${catEnName}</div>
+      ${isUnavailable ? '<div class="modal-compendium-unavailable">리워크 예정</div>' : ''}
       <div class="aug-slot-header">
         ${icon}
         <span class="aug-slot-name">${aug.name}</span>

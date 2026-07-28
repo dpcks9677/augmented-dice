@@ -1,5 +1,41 @@
 # Handoff
 
+## 2026-07-29 Strange Die rework hold
+
+- Strange Die is excluded from the augment selection pool and retained as a disabled, rework-pending compendium entry.
+
+## 2026-07-29 Shadow map compatibility
+
+- Replaced deprecated soft PCF shadows with `BasicShadowMap` to remove WebGL depth-comparison filter warnings.
+
+## 2026-07-29 Landing dice initialization order
+
+- Moved the landing dice engine declaration before cached-login handling to prevent a temporal-dead-zone error during startup.
+
+## 2026-07-29 Dice result confirmation delay
+
+- Extended the maximum roll physics duration and result-confirmation wait from 2.5 seconds to 3.5 seconds.
+
+## 2026-07-29 Lobby mode mismatch protection
+
+- Room mode is fixed by the first player on the server.
+- Normal and augmented clients cannot join each other's room codes; the client returns to mode selection on rejection.
+
+## 2026-07-29 Persistent settled-dice shadow
+
+- Shadows now remain visible for settled active dice and are removed only for rerolls or score-registration clearing.
+
+## 2026-07-29 Landing dice audio cleanup
+
+- Landing dice now silence their collision audio when the user leaves the landing view; any active cloned hit sound is stopped.
+- Sound is re-enabled when returning to the landing view after logout.
+
+## 2026-07-29 Shadow, multiplayer audio, and clearing interaction fixes
+
+- Arrangement shadows are removed after their entry animation and during dice cleanup.
+- Remote rolls now duck BGM and restore it after synchronized result arrangement.
+- Clearing and special-clearing dice are excluded from click and hover interaction.
+
 ## 2026-07-29 Result-timed dice rotation
 
 - Removed the early settle-stabilizer animation because it rotated dice before the game confirmed results.

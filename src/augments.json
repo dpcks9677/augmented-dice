@@ -27,11 +27,11 @@
   },
   {
     "id": 4,
-    "name": "안티-포 트리플",
+    "name": "안티-포 쓰리스",
     "en-name": "Anti-Four Threes",
     "target": "트리플 (Threes)",
     "augmentId": "anti-four-threes",
-    "description": "트리플 족보를 <strong><u>안티-포 트리플</u></strong> 족보로 변경합니다.<br><br>'3'이 3개 이상이면서 '4'가 단 하나도 없을 때 기입이 가능하며, 족보의 조건을 만족하면 고정 12점을 등록할 수 있습니다."
+    "description": "쓰리스 족보를 <strong><u>안티-포 트리플</u></strong> 족보로 변경합니다.<br><br>'3'이 3개 이상이면서 '4'가 단 하나도 없을 때 기입이 가능하며, 족보의 조건을 만족하면 고정 12점을 등록할 수 있습니다."
   },
   {
     "id": 5,
@@ -39,32 +39,32 @@
     "en-name": "Prime Numbers",
     "target": "트리플 (Threes)",
     "mark": "P. Numbers",
-    "description": "트리플 족보를 <strong><u>프라임 넘버즈</u></strong> 족보로 변경합니다.<br><br>주사위 5개가 모두 소수(2, 3, 5)일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 12점을 등록할 수 있습니다.",
+    "description": "쓰리스 족보를 <strong><u>프라임 넘버즈</u></strong> 족보로 변경합니다.<br><br>주사위 5개가 모두 소수(2, 3, 5)일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 12점을 등록할 수 있습니다.",
     "augmentId": "prime-numbers"
   },
   {
     "id": 6,
-    "name": "안티-식스 쿼드",
+    "name": "안티-식스 포스",
     "en-name": "Anti-Six Fours",
     "target": "쿼드 (Fours)",
     "augmentId": "anti-six-fours",
-    "description": "쿼드 족보를 <strong><u>안티-식스 쿼드</u></strong> 족보로 변경합니다.<br><br>'4'가 3개 이상이면서 '6'이 단 하나도 없을 때 기입이 가능하며, 족보의 조건을 만족하면 고정 16점을 등록할 수 있습니다."
+    "description": "포스 족보를 <strong><u>안티-식스 쿼드</u></strong> 족보로 변경합니다.<br><br>'4'가 3개 이상이면서 '6'이 단 하나도 없을 때 기입이 가능하며, 족보의 조건을 만족하면 고정 16점을 등록할 수 있습니다."
   },
   {
     "id": 7,
-    "name": "안티-식스 펜타",
+    "name": "안티-식스 파이브스",
     "en-name": "Anti-Six Fives",
     "target": "펜타 (Fives)",
     "augmentId": "anti-six-fives",
-    "description": "펜타 족보를 <strong><u>안티-식스 펜타</u></strong> 족보로 변경합니다.<br><br>'5'가 3개 이상이면서 '6'이 단 하나도 없을 때 기입이 가능하며, 족보의 조건을 만족하면 고정 20점을 등록할 수 있습니다."
+    "description": "파이브스 족보를 <strong><u>안티-식스 펜타</u></strong> 족보로 변경합니다.<br><br>'5'가 3개 이상이면서 '6'이 단 하나도 없을 때 기입이 가능하며, 족보의 조건을 만족하면 고정 20점을 등록할 수 있습니다."
   },
   {
     "id": 8,
-    "name": "안티-파이브 헥사",
+    "name": "안티-파이브 식스스",
     "en-name": "Anti-Five Sixes",
     "target": "헥사 (Sixes)",
     "augmentId": "anti-five-sixes",
-    "description": "헥사 족보를 <strong><u>안티-파이브 헥사</u></strong> 족보로 변경합니다.<br><br>'6'이 3개 이상이면서 '5'가 단 하나도 없을 때 기입이 가능하며, 족보의 조건을 만족하면 고정 24점을 등록할 수 있습니다."
+    "description": "식스스 족보를 <strong><u>안티-파이브 헥사</u></strong> 족보로 변경합니다.<br><br>'6'이 3개 이상이면서 '5'가 단 하나도 없을 때 기입이 가능하며, 족보의 조건을 만족하면 고정 24점을 등록할 수 있습니다."
   },
   {
     "id": 9,
@@ -365,7 +365,8 @@
     "name": "이상한 주사위",
     "en-name": "Strange Die",
     "description": "기본 주사위를 <strong><u>이상한 주사위</strong></u>로 변경합니다.<br><br>이상한 주사위는 족보에 쓸 수 없는 조커 주사위이며, <strong><u>+2, +1, +1, 0, -1, 파괴</u></strong> 눈금 조합을 가집니다.<br><br>매 턴 족보 기입 시 눈금에 표시된 만큼 추가로 점수를 얻으며, 파괴 면이 나온 상태로 족보를 기입하면 주사위가 사라집니다.",
-    "augmentId": "strange-die"
+    "augmentId": "strange-die",
+    "isAvailable": false
   },
   {
     "id": 43,

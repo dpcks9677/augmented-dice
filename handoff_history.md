@@ -1,5 +1,38 @@
 # Handoff History
 
+## 2026-07-29 Strange Die rework hold
+
+- Added availability metadata to remove Strange Die from choices while retaining a disabled compendium card marked for rework.
+
+## 2026-07-29 Shadow map compatibility
+
+- Replaced the deprecated soft PCF configuration with `BasicShadowMap`, avoiding implementation-dependent depth comparison filtering.
+
+## 2026-07-29 Landing dice initialization order
+
+- Fixed cached-login startup by declaring the landing dice engine before its mute helper can be called.
+
+## 2026-07-29 Dice result confirmation delay
+
+- Extended the maximum roll physics duration and result-confirmation wait from 2.5 seconds to 3.5 seconds.
+
+## 2026-07-29 Lobby mode mismatch protection
+
+- Added authoritative room-mode validation in the PartyKit server and client-side cleanup for rejected joins.
+
+## 2026-07-29 Persistent settled-dice shadow
+
+- Reworked shadow lifecycle so completed arrangement retains the shadow; reroll and clearing paths remain responsible for removal.
+
+## 2026-07-29 Landing dice audio cleanup
+
+- Added per-engine sound enablement and active collision-audio cleanup.
+- Wired landing-view exit and logout-return transitions to silence/re-enable the landing dice engine.
+
+## 2026-07-29 Shadow, multiplayer audio, and clearing interaction fixes
+
+- Fixed persistent arrangement-shadow lifecycle, remote-roll BGM duck/restore, and interaction guards for both clearing animation modes.
+
 ## 2026-07-29 Result-timed dice rotation
 
 - Removed the early settle-stability animation after it caused dice to rotate before result confirmation.

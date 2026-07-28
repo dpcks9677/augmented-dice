@@ -22,6 +22,8 @@ export class DiceEngine {
     this.confettiArray = []; // { mesh, body, value, isKept }
     this.physicsActive = false;
     this.isAnimating = false;
+    this.soundEnabled = true;
+    this.activeHitAudios = new Set();
     this.onDieClick = null; // callback
     this.isReady = false;
     this.boundaryMode = BOUNDARY_MODES.NORMAL;
@@ -131,6 +133,7 @@ export class DiceEngine {
   }
 
   playHitSound(velocity) {
+    if (!this.soundEnabled) return;
     if (this.hitSounds.length === 0) return;
     
     // 충돌 속도에 비례하여 볼륨 설정 (15 이상이면 최대 볼륨 1.0)
@@ -145,10 +148,13 @@ export class DiceEngine {
     const sound = this.hitSounds[Math.floor(Math.random() * this.hitSounds.length)];
     const clone = sound.cloneNode();
     clone.volume = volume;
+    this.activeHitAudios.add(clone);
+    clone.addEventListener('ended', () => this.activeHitAudios.delete(clone), { once: true });
     clone.play().catch(e => { /* 브라우저 자동 재생 정책에 막힌 경우 무시 */ });
   }
 
   playCardboardHitSound(startTime = 0.07, volume = 0.8) {
+    if (!this.soundEnabled) return;
     if (!this.cardboardHitSound) return;
     const clone = this.cardboardHitSound.cloneNode();
     clone.volume = volume;
@@ -158,6 +164,21 @@ export class DiceEngine {
       /* ignore if currentTime cannot be set prior to play */
     }
     clone.play().catch(e => { /* 브라우저 자동 재생 정책에 막힌 경우 무시 */ });
+  }
+
+  setSoundEnabled(enabled) {
+    this.soundEnabled = !!enabled;
+    if (this.soundEnabled) return;
+
+    this.activeHitAudios.forEach(audio => {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch (e) {
+        // Ignore audio cleanup failures.
+      }
+    });
+    this.activeHitAudios.clear();
   }
 
 
@@ -208,7 +229,8 @@ export class DiceEngine {
 
     this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // Comparison-depth linear filtering used by PCF emits compatibility warnings on some WebGL drivers.
+    this.renderer.shadowMap.type = THREE.BasicShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 0.95;
     this.container.appendChild(this.renderer.domElement);
@@ -786,6 +808,7 @@ export class DiceEngine {
 
   // 폭발한(dead) 주사위를 배열에서 정리하는 메서드
   cleanUpDeadDice() {
+    this.diceArray.filter(die => die.isDead).forEach(die => this.removeArrangementShadow(die));
     this.diceArray = this.diceArray.filter(d => !d.isDead);
   }
 
@@ -797,6 +820,7 @@ export class DiceEngine {
     if (isSpecial) {
       // 폭죽(Confetti) 효과 - 0.2초 간격으로 순차 폭발
       this.diceArray.forEach((die, index) => {
+        this.removeArrangementShadow(die);
         die.isSpecialClearing = true;
         die.clearDelay = index * 0.2;
         die.anticipationProgress = 0;
@@ -818,6 +842,7 @@ export class DiceEngine {
     const targetPos = new THREE.Vector3(matSize3D/2 - 1, 0.5, matSize3D/2 - 1);
 
     this.diceArray.forEach(die => {
+      this.removeArrangementShadow(die);
       if (die.body) {
         this.world.removeBody(die.body);
         die.body = null;
@@ -1017,8 +1042,8 @@ export class DiceEngine {
           }
         });
 
-        // 실제 물리 시뮬레이션이 2.5초 진행되면 강제로 멈춤
-        if (allSleeping || this.physicsElapsed >= 2.5) {
+        // 실제 물리 시뮬레이션이 3.5초 진행되면 강제로 멈춤
+        if (allSleeping || this.physicsElapsed >= 3.5) {
           clearInterval(checkSleep);
           // arrangeAll is handled by main.js after unkeeping the dice.
           this.finalizeRoll(resolve);
@@ -1489,6 +1514,7 @@ export class DiceEngine {
         && !this.isRollSettling
         && !die.isDead
         && !die.isClearing
+        && !die.isSpecialClearing
         && !!die.targetPosition;
 
       if (!isArrangedActiveDie) {
@@ -1509,12 +1535,15 @@ export class DiceEngine {
       arrangementShadow.scale.set(DIE_SIZE * 1.82, DIE_SIZE * 1.82, 1);
       arrangementShadow.material.opacity = arrangementShadow.userData.baseOpacity * fadeProgress;
       arrangementShadow.visible = fadeProgress > 0.01;
-      if (progress >= 1) arrangementShadow.userData.hasSettled = true;
+      if (progress >= 1) {
+        arrangementShadow.userData.hasSettled = true;
+      }
     });
   }
 
   onClick(event) {
     if (this.allowKeep === false) return;
+    if (this.diceArray.some(die => die.isClearing || die.isSpecialClearing)) return;
     if (this.physicsActive || this.diceArray.some(d => d.animationProgress !== undefined && d.animationProgress < 1.0)) return; // 애니메이션 도중 클릭 무시
     
     const rect = this.container.getBoundingClientRect();
@@ -1567,6 +1596,12 @@ export class DiceEngine {
   }
 
   onMouseMove(event) {
+    if (this.diceArray.some(die => die.isClearing || die.isSpecialClearing)) {
+      this.hoverHighlight.visible = false;
+      this.octHoverHighlight.visible = false;
+      this.container.style.cursor = 'default';
+      return;
+    }
     // 굴러가는 중이거나, 정렬 대기 중(100ms 딜레이)이거나, 애니메이션 중이면 호버 숨김
     if (this.allowKeep === false || this.physicsActive || this.isRollSettling || this.diceArray.some(d => d.animationProgress !== undefined && d.animationProgress < 1.0)) {
       if (this.hoverHighlight.visible || this.octHoverHighlight.visible) {
@@ -1801,6 +1836,7 @@ export class DiceEngine {
     });
     
     if (stillClearing || stillSpecialClearing) {
+      this.diceArray.filter(die => die.isDead).forEach(die => this.removeArrangementShadow(die));
       this.diceArray = this.diceArray.filter(d => !d.isDead);
     }
 

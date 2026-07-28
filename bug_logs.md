@@ -1,5 +1,29 @@
 # Bug Logs
 
+## 2026-07-29 Mixed normal and augmented clients could join the same room code
+
+- Symptom: A player who selected a different game mode could join an existing room using the same code.
+- Cause: Each incoming `join` message overwrote the room's stored game mode.
+- Fix: The first player fixes the room mode. Later joins with a different mode receive `ROOM_MODE_MISMATCH`, are disconnected, and return to mode selection.
+
+## 2026-07-29 Arrangement shadow disappeared immediately
+
+- Symptom: The arrangement shadow appeared during movement but vanished as soon as dice settled.
+- Cause: Completion was treated as a shadow-removal event.
+- Fix: Settled active dice retain their shadow. Shadows are removed only when rerolling or when score registration starts dice clearing.
+
+## 2026-07-29 Landing dice sound played after entering the game menu
+
+- Symptom: A landing-page dice collision sound could be heard after leaving the landing view.
+- Cause: The landing `DiceEngine` continued simulating while hidden and its cloned collision audio was not tracked for cleanup.
+- Fix: Landing sound is disabled on every exit path, and active cloned hit sounds are paused and cleared immediately.
+
+## 2026-07-29 Arrangement shadow, opponent BGM, and clearing interaction
+
+- Shadow: Arrangement shadows remained visible after movement completed. They now get removed at completion and during dice cleanup.
+- Multiplayer audio: The remote `sync_roll` path did not duck BGM. It now fades BGM out for the opponent's roll and restores it after synchronized result arrangement.
+- Interaction: Clearing states were omitted from click and hover guards. Dice cannot now be selected while clearing animations run.
+
 ## 2026-07-29 Dice rotation occurred before result confirmation
 
 - Symptom: Dice rotated on the board after physics stopped but before the game had confirmed the roll result.
@@ -47,3 +71,23 @@
 - 검증:
   - 제한된 프레임 환경에서도 주사위가 바닥에 안착한 뒤 종료됨.
   - 최종 D6 중심 Y가 플레이면 위 `-0.53` 부근으로 안정됨.
+## 2026-07-29 Shadow map deprecation and WebGL filter warning
+
+- Symptom: Each dice renderer logged the deprecated `PCFSoftShadowMap` warning and a depth-comparison linear-filter compatibility warning.
+- Cause: Current Three.js maps the deprecated soft-PCF option to PCF, which uses linear filtering for comparison depth textures.
+- Fix: Switched to `BasicShadowMap`, avoiding the deprecated option and implementation-dependent comparison filtering.
+
+## 2026-07-29 Cached login caused landing dice initialization error
+
+- Symptom: Reloading with a cached login state threw a temporal-dead-zone error for `landingDiceEngine`.
+- Cause: Cached-login handling called `silenceLandingDice()` before the `let landingDiceEngine` declaration was initialized.
+- Fix: Moved the declaration and mute helper before cached-login handling.
+
+## 2026-07-29 Dice result confirmation was too early
+
+- Symptom: The roll result could be confirmed before the dice motion had enough time to finish naturally.
+- Fix: Extended the maximum physics simulation and result-confirmation wait from 2.5 seconds to 3.5 seconds.
+## 2026-07-29 Strange Die removed pending rework
+
+- Change: Marked the Strange Die augment as unavailable so it is excluded from all generated augment choices.
+- Compendium: The entry remains visible with a muted "리워크 예정" label.
