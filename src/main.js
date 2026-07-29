@@ -431,6 +431,13 @@ let equivalentExchangePenalty = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let questProgress = { 1: {}, 2: {}, 3: {}, 4: {} };
 let momentumState = { 1: 'ready', 2: 'ready', 3: 'ready', 4: 'ready' };
 let momentumGainedScore = { 1: 0, 2: 0, 3: 0, 4: 0 };
+let bountyHunterTarget = { 1: null, 2: null, 3: null, 4: null };
+let bountyHunterProgress = {
+  1: { count: 0, penaltyCount: 0 },
+  2: { count: 0, penaltyCount: 0 },
+  3: { count: 0, penaltyCount: 0 },
+  4: { count: 0, penaltyCount: 0 }
+};
 
 function getPlayerLabel(playerIndex) {
   let name = `Player ${playerIndex}`;
@@ -644,6 +651,7 @@ setTimeout(async () => {
   const landingWrapper = document.getElementById('landing-dice-wrapper');
   if (landingWrapper) {
     landingDiceEngine = new DiceEngine("#landing-dice-wrapper");
+    landingDiceEngine.soundEnabled = false; // 랜딩 페이지 자동 굴림 시 주사위 굴러가는 충돌음 제거
     await landingDiceEngine.ready;
 
     // 엔진 초기화 후 애니메이션 클래스 추가 (페이드 인 & 슬라이드 업)
@@ -2267,6 +2275,13 @@ function resetGameSession() {
   activeDice = [];
   equivalentExchangeUses = { 1: 0, 2: 0, 3: 0, 4: 0 };
   equivalentExchangePenalty = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  bountyHunterTarget = { 1: null, 2: null, 3: null, 4: null };
+  bountyHunterProgress = {
+    1: { count: 0, penaltyCount: 0 },
+    2: { count: 0, penaltyCount: 0 },
+    3: { count: 0, penaltyCount: 0 },
+    4: { count: 0, penaltyCount: 0 }
+  };
 
   if (els.gameLogContainer) {
     els.gameLogContainer.innerHTML = '<div class="log-empty-text">게임 로그가 없습니다.</div>';
@@ -2934,9 +2949,6 @@ function startTurn() {
 
   if (!window.isMultiplayer) {
     isViewingOpponentAugments = false;
-    if (typeof updateAugmentSidebar === 'function') {
-      updateAugmentSidebar(currentPlayer);
-    }
   }
   updateQuestProgress(currentPlayer, null, null);
 
@@ -2968,6 +2980,46 @@ function startTurn() {
 
   window.proceedTurnStart = function () {
     startTurnTimer();
+    
+    // 이전 턴의 fade-out 효과 클래스 잔재 정리
+    document.querySelectorAll('.fade-out-target').forEach(el => {
+      el.classList.remove('fade-out-target', 'bounty-target-highlight');
+    });
+    
+    // 현상금 사냥꾼 타겟 지정 시스템
+    const activeMuts = Object.values(activeMutations[currentPlayer] || {});
+    const bhProg = bountyHunterProgress[currentPlayer] || { count: 0, penaltyCount: 0 };
+    if (activeMuts.includes('bounty-hunter') && bhProg.count < 3) {
+      // 아직 비어있는(unfilled) 카테고리 후보 추출
+      const unfilledCats = [];
+      const allCats = ['aces', 'deuces', 'threes', 'fours', 'fives', 'sixes', 'choice', '4oak', 'fullhouse', 's-straight', 'l-straight', 'yacht'];
+      allCats.forEach(catId => {
+        if (scores[currentPlayer] && scores[currentPlayer][catId] === undefined) {
+          unfilledCats.push(catId);
+        }
+      });
+
+      if (unfilledCats.length > 0) {
+        // 방 코드 기반 시드 셔플/난수 생성 (결정론적 동기화 구현)
+        const roomCode = els.lobbyCodeDisplay?.textContent?.trim() || networkEngine.roomCode || window.currentRoomCode || 'HOTSEAT';
+        const seedStr = `${roomCode}_BHTARGET_R${currentRound}_P${currentPlayer}`;
+        let hash = 0;
+        for (let i = 0; i < seedStr.length; i++) {
+          hash = (hash * 31 + seedStr.charCodeAt(i)) & 0x7fffffff;
+        }
+        const pseudoRandom = () => {
+          hash = (hash * 1664525 + 1013904223) & 0x7fffffff;
+          return hash / 0x7fffffff;
+        };
+        const randomIndex = Math.floor(pseudoRandom() * unfilledCats.length);
+        bountyHunterTarget[currentPlayer] = unfilledCats[randomIndex];
+      } else {
+        bountyHunterTarget[currentPlayer] = null;
+      }
+    } else {
+      bountyHunterTarget[currentPlayer] = null;
+    }
+
     addGameLog({ type: 'turn-start', player: currentPlayer, round: currentRound }, 'turn-start', true, currentPlayer);
     clearScorePreviews();
     updateRollsUI();
@@ -2980,6 +3032,12 @@ function startTurn() {
     if (typeof diceEngine !== 'undefined' && diceEngine && typeof diceEngine.setYachtBankActive === 'function') {
       diceEngine.setYachtBankActive(shouldLightUp);
     }
+
+    // 현상금 사냥꾼 타겟 지정 완료 후 UI 갱신 (지연 방지)
+    if (typeof updateAugmentSidebar === 'function') {
+      updateAugmentSidebar(currentPlayer);
+    }
+    updateScoreboard();
   };
   const proceedTurnStart = window.proceedTurnStart;
 
@@ -3415,6 +3473,30 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
     }
   }
 
+  // 현상금 사냥꾼 타겟 기입 검증 및 진행도 누적
+  const activeMuts = Object.values(activeMutations[currentPlayer] || {});
+  if (activeMuts.includes('bounty-hunter') && bountyHunterTarget[currentPlayer] === catId) {
+    const bhProg = bountyHunterProgress[currentPlayer] || { count: 0, penaltyCount: 0 };
+    bhProg.count = (bhProg.count || 0) + 1;
+    
+    // 스크래치(0점) 기입 여부 판정
+    const actualScore = scoreObj.score !== undefined ? scoreObj.score : 0;
+    if (actualScore === 0) {
+      bhProg.penaltyCount = (bhProg.penaltyCount || 0) + 1;
+    }
+
+    const remainingHits = 3 - bhProg.count;
+    if (remainingHits > 0) {
+      addGameLog({ type: 'system', message: `[현상금 사냥꾼] 타겟 적중! 앞으로 ${remainingHits}회 남았습니다.` }, 'system', window.isMultiplayer, currentPlayer);
+    } else if (remainingHits === 0) {
+      // 3회 달성: 퀘스트 완료 보상 가산 (스크래치 감점 계산)
+      const finalReward = Math.max(0, 15 - (bhProg.penaltyCount * 3));
+      if (!questProgress[currentPlayer]) questProgress[currentPlayer] = {};
+      questProgress[currentPlayer].questBonus = (questProgress[currentPlayer].questBonus || 0) + finalReward;
+      addGameLog({ type: 'system', message: `[현상금 사냥꾼] 현상금 획득 성공! 보너스 +${finalReward}점을 얻었습니다.` }, 'system', window.isMultiplayer, currentPlayer);
+    }
+  }
+
   scores[currentPlayer][catId] = scoreObj;
 
   // 타임아웃에 의한 자동 기입인 경우 일반 족보 기입 로그 작성을 생략 (중복 방지)
@@ -3485,6 +3567,14 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
   cell.classList.remove('suggested');
   cell.classList.add('filled');
   cell.onclick = null; // 클릭 해제
+
+  // 타겟 족보 제목 Fade Out 효과
+  if (bountyHunterTarget[currentPlayer] === catId) {
+    const title = document.getElementById(`${currentPlayer === 1 ? 'cat-title-left' : 'cat-title-right'}-${catId}`);
+    if (title?.classList.contains('bounty-target-highlight')) {
+      title.classList.add('fade-out-target');
+    }
+  }
 
   // 특수 족보 완성 확인 (Choice 포함)
   const specialCats = ['choice', '4oak', 'fullhouse', 's-straight', 'l-straight', 'yacht'];
@@ -4133,8 +4223,22 @@ function updateScoreboard() {
               cell.title = '';
             }
           }
+          
         }
       }
+
+      // 현상금 사냥꾼 타겟은 점수 기입 칸 대신 족보 제목 칸에 표시한다.
+      ['left', 'right'].forEach(side => {
+        const isTargetColumn = side === 'left' ? currentPlayer === 1 : currentPlayer > 1;
+        const isBountyTarget = isTargetColumn &&
+          bountyHunterTarget[currentPlayer] === cat.id &&
+          scores[currentPlayer]?.[cat.id] === undefined;
+        const title = document.getElementById(`cat-title-${side}-${cat.id}`);
+        if (!title) return;
+        if (!title.classList.contains('fade-out-target')) {
+          title.classList.toggle('bounty-target-highlight', isBountyTarget);
+        }
+      });
     }
   });
 
@@ -4456,6 +4560,18 @@ function getQuestProgressText(player, mutId) {
       if (isDone) status = 'completed';
       questLines.push(line(`족보를 등록하기 전 킵 존에 주사위를 넣어 보너스 점수를 적립하세요. (${bankSt.turnsLeft}턴 남음!)`, isDone));
       break;
+
+    case 'bounty-hunter':
+      const bhProg = bountyHunterProgress[p] || { count: 0, penaltyCount: 0 };
+      const isCompleted = bhProg.count >= 3;
+      if (isCompleted) {
+        status = 'completed';
+        questLines.push(line(`타겟으로 지정된 족보를 3회 기입하기 (${bhProg.count}/3)`, true));
+      } else {
+        const targetName = bountyHunterTarget[p] ? getCategoryDisplayName(bountyHunterTarget[p], p) : '미지정';
+        questLines.push(line(`타겟으로 지정된 족보를 3회 기입하기 (${bhProg.count}/3)<br>└ 현재 타겟: <strong style="color: #d4af37;">${targetName}</strong>`, false));
+      }
+      break;
   }
 
   let resultHTML = '';
@@ -4536,7 +4652,8 @@ window.updateAugmentSidebar = function (player) {
       const augmentId = muts[i];
       const mut = mutationDefinitions[augmentId];
       if (!mut) continue;
-      const augInfo = augmentData.find(a => a.name.includes(mut.name) || (a.mark && mut.enName && a.mark === mut.enName)) || {};
+      const augInfo = augmentData.find(a => a.augmentId === augmentId) ||
+        augmentData.find(a => a.name.includes(mut.name) || (a.mark && mut.enName && a.mark === mut.enName)) || {};
       const svgIcon = getVariantSvg(augmentId);
       let description = augInfo.description || mut.name + ' 증강이 적용되었습니다.';
 
@@ -4733,6 +4850,11 @@ window.applyMutation = function (player, augmentId, isRemote = false) {
     if (!questProgress[player].nozdormuTargetRound) {
       questProgress[player].nozdormuTargetRound = currentRound <= 5 ? 5 : (currentRound <= 8 ? 8 : 12);
     }
+  }
+
+  if (augmentId === 'bounty-hunter') {
+    bountyHunterProgress[player] = { count: 0, penaltyCount: 0 };
+    bountyHunterTarget[player] = null;
   }
 
   if (augmentId === 'doubling') {

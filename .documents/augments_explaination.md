@@ -246,5 +246,15 @@
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="#222" stroke-width="2"/><circle cx="7.5" cy="7.5" r="1.3" fill="#222"/><circle cx="16.5" cy="7.5" r="1.3" fill="#222"/><circle cx="7.5" cy="12" r="1.3" fill="#222"/><circle cx="12" cy="12" r="1.3" fill="#222"/><circle cx="16.5" cy="16.5" r="1.3" fill="#222"/><circle cx="7.5" cy="16.5" r="1.3" fill="#222"/><circle cx="16.5" cy="16.5" r="1.3" fill="#222"/></svg> 45. 세븐스 다이스 (Sevens Dice)**
     *   **효과:** 내 주사위 중 2개를 [2, 3, 4, 5, 6, 7] 눈금을 가진 주사위로 영구 교체. 스트레이트 달성 시 '7' 눈금 사용 가능.
     *   **텍스트:** 기본 주사위를 세븐스 다이스로 변경합니다.<br><br>세븐스 다이스는 [2, 3, 4, 5, 6, 7] 눈금을 가지며, 스트레이트 달성 시 '7' 눈금을 사용해서 족보의 조건을 채울 수 있습니다.
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M 3 18 L 21 18 M 5 18 L 5 13 C 5 11 7 9 12 9 C 17 9 19 11 19 13 L 19 18 M 12 4 L 12 11 M 9 7 L 12 4 L 15 7" stroke="#222" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg> 46. 판 뒤집기 (Table Flip)**
+    *   **효과:** 게임 당 한 번, 킵 하지 않은 주사위를 강하게 흔들며 재굴림 (리롤 횟수 미소모)
+    *   **텍스트:** 게임 당 한 번, 내 턴에 판 뒤집기를 사용 가능합니다.<br><br>킵 하지 않은 주사위가 위로 솟구친 다음 떨어져 다시 굴러갑니다. (리롤을 소모하지 않습니다.)
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><g stroke="#222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M11 15h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 17" /><path d="m7 21 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.88l-1 .76" /></g><g transform="translate(7, 2) rotate(10)"><rect x="0" y="0" width="6" height="6" rx="1.2" fill="none" stroke="#222" stroke-width="1.5"/><circle cx="2" cy="2" r="0.6" fill="#222"/><circle cx="4" cy="4" r="0.6" fill="#222"/></g></svg> 47. 등가교환 (Equivalent Exchange)**
+    *   **효과:** 게임 당 최대 3회, 리롤 소모 후 -5점 감점을 받고 리롤 기회 1회 추가 획득
+    *   **텍스트:** 게임 중 단 세 번, 리롤을 다 소모한 후에도 -5점의 페널티를 받고 주사위를 추가로 굴릴 수 있습니다.<br><br>(한 라운드에서 연속해서 사용할 수 있습니다.)
+*   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><circle cx="12" cy="12" r="9" fill="none" stroke="#222" stroke-width="1.8"/><line x1="12" y1="2" x2="12" y2="5" stroke="#222" stroke-width="1.8" stroke-linecap="round"/><line x1="12" y1="19" x2="12" y2="22" stroke="#222" stroke-width="1.8" stroke-linecap="round"/><line x1="2" y1="12" x2="5" y2="12" stroke="#222" stroke-width="1.8" stroke-linecap="round"/><line x1="19" y1="12" x2="22" y2="12" stroke="#222" stroke-width="1.8" stroke-linecap="round"/><g transform="translate(9.5, 9.5)"><rect x="0" y="0" width="5" height="5" rx="1" fill="#222" stroke="#222" stroke-width="0.5"/><circle cx="2.5" cy="2.5" r="0.6" fill="#fff"/></g></svg> 48. 현상금 사냥꾼 (Bounty Hunter)**
+    *   **효과:** 매 턴마다 아직 점수가 기입되지 않은 족보 중 무작위 하나가 타겟으로 금색 하이라이트 지정. 타겟 족보를 3회 기입하면 퀘스트 완료(+15점 보너스). 스크래치(0점)로 기입할 때마다 최종 보상 -3점 감점.
+    *   **텍스트:** 매 턴마다 점수가 기입되지 않은 족보 중 무작위 하나가 타겟으로 지정됩니다. 타겟 족보를 3회 기입하면 완료됩니다. 단, 스크래치(0점)로 기입 시 최종 보너스가 -3점씩 감소합니다.
+
 
 

@@ -136,7 +136,8 @@ export function getVariantSvg(id) {
     'sevens-dice': 'sevens-dice',
     'copycat': 'copycat',
     'doubling': 'doubling',
-    'nozdormu': 'nozdormu'
+    'nozdormu': 'nozdormu',
+    'bounty-hunter': 'bounty-hunter'
   };
   const mappedId = map[id] || id;
 
@@ -312,7 +313,36 @@ export function getVariantSvg(id) {
   } else if (mappedId === 'table-flip') {
     inner = `<path d="M 3 18 L 21 18 M 5 18 L 5 13 C 5 11 7 9 12 9 C 17 9 19 11 19 13 L 19 18 M 12 4 L 12 11 M 9 7 L 12 4 L 15 7" stroke="#222" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`;
   } else if (mappedId === 'equivalent-exchange') {
-    inner = `<path d="M 7 10 A 5 5 0 0 1 17 10 M 17 14 A 5 5 0 0 1 7 14 M 17 7 L 17 10 L 14 10 M 7 17 L 7 14 L 10 14" stroke="#222" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`;
+    // Lucide HandHelping 기반 손 모양 + 그 위에 떠 있는 주사위 (아래쪽 3개 보조선 제거)
+    inner = `
+      <!-- 손 모양 (HandHelping 스타일) -->
+      <g stroke="#222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none">
+        <path d="M11 15h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 17" />
+        <path d="m7 21 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.88l-1 .76" />
+      </g>
+      <!-- 손 위에 떠 있는 주사위 (회전된 큐브) -->
+      <g transform="translate(7, 2) rotate(10)">
+        <rect x="0" y="0" width="6" height="6" rx="1.2" fill="none" stroke="#222" stroke-width="1.5"/>
+        <circle cx="2" cy="2" r="0.6" fill="#222"/>
+        <circle cx="4" cy="4" r="0.6" fill="#222"/>
+      </g>
+    `;
+  } else if (mappedId === 'bounty-hunter') {
+    // Lucide Crosshair 테두리 + 중앙 미니 2D 주사위
+    inner = `
+      <!-- Crosshair (조준경 외각선 & 십자 돌출선) -->
+      <circle cx="12" cy="12" r="9" fill="none" stroke="#222" stroke-width="1.8"/>
+      <line x1="12" y1="2" x2="12" y2="5" stroke="#222" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="12" y1="19" x2="12" y2="22" stroke="#222" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="2" y1="12" x2="5" y2="12" stroke="#222" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="19" y1="12" x2="22" y2="12" stroke="#222" stroke-width="1.8" stroke-linecap="round"/>
+      <!-- 중앙 미니 주사위 (마름모/비스듬한 각도 사각형) -->
+      <g transform="translate(9.5, 9.5)">
+        <rect x="0" y="0" width="5" height="5" rx="1" fill="#222" stroke="#222" stroke-width="0.5"/>
+        <!-- 눈금 1개 (에이스 센터 도트) -->
+        <circle cx="2.5" cy="2.5" r="0.6" fill="#fff"/>
+      </g>
+    `;
   } else if (mappedId === 'nozdormu') {
     return `<svg viewBox="0 0 260 225" width="1.2em" height="1.2em" style="vertical-align: text-bottom; margin-right: 6px;">
       <defs>

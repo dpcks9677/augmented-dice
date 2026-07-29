@@ -176,6 +176,7 @@ export const mutationDefinitions = {
   'copycat': { id: 'copycat', name: '카피캣', target: 'q8', enName: 'Copycat', isQuest: true },
   'doubling': { id: 'doubling', name: '더블링', target: 'q9', enName: 'Doubling', isQuest: true },
   'nozdormu': { id: 'nozdormu', name: '노즈도르무', target: 'q10', enName: 'Nozdormu', isQuest: true },
+  'bounty-hunter': { id: 'bounty-hunter', name: '현상금 사냥꾼', target: 'q11', enName: 'Bounty Hunter', isQuest: true },
   
   // -------------------------
   // Enhancement Section

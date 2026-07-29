@@ -5,7 +5,7 @@
     "en-name": "Lucky Sevens",
     "target": "에이스 (Aces)",
     "mark": "L. Sevens",
-    "description": "에이스 족보를 <strong><u>럭키 세븐</u></strong> 족보로 변경합니다.<br><br>주사위 눈금 총합이 7, 17, 27 중 하나일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 15점을 등록할 수 있습니다.",
+    "description": "에이스 족보를 <strong><u>럭키 세븐</u></strong> 족보로 변경합니다.<br><br>주사위 눈금 총합이 7, 17, 27 중 하나일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 15점을 기입할 수 있습니다.",
     "augmentId": "lucky-sevens"
   },
   {
@@ -14,7 +14,7 @@
     "en-name": "Perfect Squares",
     "target": "에이스 (Aces)",
     "mark": "P. Squares",
-    "description": "에이스 족보를 <strong><u>퍼펙트 스퀘어</u></strong> 족보로 변경합니다.<br><br>주사위 눈금 총합이 9, 16, 25 중 하나일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 12점을 등록할 수 있습니다.",
+    "description": "에이스 족보를 <strong><u>퍼펙트 스퀘어</u></strong> 족보로 변경합니다.<br><br>주사위 눈금 총합이 9, 16, 25 중 하나일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 12점을 기입할 수 있습니다.",
     "augmentId": "perfect-squares"
   },
   {
@@ -23,7 +23,7 @@
     "en-name": "Anti-Ace Deuces",
     "target": "듀스 (Deuces)",
     "augmentId": "anti-ace-deuces",
-    "description": "듀스 족보를 <strong><u>안티-에이스 듀스</u></strong> 족보로 변경합니다.<br><br>'2'가 3개 이상이면서 '1'이 단 하나도 없을 때 기입이 가능하며, 족보의 조건을 만족하면 고정 8점을 등록할 수 있습니다."
+    "description": "듀스 족보를 <strong><u>안티-에이스 듀스</u></strong> 족보로 변경합니다.<br><br>'2'가 3개 이상이면서 '1'이 단 하나도 없을 때 기입이 가능하며, 족보의 조건을 만족하면 고정 8점을 기입할 수 있습니다."
   },
   {
     "id": 4,
@@ -31,7 +31,7 @@
     "en-name": "Anti-Four Threes",
     "target": "트리플 (Threes)",
     "augmentId": "anti-four-threes",
-    "description": "쓰리스 족보를 <strong><u>안티-포 트리플</u></strong> 족보로 변경합니다.<br><br>'3'이 3개 이상이면서 '4'가 단 하나도 없을 때 기입이 가능하며, 족보의 조건을 만족하면 고정 12점을 등록할 수 있습니다."
+    "description": "쓰리스 족보를 <strong><u>안티-포 트리플</u></strong> 족보로 변경합니다.<br><br>'3'이 3개 이상이면서 '4'가 단 하나도 없을 때 기입이 가능하며, 족보의 조건을 만족하면 고정 12점을 기입할 수 있습니다."
   },
   {
     "id": 5,
@@ -39,7 +39,7 @@
     "en-name": "Prime Numbers",
     "target": "트리플 (Threes)",
     "mark": "P. Numbers",
-    "description": "쓰리스 족보를 <strong><u>프라임 넘버즈</u></strong> 족보로 변경합니다.<br><br>주사위 5개가 모두 소수(2, 3, 5)일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 12점을 등록할 수 있습니다.",
+    "description": "쓰리스 족보를 <strong><u>프라임 넘버즈</u></strong> 족보로 변경합니다.<br><br>주사위 5개가 모두 소수(2, 3, 5)일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 12점을 기입할 수 있습니다.",
     "augmentId": "prime-numbers"
   },
   {
@@ -48,7 +48,7 @@
     "en-name": "Anti-Six Fours",
     "target": "쿼드 (Fours)",
     "augmentId": "anti-six-fours",
-    "description": "포스 족보를 <strong><u>안티-식스 쿼드</u></strong> 족보로 변경합니다.<br><br>'4'가 3개 이상이면서 '6'이 단 하나도 없을 때 기입이 가능하며, 족보의 조건을 만족하면 고정 16점을 등록할 수 있습니다."
+    "description": "포스 족보를 <strong><u>안티-식스 쿼드</u></strong> 족보로 변경합니다.<br><br>'4'가 3개 이상이면서 '6'이 단 하나도 없을 때 기입이 가능하며, 족보의 조건을 만족하면 고정 16점을 기입할 수 있습니다."
   },
   {
     "id": 7,
@@ -56,7 +56,7 @@
     "en-name": "Anti-Six Fives",
     "target": "펜타 (Fives)",
     "augmentId": "anti-six-fives",
-    "description": "파이브스 족보를 <strong><u>안티-식스 펜타</u></strong> 족보로 변경합니다.<br><br>'5'가 3개 이상이면서 '6'이 단 하나도 없을 때 기입이 가능하며, 족보의 조건을 만족하면 고정 20점을 등록할 수 있습니다."
+    "description": "파이브스 족보를 <strong><u>안티-식스 펜타</u></strong> 족보로 변경합니다.<br><br>'5'가 3개 이상이면서 '6'이 단 하나도 없을 때 기입이 가능하며, 족보의 조건을 만족하면 고정 20점을 기입할 수 있습니다."
   },
   {
     "id": 8,
@@ -64,7 +64,7 @@
     "en-name": "Anti-Five Sixes",
     "target": "헥사 (Sixes)",
     "augmentId": "anti-five-sixes",
-    "description": "식스스 족보를 <strong><u>안티-파이브 헥사</u></strong> 족보로 변경합니다.<br><br>'6'이 3개 이상이면서 '5'가 단 하나도 없을 때 기입이 가능하며, 족보의 조건을 만족하면 고정 24점을 등록할 수 있습니다."
+    "description": "식스스 족보를 <strong><u>안티-파이브 헥사</u></strong> 족보로 변경합니다.<br><br>'6'이 3개 이상이면서 '5'가 단 하나도 없을 때 기입이 가능하며, 족보의 조건을 만족하면 고정 24점을 기입할 수 있습니다."
   },
   {
     "id": 9,
@@ -72,7 +72,7 @@
     "en-name": "Gambler",
     "target": "초이스 (Choice)",
     "mark": "Gambler",
-    "description": "초이스 족보를 <strong><u>갬블러</u></strong> 족보로 변경합니다.<br><br>주사위 눈금 총합이 24 이상일 때 기입이 가능하며, 족보의 조건을 만족하면 <strong><u>주사위 눈금 총합 + 7</u></strong> 점을 등록할 수 있습니다.",
+    "description": "초이스 족보를 <strong><u>갬블러</u></strong> 족보로 변경합니다.<br><br>주사위 눈금 총합이 24 이상일 때 기입이 가능하며, 족보의 조건을 만족하면 <strong><u>주사위 눈금 총합 + 7</u></strong> 점을 기입할 수 있습니다.",
     "augmentId": "gambler"
   },
   {
@@ -81,7 +81,7 @@
     "en-name": "Three of a Kind",
     "target": "포카인드 (Four of a Kind)",
     "mark": "3 of a Kind",
-    "description": "포카인드 족보를 <strong><u>쓰리 오브 어 카인드</u></strong> 족보로 변경합니다.<br><br>같은 눈금이 3개 이상일 때 기입이 가능하며, 족보의 조건을 만족하면 <strong><u>주사위 눈금 총합</u></strong> 점을 등록할 수 있습니다.",
+    "description": "포카인드 족보를 <strong><u>쓰리 오브 어 카인드</u></strong> 족보로 변경합니다.<br><br>같은 눈금이 3개 이상일 때 기입이 가능하며, 족보의 조건을 만족하면 <strong><u>주사위 눈금 총합</u></strong> 점을 기입할 수 있습니다.",
     "augmentId": "three-of-a-kind"
   },
   {
@@ -90,7 +90,7 @@
     "en-name": "Four by Four",
     "target": "포카인드 (Four of a Kind)",
     "mark": "Four x Four",
-    "description": "포카인드 족보를 <strong><u>포 바이 포</u></strong> 족보로 변경합니다.<br><br>'4'를 4개 이상 모아 포카인드를 달성하면 <strong><u>주사위 눈금 총합 + 10</u></strong> 점을 등록할 수 있습니다.<br><br>(다른 숫자로 달성 시 총합 - 4점 적용)",
+    "description": "포카인드 족보를 <strong><u>포 바이 포</u></strong> 족보로 변경합니다.<br><br>'4'를 4개 이상 모아 포카인드를 달성하면 <strong><u>주사위 눈금 총합 + 10</u></strong> 점을 기입할 수 있습니다.<br><br>(다른 숫자로 달성 시 총합 - 4점 적용)",
     "augmentId": "four-by-four"
   },
   {
@@ -99,7 +99,7 @@
     "en-name": "Tiny House",
     "target": "풀하우스 (Full House)",
     "mark": "Tiny House",
-    "description": "풀하우스 족보를 <strong><u>타이니 하우스</u></strong> 족보로 변경합니다.<br><br>'5'와 '6'을 제외한 눈금만으로 족보의 조건을 만족하면 고정 28점을 등록할 수 있습니다.",
+    "description": "풀하우스 족보를 <strong><u>타이니 하우스</u></strong> 족보로 변경합니다.<br><br>'5'와 '6'을 제외한 눈금만으로 족보의 조건을 만족하면 고정 28점을 기입할 수 있습니다.",
     "augmentId": "tiny-house"
   },
   {
@@ -108,7 +108,7 @@
     "en-name": "Two Pair",
     "target": "풀하우스 (Full House)",
     "mark": "Two Pair",
-    "description": "풀하우스 족보를 <strong><u>투 페어</u></strong> 족보로 변경합니다.<br><br>서로 다른 2쌍의 숫자가 각각 2개 이상일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 15점을 등록할 수 있습니다.",
+    "description": "풀하우스 족보를 <strong><u>투 페어</u></strong> 족보로 변경합니다.<br><br>서로 다른 2쌍의 숫자가 각각 2개 이상일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 15점을 기입할 수 있습니다.",
     "augmentId": "two-pair"
   },
   {
@@ -117,7 +117,7 @@
     "en-name": "Head & Tail",
     "target": "풀하우스 (Full House)",
     "mark": "Head & Run",
-    "description": "풀하우스 족보를 <strong><u>머리와 몸통</u></strong> 족보로 변경합니다.<br><br>연속된 눈금 3개와, 같은 눈금 2개를 구성할 때 기입이 가능하며, 족보의 조건을 만족하면 <strong><u>주사위 눈금 총합 + 10점</u></strong>을 등록할 수 있습니다",
+    "description": "풀하우스 족보를 <strong><u>머리와 몸통</u></strong> 족보로 변경합니다.<br><br>연속된 눈금 3개와, 같은 눈금 2개를 구성할 때 기입이 가능하며, 족보의 조건을 만족하면 <strong><u>주사위 눈금 총합 + 10점</u></strong>을 기입할 수 있습니다",
     "augmentId": "head-and-tail"
   },
   {
@@ -126,7 +126,7 @@
     "en-name": "Evens",
     "target": "스몰 스트레이트 (Small Straight)",
     "mark": "Evens",
-    "description": "스몰 스트레이트 족보를 <strong><u>에번스</u></strong> 족보로 변경합니다.<br><br>주사위 5개가 모두 짝수(2, 4, 6)일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 20점을 등록할 수 있습니다.",
+    "description": "스몰 스트레이트 족보를 <strong><u>에번스</u></strong> 족보로 변경합니다.<br><br>주사위 5개가 모두 짝수(2, 4, 6)일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 20점을 기입할 수 있습니다.",
     "augmentId": "evens"
   },
   {
@@ -299,7 +299,7 @@
     "target": "q7",
     "type": "Quest",
     "reward": "달성 즉시 보너스 +15점 획득",
-    "description": "<strong><u>퀘스트</strong></u>: 족보를 등록할 때, 1 눈금이 나온 주사위를 7개 사용합니다.<br><br>퀘스트 완료 시, 보너스 15점을 획득합니다.",
+    "description": "<strong><u>퀘스트</strong></u>: 족보를 기입할 때, 1 눈금이 나온 주사위를 7개 사용합니다.<br><br>퀘스트 완료 시, 보너스 15점을 획득합니다.",
     "augmentId": "every-little"
   },
   {
@@ -319,7 +319,7 @@
     "target": "q9",
     "type": "Quest",
     "reward": "보너스 +10점 획득",
-    "description": "<strong><u>퀘스트</strong></u>: 동일한 점수로 족보를 두 번 등록합니다. (스크래치 제외)<br><br>퀘스트 완료 시, 보너스 10점을 획득합니다.",
+    "description": "<strong><u>퀘스트</strong></u>: 동일한 점수로 족보를 두 번 기입합니다. (스크래치 제외)<br><br>퀘스트 완료 시, 보너스 10점을 획득합니다.",
     "augmentId": "doubling"
   },
   {
@@ -404,5 +404,15 @@
     "type": "Enhancement",
     "description": "게임 중 단 세 번, 리롤을 다 소모한 후에도 -5점의 페널티를 받고 주사위를 추가로 굴릴 수 있습니다.<br><br>(한 라운드에서 연속해서 사용할 수 있습니다.)",
     "augmentId": "equivalent-exchange"
+  },
+  {
+    "id": 48,
+    "name": "현상금 사냥꾼",
+    "en-name": "Bounty Hunter",
+    "target": "q11",
+    "type": "Quest",
+    "reward": "보너스 +15점 획득",
+    "description": "<strong><u>퀘스트</strong></u>: 매 턴마다 점수가 기입되지 않은 족보 중 무작위 하나가 타겟으로 지정됩니다. 타겟이 된 족보를 3회 기입합니다. <br><br>단, 스크래치(0점)로 기입 시 최종 보너스가 -3점씩 감소합니다.",
+    "augmentId": "bounty-hunter"
   }
 ]
