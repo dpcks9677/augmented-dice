@@ -426,6 +426,8 @@ let destroyedStrangeDice = { 1: false, 2: false, 3: false, 4: false };
 let promotionConsumed = { 1: false, 2: false, 3: false, 4: false };
 let promotionAcquiredRound = { 1: null, 2: null, 3: null, 4: null };
 let playerTableFlipUsed = { 1: false, 2: false, 3: false, 4: false };
+let equivalentExchangeUses = { 1: 0, 2: 0, 3: 0, 4: 0 };
+let equivalentExchangePenalty = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let questProgress = { 1: {}, 2: {}, 3: {}, 4: {} };
 let momentumState = { 1: 'ready', 2: 'ready', 3: 'ready', 4: 'ready' };
 let momentumGainedScore = { 1: 0, 2: 0, 3: 0, 4: 0 };
@@ -489,11 +491,12 @@ function formatLogEntry(log, playerNames = null) {
     case 'turn-start':
       return `${pLabel}의 턴 (${log.round} 라운드)`;
     case 'roll-action':
-      const { rolledCount, keptValues } = log.meta;
+      const { rolledCount, keptValues, isEquivalentRoll } = log.meta;
+      const eePrefix = isEquivalentRoll ? '[등가교환] -5점의 페널티를 받고 주사위를 추가로 굴렸습니다. ' : '';
       if (!keptValues || keptValues.length === 0) {
-        return `주사위 ${rolledCount}개를 굴렸습니다.`;
+        return `${eePrefix}주사위 ${rolledCount}개를 굴렸습니다.`;
       }
-      return `주사위 [${keptValues.join(', ')}]를 킵하고 ${rolledCount}개를 다시 굴렸습니다.`;
+      return `${eePrefix}주사위 [${keptValues.join(', ')}]를 킵하고 ${rolledCount}개를 다시 굴렸습니다.`;
     case 'roll-result':
       return `주사위의 값이 나왔습니다. [${log.meta.values.join(', ')}]`;
     case 'score-record':
@@ -668,7 +671,42 @@ async function refreshUserHistory(uid) {
   if (!historyCard || !uid) return;
 
   const matches = await getUserMatchesFromDB(uid);
+  const profileIds = [...new Set(matches.flatMap(match => Object.values(match.players || {}))
+    .map(player => player?.uid)
+    .filter(playerUid => playerUid && !playerUid.startsWith('guest'))
+    .map(playerUid => playerUid.split('_')[0]))];
+  const profiles = new Map(await Promise.all(profileIds.map(async profileUid => [profileUid, await getUserFromDB(profileUid)])));
+
+  matches.forEach(match => {
+    Object.values(match.players || {}).forEach(player => {
+      const profile = profiles.get(player?.uid?.split('_')[0]);
+      if (profile) {
+        player.avatarUrl = profile.avatarUrl || null;
+        player.cropData = profile.cropData || null;
+      }
+    });
+  });
   renderHistoryCard(historyCard, matches, uid);
+}
+
+function renderHistoryAvatar(element, avatarUrl, cropData) {
+  if (!element || !avatarUrl) return;
+
+  element.style.backgroundImage = `url('${avatarUrl}')`;
+  element.style.backgroundRepeat = 'no-repeat';
+  if (!cropData?.width || !Number.isFinite(cropData.x) || !Number.isFinite(cropData.y)) {
+    element.style.backgroundSize = 'cover';
+    element.style.backgroundPosition = 'center';
+    return;
+  }
+
+  const image = new Image();
+  image.onload = () => {
+    const scale = (element.clientWidth || 24) / cropData.width;
+    element.style.backgroundSize = `${image.width * scale}px ${image.height * scale}px`;
+    element.style.backgroundPosition = `${-cropData.x * scale}px ${-cropData.y * scale}px`;
+  };
+  image.src = avatarUrl;
 }
 
 function renderHistoryCard(container, matches, myUid) {
@@ -837,12 +875,12 @@ function renderHistoryCard(container, matches, myUid) {
     }
 
     // 추가 플레이어 (3번째 이상) HTML 구성
+    const restOpponents = otherPlayers.slice(1);
     let extraPlayersHtml = '';
     let extraScoresHtml = '';
     if (extraCount > 0) {
-      const restOpponents = otherPlayers.slice(1);
       restOpponents.forEach(op => {
-        const opAvStyle = op.avatarUrl ? `background-image: url('${op.avatarUrl}');` : '';
+        const opAvStyle = op.avatarUrl ? `background-image: url('${op.avatarUrl}'); background-size: cover;` : '';
         const opScore = op?.totalScore ?? (op?.score ?? 0);
         const isOpForfeited = Boolean(op?.isForfeited);
         const opScoreStyle = isOpForfeited ? 'text-decoration: line-through; color: #888;' : '';
@@ -890,6 +928,10 @@ function renderHistoryCard(container, matches, myUid) {
         </div>
       </div>
     `;
+
+    [myPlayer, primaryOpponent, ...restOpponents].forEach((player, index) => {
+      renderHistoryAvatar(item.querySelectorAll('.history-avatar-mini')[index], player?.avatarUrl, player?.cropData);
+    });
 
     if (extraCount > 0) {
       const extraBtn = item.querySelector('.history-player-extra');
@@ -1742,6 +1784,12 @@ networkEngine.on('ingame_message', (data) => {
 
   if (data.type === 'sync_roll') {
     rollsLeft = data.rollsLeft;
+    if (data.equivalentExchangeUses !== undefined) {
+      equivalentExchangeUses[currentPlayer] = data.equivalentExchangeUses;
+    }
+    if (data.equivalentExchangePenalty !== undefined) {
+      equivalentExchangePenalty[currentPlayer] = data.equivalentExchangePenalty;
+    }
     updateRollsUI();
     clearScorePreviews();
     window.lastRollStartTime = Date.now();
@@ -2217,6 +2265,8 @@ function resetGameSession() {
   currentPlayer = 1;
   keptDice = [];
   activeDice = [];
+  equivalentExchangeUses = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  equivalentExchangePenalty = { 1: 0, 2: 0, 3: 0, 4: 0 };
 
   if (els.gameLogContainer) {
     els.gameLogContainer.innerHTML = '<div class="log-empty-text">게임 로그가 없습니다.</div>';
@@ -2970,10 +3020,37 @@ function startTurn() {
   proceedTurnStart();
 }
 
-function updateRollsUI() {
+function updateRollsUI(isRolling = false) {
   els.rollsLeft.textContent = `남은 굴리기: ${rollsLeft}`;
   const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
-  els.btnRoll.disabled = !isMyTurn || rollsLeft <= 0 || !diceBoxReady;
+  
+  const hasEquivalentExchange = Object.values(activeMutations[currentPlayer] || {}).includes('equivalent-exchange');
+  const canEquivalentExchange = hasEquivalentExchange && (equivalentExchangeUses[currentPlayer] || 0) > 0;
+
+  if (isRolling) {
+    els.btnRoll.disabled = true;
+    els.btnRoll.classList.remove('equivalent-exchange-active');
+    els.btnRoll.textContent = '주사위 굴리기';
+    if (typeof diceEngine !== 'undefined' && diceEngine) {
+      diceEngine.allowKeep = false;
+    }
+    return;
+  }
+
+  if (rollsLeft > 0) {
+    els.btnRoll.disabled = !isMyTurn || !diceBoxReady;
+    els.btnRoll.classList.remove('equivalent-exchange-active');
+    els.btnRoll.textContent = '주사위 굴리기';
+  } else if (canEquivalentExchange) {
+    els.btnRoll.disabled = !isMyTurn || !diceBoxReady;
+    els.btnRoll.classList.add('equivalent-exchange-active');
+    els.btnRoll.textContent = '거래를 원하는가?';
+  } else {
+    els.btnRoll.disabled = true;
+    els.btnRoll.classList.remove('equivalent-exchange-active');
+    els.btnRoll.textContent = '주사위 굴리기';
+  }
+
   if (typeof diceEngine !== 'undefined' && diceEngine) {
     const activeMuts = Object.values(activeMutations[currentPlayer] || {});
     let baseDiceCount = 5;
@@ -2984,7 +3061,7 @@ function updateRollsUI() {
     const hasYachtBank = Boolean(activeMutations[currentPlayer] && activeMutations[currentPlayer]['yacht'] === 'yacht-bank');
     const isYachtBankActive = hasYachtBank && !bankSt?.completed && (bankSt?.turnsLeft === undefined || bankSt?.turnsLeft > 0);
 
-    diceEngine.allowKeep = isMyTurn && (rollsLeft < 3 || isYachtBankActive);
+    diceEngine.allowKeep = isMyTurn && (rollsLeft < 3 || canEquivalentExchange || isYachtBankActive);
 
     // 요트 뱅크 활성화 시 킵 존 테두리 금빛 강조 연출 (CSS)
     const diceBoardElem = document.getElementById('dice-board-area');
@@ -3026,13 +3103,26 @@ els.btnRoll.addEventListener('click', async () => {
   }
 
   // 실제 게임 모드 로직
-  if (!isMyTurn || rollsLeft <= 0) return;
+  const hasEE = Object.values(activeMutations[currentPlayer] || {}).includes('equivalent-exchange');
+  const canEE = rollsLeft <= 0 && hasEE && (equivalentExchangeUses[currentPlayer] || 0) > 0;
+
+  if (!isMyTurn) return;
+  if (rollsLeft <= 0 && !canEE) return;
 
   pauseTurnTimer(); // 주사위 굴리는 동안 타이머 정지
   soundEngine.playSFX('dice_roll');
   soundEngine.duckBGM();
-  rollsLeft--;
-  updateRollsUI();
+
+  let isEquivalentRoll = false;
+  if (rollsLeft > 0) {
+    rollsLeft--;
+  } else if (canEE) {
+    isEquivalentRoll = true;
+    equivalentExchangeUses[currentPlayer]--;
+    equivalentExchangePenalty[currentPlayer] = (equivalentExchangePenalty[currentPlayer] || 0) + 5;
+  }
+
+  updateRollsUI(true);
   els.btnRoll.disabled = true; // 굴리는 중 비활성화
   clearScorePreviews();
 
@@ -3090,17 +3180,25 @@ els.btnRoll.addEventListener('click', async () => {
 
   const rolledCount = specialConfigs.length;
   if (keptConfigs.length === 0) {
-    addGameLog({ type: 'roll-action', player: currentPlayer, meta: { rolledCount, keptValues: [] } }, 'roll-action', window.isMultiplayer, currentPlayer);
+    addGameLog({ type: 'roll-action', player: currentPlayer, meta: { rolledCount, keptValues: [], isEquivalentRoll } }, 'roll-action', window.isMultiplayer, currentPlayer);
   } else {
     const keptValues = diceEngine.diceArray.filter(d => d.isKept).map(d => d.value).sort((a, b) => a - b);
-    addGameLog({ type: 'roll-action', player: currentPlayer, meta: { rolledCount, keptValues } }, 'roll-action', window.isMultiplayer, currentPlayer);
+    addGameLog({ type: 'roll-action', player: currentPlayer, meta: { rolledCount, keptValues, isEquivalentRoll } }, 'roll-action', window.isMultiplayer, currentPlayer);
   }
 
   const rollPromise = diceEngine.roll(specialConfigs);
 
   if (window.isMultiplayer) {
     const spawnTransforms = diceEngine.getSpawnTransforms();
-    networkEngine.sendMessage({ type: 'sync_roll', specialConfigs, rollsLeft, spawnTransforms });
+    networkEngine.sendMessage({
+      type: 'sync_roll',
+      specialConfigs,
+      rollsLeft,
+      spawnTransforms,
+      equivalentExchangeUses: equivalentExchangeUses[currentPlayer],
+      equivalentExchangePenalty: equivalentExchangePenalty[currentPlayer],
+      isEquivalentRoll
+    });
   }
 
   await rollPromise;
@@ -3125,8 +3223,7 @@ els.btnRoll.addEventListener('click', async () => {
 
     diceEngine.arrangeAll(true);
 
-    const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
-    els.btnRoll.disabled = !isMyTurn || rollsLeft <= 0;
+    updateRollsUI();
     resumeTurnTimer(); // 롤링 완료 후 타이머 재개
     soundEngine.restoreBGM(Math.max(0, 45 - turnTimeRemaining));
     updateScorePreviews(); // 롤링 완료 후 족보 미리보기 및 기입 버튼 활성화
@@ -4051,14 +4148,18 @@ function updateScoreboard() {
     }
 
     const qBonus = questProgress[p]?.questBonus || 0;
+    const eePenalty = equivalentExchangePenalty[p] || 0;
 
     const pTotalEl = document.getElementById(`p${p}-total`);
     if (pTotalEl) {
+      let html = `${baseTotal}`;
       if (qBonus > 0) {
-        pTotalEl.innerHTML = `${baseTotal} <span style="color: #D4AF37; font-weight: bold;">+${qBonus}</span>`;
-      } else {
-        pTotalEl.textContent = baseTotal;
+        html += ` <span style="color: #D4AF37; font-weight: bold;">+${qBonus}</span>`;
       }
+      if (eePenalty > 0) {
+        html += ` <span style="color: #ef4444; font-weight: bold;">-${eePenalty}</span>`;
+      }
+      pTotalEl.innerHTML = html;
     }
   }
 }
@@ -4464,6 +4565,9 @@ window.updateAugmentSidebar = function (player) {
             <span class="table-flip-warning" style="display: none;">이미 판을 한 번 뒤집었습니다!</span>
           </div>
         `;
+      } else if (augmentId === 'equivalent-exchange') {
+        const usesLeft = equivalentExchangeUses[targetPlayer] !== undefined ? equivalentExchangeUses[targetPlayer] : 3;
+        extraHTML = `<div class="ee-uses-container" style="margin-top: auto; width: 100%; padding-top: 6px; font-size: 0.9em; text-align: left; font-weight: bold; color: #c084fc;">${usesLeft}번 남음!</div>`;
       }
 
       slot.classList.add('filled');
@@ -4610,6 +4714,11 @@ window.applyMutation = function (player, augmentId, isRemote = false) {
   }
 
   activeMutations[player][targetCat] = augmentId;
+
+  if (augmentId === 'equivalent-exchange') {
+    equivalentExchangeUses[player] = 3;
+    equivalentExchangePenalty[player] = 0;
+  }
 
   const augInfo = augmentData.find(a => a.name.includes(mut.name) || (a.mark && mut.enName && a.mark === mut.enName)) || {};
   addGameLog({ type: 'augment-action', player, meta: { augmentId, name: augInfo.name || mut.name } }, 'augment-action', window.isMultiplayer, player);

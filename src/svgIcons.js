@@ -311,6 +311,8 @@ export function getVariantSvg(id) {
     inner = `<rect x="4" y="4" width="8" height="8" rx="2" fill="none" stroke="#222" stroke-width="2"/><rect x="12" y="12" width="8" height="8" rx="2" fill="none" stroke="#222" stroke-width="2"/>`;
   } else if (mappedId === 'table-flip') {
     inner = `<path d="M 3 18 L 21 18 M 5 18 L 5 13 C 5 11 7 9 12 9 C 17 9 19 11 19 13 L 19 18 M 12 4 L 12 11 M 9 7 L 12 4 L 15 7" stroke="#222" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`;
+  } else if (mappedId === 'equivalent-exchange') {
+    inner = `<path d="M 7 10 A 5 5 0 0 1 17 10 M 17 14 A 5 5 0 0 1 7 14 M 17 7 L 17 10 L 14 10 M 7 17 L 7 14 L 10 14" stroke="#222" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`;
   } else if (mappedId === 'nozdormu') {
     return `<svg viewBox="0 0 260 225" width="1.2em" height="1.2em" style="vertical-align: text-bottom; margin-right: 6px;">
       <defs>

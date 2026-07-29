@@ -188,7 +188,8 @@ export const mutationDefinitions = {
   'promotion-die': { id: 'promotion-die', name: '프로모션 주사위', target: 'eh8', enName: 'Promotion', isEnhancement: true },
   'couple-dice': { id: 'couple-dice', name: '커플 주사위', target: 'eh9', enName: 'Couple', isEnhancement: true },
   'sevens-dice': { id: 'sevens-dice', name: '세븐스 다이스', target: 'eh10', enName: 'Sevens', isEnhancement: true },
-  'table-flip': { id: 'table-flip', name: '판 뒤집기', target: 'eh11', enName: 'Table Flip', isEnhancement: true }
+  'table-flip': { id: 'table-flip', name: '판 뒤집기', target: 'eh11', enName: 'Table Flip', isEnhancement: true },
+  'equivalent-exchange': { id: 'equivalent-exchange', name: '등가교환', target: 'eh12', enName: 'Equivalent Exchange', isEnhancement: true }
 };
 
 export function calculateScores(dice, activeMutations = {}, context = {}) {

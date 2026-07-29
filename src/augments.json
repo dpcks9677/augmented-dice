@@ -396,5 +396,13 @@
     "type": "Enhancement",
     "description": "게임 당 한 번, 내 턴에 판 뒤집기를 사용 가능합니다.<br><br>킵 하지 않은 주사위가 위로 솟구친 다음 떨어져 다시 굴러갑니다. (리롤을 소모하지 않습니다.)",
     "augmentId": "table-flip"
+  },
+  {
+    "id": 47,
+    "name": "등가교환",
+    "en-name": "Equivalent Exchange",
+    "type": "Enhancement",
+    "description": "게임 중 단 세 번, 리롤을 다 소모한 후에도 -5점의 페널티를 받고 주사위를 추가로 굴릴 수 있습니다.<br><br>(한 라운드에서 연속해서 사용할 수 있습니다.)",
+    "augmentId": "equivalent-exchange"
   }
 ]
