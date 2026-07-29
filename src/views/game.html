@@ -223,7 +223,7 @@
           </svg>
         </button>
         <div class="lobby-card">
-          <h2>로비 플레이</h2>
+          <h2 id="lobby-select-mode-title">로비 플레이</h2>
           <button id="btn-lobby-create" class="btn-play-menu" style="margin-bottom: 20px;">방 만들기 (Host)</button>
           
           <hr class="menu-divider" style="margin: 10px 0 20px 0;" />
@@ -239,6 +239,7 @@
               <input type="text" class="pin-digit-input" maxlength="1" data-index="5" autocomplete="off" />
             </div>
             <button id="btn-lobby-join" class="btn-play-menu btn-pin-submit" style="padding: 0 20px; height: 44px; white-space: nowrap; margin-left: 4px;">참가</button>
+            <p id="lobby-join-error" class="lobby-join-error" role="alert"></p>
           </div>
         </div>
       </section>

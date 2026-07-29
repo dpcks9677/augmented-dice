@@ -1,5 +1,11 @@
 # Bug Logs
 
+## 2026-07-29 Dice could settle on an edge or vertex
+
+- Symptom: A slow die could remain standing on an edge or vertex until roll finalization.
+- Cause: The sleep check used only linear and angular speed, so an unstable orientation could be forced to sleep.
+- Fix: Sleep now requires a face-alignment threshold for three consecutive checks. Slow unstable dice receive a small deterministic angular nudge toward the face that already owns the result. The timeout fallback aligns that same face without changing the roll value.
+
 ## 2026-07-29 Mixed normal and augmented clients could join the same room code
 
 - Symptom: A player who selected a different game mode could join an existing room using the same code.

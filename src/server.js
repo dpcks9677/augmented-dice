@@ -187,6 +187,22 @@ export class DiceServer {
     if (!data || !data.type) return;
     
     switch (data.type) {
+      case 'check_room_mode': {
+        const requestedMode = data.mode === 'augmented' ? 'augmented' : 'normal';
+        if (this.gameMode && this.gameMode !== requestedMode) {
+          conn.send(JSON.stringify({
+            type: 'error',
+            code: 'ROOM_MODE_MISMATCH',
+            message: '게임모드가 다른 방에 입장할 수 없습니다.'
+          }));
+        } else if (Object.keys(this.players).length >= (requestedMode === 'augmented' ? 2 : 4)) {
+          conn.send(JSON.stringify({ type: 'error', code: 'ROOM_FULL', message: '방이 가득 찼습니다.' }));
+        } else {
+          conn.send(JSON.stringify({ type: 'room_mode_ok' }));
+        }
+        break;
+      }
+
       case 'join':
         // 기존 uid 접속자인지 확인 (동일 유저의 재연결/재접속 시 기존 소켓 대체 및 호스트 권한/상태 승계)
         let existingConnId = Object.keys(this.players).find(id => this.players[id].uid === data.uid);

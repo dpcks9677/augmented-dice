@@ -1,5 +1,12 @@
 # Handoff
 
+## 2026-07-29 Face-aware dice settling
+
+- Replaced speed-only forced sleep with face-alignment checks in normal rolls and table flips.
+- Slow edge/vertex states receive a deterministic angular nudge; timeout fallback aligns the already-selected result face.
+- D6 and D8 correction tests confirm the value is preserved.
+- Removed the obsolete `.documents/dice_settle_stability_plan.md`.
+
 ## 2026-07-29 Strange Die rework hold
 
 - Strange Die is excluded from the augment selection pool and retained as a disabled, rework-pending compendium entry.
@@ -40,11 +47,6 @@
 
 - Removed the early settle-stabilizer animation because it rotated dice before the game confirmed results.
 - Only the existing result-confirmation path (`arrangeAll(true)`) now rotates and arranges dice.
-
-## 2026-07-29 Settle stability plan
-
-- Added `.documents/dice_settle_stability_plan.md` for correcting dice that finish balanced on an edge or vertex.
-- The plan keeps roll values unchanged and applies a short orientation correction only during the low-speed settling phase.
 
 ## 2026-07-29 Central landing adjustment
 

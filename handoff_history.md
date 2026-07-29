@@ -1,5 +1,11 @@
 # Handoff History
 
+## 2026-07-29 Face-aware dice settling
+
+- Removed the deferred settle-stabilizer design document.
+- Added face-normal alignment to the real sleep path instead of a separate pre-result animation.
+- Requires three stable checks, nudges slow edge/vertex states, and uses a value-preserving timeout correction for D6 and D8.
+
 ## 2026-07-29 Strange Die rework hold
 
 - Added availability metadata to remove Strange Die from choices while retaining a disabled compendium card marked for rework.

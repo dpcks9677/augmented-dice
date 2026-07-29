@@ -91,10 +91,12 @@ const els = {
   btnAugHotseat: document.getElementById('btn-aug-hotseat'),
 
   lobbySelectSection: document.getElementById('lobby-select-section'),
+  lobbySelectModeTitle: document.getElementById('lobby-select-mode-title'),
   btnLobbySelectBack: document.getElementById('btn-lobby-select-back'),
   btnLobbyCreate: document.getElementById('btn-lobby-create'),
   btnLobbyJoin: document.getElementById('btn-lobby-join'),
   inputLobbyJoinCode: document.getElementById('input-lobby-join-code'),
+  lobbyJoinError: document.getElementById('lobby-join-error'),
   lobbySection: document.getElementById('lobby-section'),
   lobbyModeText: document.getElementById('lobby-mode-text'),
   lobbyCodeDisplay: document.getElementById('lobby-code-display'),
@@ -1522,6 +1524,9 @@ export async function resetUserSessionState() {
 function showLobbySelect(mode) {
   resetUserSessionState();
   window.pendingLobbyMode = mode;
+  if (els.lobbySelectModeTitle) {
+    els.lobbySelectModeTitle.textContent = mode === 'normal' ? '요트 다이스 로비 플레이' : '증강 요트 다이스 로비 플레이';
+  }
   els.appContainer.classList.remove('mode-select-state', 'playing-state', 'normal-mode', 'lobby-state');
   els.appContainer.classList.add('lobby-select-state');
   if (els.inputLobbyJoinCode) {
@@ -1531,9 +1536,27 @@ function showLobbySelect(mode) {
     input.value = '';
     input.classList.remove('filled');
   });
+  hideLobbyJoinError();
 }
 
-function showLobby(isHost, joinCode = null) {
+function hideLobbyJoinError() {
+  const error = document.getElementById('lobby-join-error');
+  if (!error) return;
+  error.textContent = '';
+  error.classList.remove('is-visible', 'shake');
+}
+
+function showLobbyJoinError(message) {
+  const error = document.getElementById('lobby-join-error');
+  if (!error) return;
+  error.textContent = message;
+  error.classList.remove('shake');
+  error.classList.add('is-visible');
+  void error.offsetWidth;
+  error.classList.add('shake');
+}
+
+function showLobby(isHost, joinCode = null, alreadyConnected = false) {
   els.appContainer.classList.remove('lobby-select-state');
   els.appContainer.classList.add('lobby-state');
   startLobbyWaitingAnimation();
@@ -1605,7 +1628,7 @@ function showLobby(isHost, joinCode = null) {
     const uppercaseCode = String(joinCode || '').trim().toUpperCase();
     els.lobbyCodeDisplay.textContent = uppercaseCode;
     els.btnLobbyStart.textContent = '준비 (Ready)';
-    networkEngine.connectToLobby(uppercaseCode);
+    if (!alreadyConnected) networkEngine.connectToLobby(uppercaseCode);
   }
 
   // 로비 상태 초기화
@@ -1615,6 +1638,12 @@ function showLobby(isHost, joinCode = null) {
 
 // 네트워크 이벤트 리스너 등록
 networkEngine.on('lobby_state', (data) => {
+  if (window.pendingLobbyJoinCode) {
+    const code = window.pendingLobbyJoinCode;
+    window.pendingLobbyJoinCode = null;
+    showLobby(false, code, true);
+  }
+
   const players = data.players || [];
   const oldPlayers = window.lobbyPlayers || [];
 
@@ -1705,12 +1734,17 @@ networkEngine.on('lobby_state', (data) => {
 });
 
 networkEngine.on('error', (data) => {
-  if (data?.code !== 'ROOM_MODE_MISMATCH') return;
+  if (!window.pendingLobbyJoinCode) return;
+  const isModeMismatch = data?.code === 'ROOM_MODE_MISMATCH';
+  const message = isModeMismatch
+    ? '게임모드가 다른 방에 입장할 수 없습니다.'
+    : (data?.message || '방에 입장할 수 없습니다.');
+  window.pendingLobbyJoinCode = null;
   networkEngine.disconnect();
   stopLobbyWaitingAnimation();
-  resetPinInputs();
   els.appContainer?.classList.remove('lobby-state');
   els.appContainer?.classList.add('lobby-select-state');
+  showLobbyJoinError(message);
 });
 
 networkEngine.on('game_started', () => {
@@ -2116,10 +2150,12 @@ els.btnLobbyJoin?.addEventListener('click', () => {
   }
 
   if (code.length !== 6) {
-    alert('6자리의 참여 코드를 정확히 입력해주세요.');
+    showLobbyJoinError('6자리의 참여 코드를 정확히 입력해주세요.');
     return;
   }
-  showLobby(false, code);
+  hideLobbyJoinError();
+  window.pendingLobbyJoinCode = code;
+  networkEngine.connectToLobby(code);
 });
 
 function resetPinInputs() {

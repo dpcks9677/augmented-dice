@@ -13,6 +13,11 @@ const ARRANGED_DICE_CAMERA_LIFT = 30;
 const ARRANGED_DICE_SPACING = 2.65;
 const DIE_SURFACE_CLEARANCE = 0.035;
 const INGRESS_TIMEOUT_SECONDS = 1.6;
+const SETTLE_LINEAR_SPEED_SQ = 0.1;
+const SETTLE_ANGULAR_SPEED_SQ = 0.1;
+const SETTLE_FACE_DOT = 0.92;
+const SETTLE_STABLE_CHECKS = 3;
+const SETTLE_NUDGE_SPEED = 0.9;
 
 export class DiceEngine {
   constructor(containerSelector) {
@@ -652,6 +657,109 @@ export class DiceEngine {
     return config?.type === 'octahedron' ? 1.125 : DIE_HALF_SIZE;
   }
 
+  getSettleAlignment(die) {
+    const currentQuaternion = new THREE.Quaternion(
+      die.body.quaternion.x,
+      die.body.quaternion.y,
+      die.body.quaternion.z,
+      die.body.quaternion.w
+    );
+    const worldUp = new THREE.Vector3(0, 1, 0);
+    const localUp = worldUp.clone().applyQuaternion(currentQuaternion.clone().invert());
+    let bestLocalNormal;
+
+    if (die.config?.type === 'octahedron') {
+      const localNormals = [
+        [1, 1, 1], [1, -1, 1], [1, -1, -1], [1, 1, -1],
+        [-1, 1, -1], [-1, -1, -1], [-1, -1, 1], [-1, 1, 1]
+      ];
+      let maxDot = -Infinity;
+      localNormals.forEach(([x, y, z]) => {
+        const localNormal = new THREE.Vector3(x, y, z).normalize();
+        const dot = localUp.dot(localNormal);
+        if (dot > maxDot) {
+          maxDot = dot;
+          bestLocalNormal = localNormal;
+        }
+      });
+    } else {
+      if (localUp.y > 0.5) bestLocalNormal = new THREE.Vector3(0, 1, 0);
+      else if (localUp.z > 0.5) bestLocalNormal = new THREE.Vector3(0, 0, 1);
+      else if (localUp.x > 0.5) bestLocalNormal = new THREE.Vector3(1, 0, 0);
+      else if (localUp.x < -0.5) bestLocalNormal = new THREE.Vector3(-1, 0, 0);
+      else if (localUp.z < -0.5) bestLocalNormal = new THREE.Vector3(0, 0, -1);
+      else bestLocalNormal = new THREE.Vector3(0, -1, 0);
+    }
+
+    const bestWorldNormal = bestLocalNormal.clone().applyQuaternion(currentQuaternion);
+    const maxDot = bestWorldNormal.dot(worldUp);
+
+    const alignQuaternion = new THREE.Quaternion().setFromUnitVectors(bestWorldNormal, worldUp);
+    return {
+      maxDot,
+      bestWorldNormal,
+      targetQuaternion: alignQuaternion.multiply(currentQuaternion)
+    };
+  }
+
+  stabilizeDieForSleep(die, force = false) {
+    if (!die.body) return true;
+
+    const body = die.body;
+    const alignment = this.getSettleAlignment(die);
+    const isSlow = body.velocity.lengthSquared() < SETTLE_LINEAR_SPEED_SQ
+      && body.angularVelocity.lengthSquared() < SETTLE_ANGULAR_SPEED_SQ;
+
+    if (force && alignment.maxDot < SETTLE_FACE_DOT) {
+      body.quaternion.set(
+        alignment.targetQuaternion.x,
+        alignment.targetQuaternion.y,
+        alignment.targetQuaternion.z,
+        alignment.targetQuaternion.w
+      );
+      const floorY = this.getBoardLayout()?.floorY ?? this.currentFloorY ?? 0;
+      const faceHeight = die.config?.type === 'octahedron'
+        ? 1.125 / Math.sqrt(3)
+        : DIE_HALF_SIZE;
+      body.position.y = floorY + faceHeight + DIE_SURFACE_CLEARANCE;
+      body.velocity.setZero();
+      body.angularVelocity.setZero();
+      body.aabbNeedsUpdate = true;
+      die.mesh.position.copy(body.position);
+      die.mesh.quaternion.copy(body.quaternion);
+      die.settleStableChecks = SETTLE_STABLE_CHECKS;
+      body.sleep();
+      return true;
+    }
+
+    if (!isSlow) {
+      die.settleStableChecks = 0;
+      return false;
+    }
+
+    if (alignment.maxDot >= SETTLE_FACE_DOT) {
+      die.settleStableChecks = (die.settleStableChecks ?? 0) + 1;
+      if (die.settleStableChecks >= SETTLE_STABLE_CHECKS) {
+        body.sleep();
+        return true;
+      }
+    } else {
+      die.settleStableChecks = 0;
+      const axis = alignment.bestWorldNormal
+        .clone()
+        .cross(new THREE.Vector3(0, 1, 0))
+        .normalize();
+      body.wakeUp();
+      body.angularVelocity.set(
+        axis.x * SETTLE_NUDGE_SPEED,
+        axis.y * SETTLE_NUDGE_SPEED,
+        axis.z * SETTLE_NUDGE_SPEED
+      );
+    }
+
+    return false;
+  }
+
   createLaunchTransform(config, index, count, layout) {
     const supportHeight = this.getDieSupportHeight(config);
     const centerIndex = index - (count - 1) / 2;
@@ -1033,10 +1141,7 @@ export class DiceEngine {
         this.diceArray.forEach(die => {
           if (!die.isKept && die.body) {
             // 속도가 매우 낮으면 강제로 sleep시켜 틱틱거림 방지 및 빠른 애니메이션 전환
-            if (die.body.velocity.lengthSquared() < 0.1 && die.body.angularVelocity.lengthSquared() < 0.1) {
-              die.body.sleep();
-            }
-            if (die.body.sleepState !== CANNON.Body.SLEEPING) {
+            if (!this.stabilizeDieForSleep(die)) {
               allSleeping = false;
             }
           }
@@ -1044,6 +1149,11 @@ export class DiceEngine {
 
         // 실제 물리 시뮬레이션이 3.5초 진행되면 강제로 멈춤
         if (allSleeping || this.physicsElapsed >= 3.5) {
+          if (!allSleeping) {
+            this.diceArray.forEach(die => {
+              if (!die.isKept && die.body) this.stabilizeDieForSleep(die, true);
+            });
+          }
           clearInterval(checkSleep);
           // arrangeAll is handled by main.js after unkeeping the dice.
           this.finalizeRoll(resolve);
@@ -1106,10 +1216,7 @@ export class DiceEngine {
             }
 
             // 주사위가 다시 바닥에 안착했고 속도가 줄었을 때 강제 sleep
-            if (die.body.position.y < 3 && die.body.velocity.lengthSquared() < 0.1 && die.body.angularVelocity.lengthSquared() < 0.1) {
-              die.body.sleep();
-            }
-            if (die.body.sleepState !== CANNON.Body.SLEEPING) {
+            if (!this.stabilizeDieForSleep(die)) {
               allSleeping = false;
             }
           }
@@ -1117,6 +1224,11 @@ export class DiceEngine {
 
         // 높은 솟구침에 맞춰 물리 시뮬레이션 4.5초가 지나면 굴림 종료
         if (allSleeping || this.physicsElapsed >= 4.5) {
+          if (!allSleeping) {
+            unkeptDice.forEach(die => {
+              if (die.body) this.stabilizeDieForSleep(die, true);
+            });
+          }
           clearInterval(checkFlip);
           this.finalizeRoll(resolve, { isFlip: true });
         }

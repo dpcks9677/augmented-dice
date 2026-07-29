@@ -145,7 +145,6 @@ class NetworkEngine {
       const data = JSON.parse(event.data);
       
       if (data.type === 'error') {
-        alert(data.message);
         this.emit('error', data);
         return;
       }

@@ -25,7 +25,7 @@
 }
 
 body {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Manrope', 'SUIT Variable', SUIT, sans-serif;
   background-color: var(--bg-color);
   color: var(--text-color);
   display: flex;
@@ -33,6 +33,22 @@ body {
   align-items: center;
   height: 100vh;
   overflow: hidden;
+}
+
+h1,
+h2,
+h3,
+.landing-title {
+  font-weight: 800 !important;
+}
+
+.landing-subtitle,
+.profile-name,
+.match-nickname,
+.player-name,
+.aug-slot-name,
+.lobby-mode-text {
+  font-weight: 700 !important;
 }
 
 /* 앱 컨테이너 기본 스타일 */
@@ -1742,6 +1758,7 @@ body {
   color: var(--primary-color);
   border: 1px solid var(--border-color);
   padding: 16px 24px;
+  font-family: inherit;
   font-size: 1.1rem;
   font-weight: 700;
   border-radius: var(--radius);
@@ -2077,7 +2094,7 @@ body {
   word-break: break-all;
 }
 .match-vs-text {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Manrope', 'SUIT Variable', SUIT, sans-serif;
   font-style: italic;
   font-weight: 900;
   font-size: 1.2rem;
@@ -3266,6 +3283,37 @@ svg.lucide-icon {
   position: relative;
   animation: goldNeonPulse 2.34s infinite ease-in-out, targetFadeIn 0.5s ease-out forwards;
   z-index: 10;
+}
+
+.lobby-join-error {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 100%;
+  margin: 0;
+  color: #c62828;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.lobby-join-row {
+  position: relative;
+}
+
+.lobby-join-error.is-visible {
+  display: block;
+}
+
+.lobby-join-error.is-visible.shake {
+  animation: lobby-join-error-shake 0.35s ease-in-out;
+}
+
+@keyframes lobby-join-error-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-7px); }
+  75% { transform: translateX(7px); }
 }
 
 .bounty-target-highlight.fade-out-target {
