@@ -7,6 +7,7 @@
     "dev": "vite",
     "party": "partykit dev src/server.js --port 1999",
     "build": "vite build",
+    "test:augment-progress": "node tests/augmentProgress.test.mjs",
     "preview": "vite preview"
   },
   "devDependencies": {

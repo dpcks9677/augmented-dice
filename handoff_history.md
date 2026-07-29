@@ -1,5 +1,54 @@
 # Handoff History
 
+## 2026-07-30 Unified turn-timer BGM timing
+
+- Replaced split 45/45.99 BGM offset calculations with `TURN_DURATION_SECONDS`.
+- Added a position-preserving BGM pause used by timer-paused roll, augment-selection, and table-flip flows.
+
+## 2026-07-30 Remote-roll timer pause
+
+- Added the missing `pauseTurnTimer()` call in the remote `sync_roll` path and resumed after `sync_roll_end` arrangement.
+
+## 2026-07-30 Debug augment-progress reset
+
+- Added a localhost debug action that removes `achievements`, `stats.augmentStats`, and its version marker for the current authenticated account after browser confirmation.
+- The reset deliberately preserves match history and idempotency receipts.
+
+## 2026-07-30 Augment progress save-status visibility
+
+- Added an end-game status message for personal augment-progress persistence.
+- The message distinguishes normal completion, excluded sessions, duplicate/missing-user save rejection, and Firestore errors.
+
+## 2026-07-30 Augment compendium detail implementation
+
+- Preserved index scroll position after detail navigation; added common mutation/quest/dice telemetry and ten requested augment achievements.
+- Added a detail-only divider between the augment title and effect description.
+- Enlarged only the detail-card effect description to 1.28rem.
+- Added clickable and keyboard-accessible compendium cards, focused detail/back navigation, responsive 2:3 layout, and reduced-motion handling.
+- Added shared achievement rows for both the compendium and global achievement modal.
+- Added completed-at display replacement, personal session collection, Firestore transaction persistence, and idempotency receipt rules.
+- `npm run test:augment-progress`, `npm run build`, DOM structure checks, and console error checks passed.
+
+## 2026-07-30 Augment compendium detail plan
+
+- Documented the 1:1.5 focused card layout, transition behavior, extensible augment metrics, personal Firestore persistence, and shared achievement rows.
+- Added the generated per-augment mastery rule requiring 10 completed games after selection; runtime code remains unchanged.
+
+## 2026-07-30 Settled-dice separation
+
+- Added a low-speed pairwise separation impulse before sleep confirmation, capped at two attempts per roll or table flip.
+- Exact center overlaps use deterministic pair indices for direction; observer clients continue to use final transforms.
+
+## 2026-07-30 STL collision-proxy implementation
+
+- Replaced the extended flat physics floor with a measured central floor, left/right/front slope proxies, and rim-height walls.
+- Verified collision coordinates, dynamic-body contact, and the production build.
+
+## 2026-07-29 Recess-aligned side walls
+
+- Moved physics floor and side walls from felt X limits to the central recessed tray X bounds (`-58..58`), not the full STL exterior.
+- Retained front/back felt limits so 6 o'clock ingress behavior stays unchanged.
+
 ## 2026-07-29 Face-aware dice settling
 
 - Removed the deferred settle-stabilizer design document.

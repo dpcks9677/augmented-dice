@@ -10,6 +10,7 @@ const FALLBACK_KEEP_SURFACE_Y = 13;
 const FALLBACK_OUTER_BOUNDS = { minX: -77.5, maxX: 77.5, minZ: -77.5, maxZ: 77.5 };
 const SOURCE_LAUNCH_PADDING = 32;
 const PLAY_BOUNDS = { minX: -52, maxX: 52, minZ: -35, maxZ: 55 };
+const COLLISION_FLOOR = { minX: -50, maxX: 50, minZ: -35, maxZ: 52 };
 // The actual recessed row is one D6 lower than the temporary top-edge placement.
 const KEEP_LAYOUT = { startX: -44, spacing: 22, centerZ: -58 };
 
@@ -86,6 +87,7 @@ export class YachtTrayModel {
         minZ: geometry.boundingBox.min.z,
         maxZ: geometry.boundingBox.max.z
       },
+      collisionProfile: this.getCollisionProfile(),
       rimTopY: geometry.boundingBox.max.y
     };
     this.scene.add(this.mesh);
@@ -116,6 +118,25 @@ export class YachtTrayModel {
     return raycaster.intersectObject(this.mesh, false)[0]?.point ?? null;
   }
 
+  getCollisionProfile() {
+    const floorY = this.getSurfacePoint(0, 0)?.y ?? FALLBACK_PLAY_SURFACE_Y;
+    const surfaceY = (x, z, fallback = floorY) => this.getSurfacePoint(x, z)?.y ?? fallback;
+    const leftRimY = surfaceY(-58, 0, 15);
+    const rightRimY = surfaceY(58, 0, 15);
+    const frontRimY = surfaceY(0, 58, 15);
+
+    return {
+      bounds: { minX: -58, maxX: 58, minZ: COLLISION_FLOOR.minZ, maxZ: 58 },
+      floor: { ...COLLISION_FLOOR, y: floorY },
+      ramps: [
+        { axis: 'x', from: -50, to: -58, fromY: floorY, toY: leftRimY, min: COLLISION_FLOOR.minZ, max: COLLISION_FLOOR.maxZ },
+        { axis: 'x', from: 50, to: 58, fromY: floorY, toY: rightRimY, min: COLLISION_FLOOR.minZ, max: COLLISION_FLOOR.maxZ },
+        { axis: 'z', from: 52, to: 58, fromY: floorY, toY: frontRimY, min: COLLISION_FLOOR.minX, max: COLLISION_FLOOR.maxX }
+      ],
+      wallBottoms: { minX: leftRimY, maxX: rightRimY, minZ: floorY, maxZ: frontRimY }
+    };
+  }
+
   // Kept for DiceEngine's state contract. The unmodified STL must not be overlaid.
   setKeepZoneGlow() {}
   update() {}
@@ -143,12 +164,25 @@ export class YachtTrayModel {
       minZ: PLAY_BOUNDS.minZ * scale,
       maxZ: PLAY_BOUNDS.maxZ * scale
     };
+    const collisionProfile = this.measuredLayout?.collisionProfile ?? {
+      bounds: { minX: -58, maxX: 58, minZ: COLLISION_FLOOR.minZ, maxZ: 58 },
+      floor: { ...COLLISION_FLOOR, y: FALLBACK_PLAY_SURFACE_Y },
+      ramps: [],
+      wallBottoms: { minX: FALLBACK_PLAY_SURFACE_Y, maxX: FALLBACK_PLAY_SURFACE_Y, minZ: FALLBACK_PLAY_SURFACE_Y, maxZ: FALLBACK_PLAY_SURFACE_Y }
+    };
+    const scaleValue = value => value * scale;
     const keepPoints = measuredKeepPoints.map(point => point.clone().multiplyScalar(scale));
     const playSurfaceY = measuredPlayY * scale;
 
     return {
       scale,
       playBounds,
+      collisionProfile: {
+        bounds: Object.fromEntries(Object.entries(collisionProfile.bounds).map(([key, value]) => [key, scaleValue(value)])),
+        floor: Object.fromEntries(Object.entries(collisionProfile.floor).map(([key, value]) => [key, scaleValue(value)])),
+        ramps: collisionProfile.ramps.map(ramp => Object.fromEntries(Object.entries(ramp).map(([key, value]) => [key, typeof value === 'number' ? scaleValue(value) : value]))),
+        wallBottoms: Object.fromEntries(Object.entries(collisionProfile.wallBottoms).map(([key, value]) => [key, scaleValue(value)]))
+      },
       outerBounds: {
         minX: outerBounds.minX * scale,
         maxX: outerBounds.maxX * scale,

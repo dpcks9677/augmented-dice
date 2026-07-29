@@ -96,6 +96,17 @@ class SoundEngine {
     }
   }
 
+  pauseBGM() {
+    this.clearIntervals();
+    this.isBgmPlaying = false;
+    this.isDucked = false;
+    if (this.bgmAudio) {
+      try {
+        this.bgmAudio.pause();
+      } catch (e) {}
+    }
+  }
+
   duckBGM() {
     if (!this.bgmAudio || !this.isBgmPlaying) return;
     this.clearIntervals();

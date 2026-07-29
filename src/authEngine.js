@@ -1,6 +1,7 @@
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, updateProfile } from "firebase/auth";
-import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc, deleteField, serverTimestamp, collection, query, where, orderBy, limit, getDocs, runTransaction } from "firebase/firestore";
 import { app, db } from "./firebaseConfig.js";
+import { getAchievementDefinition } from "./augmentProgress.js";
 
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
@@ -157,4 +158,95 @@ export async function getUserMatchesFromDB(uid) {
     console.error("Fetch Matches Error:", error);
     return [];
   }
+}
+
+export async function saveAugmentProgress(uid, session) {
+  if (!uid || !session?.sessionId || session.saved) return false;
+  const userRef = doc(db, "users", uid);
+  const receiptRef = doc(db, "users", uid, "augmentStatReceipts", session.sessionId);
+
+  const saved = await runTransaction(db, async (transaction) => {
+    const [receiptSnap, userSnap] = await Promise.all([
+      transaction.get(receiptRef),
+      transaction.get(userRef)
+    ]);
+    if (receiptSnap.exists() || !userSnap.exists()) return false;
+
+    const userData = userSnap.data();
+    const stats = userData.stats || {};
+    const augmentStats = { ...(stats.augmentStats || {}) };
+    const achievements = { ...(userData.achievements || {}) };
+    const selectedIds = new Set(Object.keys(session.selections || {}));
+    const augmentIds = new Set([
+      ...Object.keys(session.appearances || {}),
+      ...selectedIds,
+      ...Object.keys(session.metrics || {})
+    ]);
+    const completedAt = new Date().toISOString();
+    const updatedAt = completedAt;
+
+    augmentIds.forEach((augmentId) => {
+      const old = augmentStats[augmentId] || {};
+      const completedSelections = (old.completedSelections || 0) + (selectedIds.has(augmentId) ? 1 : 0);
+      const metrics = { ...(old.metrics || {}) };
+      Object.entries(session.metrics?.[augmentId] || {}).forEach(([key, value]) => {
+        metrics[key] = (metrics[key] || 0) + value;
+      });
+      augmentStats[augmentId] = {
+        ...old,
+        appearances: (old.appearances || 0) + (session.appearances[augmentId] || 0),
+        selections: (old.selections || 0) + (session.selections[augmentId] || 0),
+        completedSelections,
+        metrics,
+        updatedAt
+      };
+
+      const achievementId = `augment-mastery:${augmentId}`;
+      const oldAchievement = achievements[achievementId] || {};
+      const masteryProgress = Math.min(10, completedSelections);
+      achievements[achievementId] = {
+        ...oldAchievement,
+        current: masteryProgress,
+        progress: masteryProgress,
+        target: 10,
+        completed: masteryProgress >= 10,
+        completedAt: oldAchievement.completedAt || (masteryProgress >= 10 ? completedAt : null)
+      };
+    });
+
+    Object.entries(session.achievements || {}).forEach(([achievementId, amount]) => {
+      const definition = getAchievementDefinition(achievementId);
+      if (!definition) return;
+      const oldAchievement = achievements[achievementId] || {};
+      const progress = Math.min(definition.target, (oldAchievement.current ?? oldAchievement.progress ?? 0) + amount);
+      achievements[achievementId] = {
+        ...oldAchievement,
+        current: progress,
+        progress,
+        target: definition.target,
+        completed: progress >= definition.target,
+        completedAt: oldAchievement.completedAt || (progress >= definition.target ? completedAt : null)
+      };
+    });
+
+    transaction.update(userRef, {
+      stats: { ...stats, augmentStatsVersion: 1, augmentStats },
+      achievements
+    });
+    transaction.set(receiptRef, { createdAt: serverTimestamp() });
+    return true;
+  });
+
+  session.saved = saved;
+  return saved;
+}
+
+export async function resetAugmentProgress(uid) {
+  if (!uid) return false;
+  await updateDoc(doc(db, "users", uid), {
+    achievements: deleteField(),
+    "stats.augmentStats": deleteField(),
+    "stats.augmentStatsVersion": deleteField()
+  });
+  return true;
 }

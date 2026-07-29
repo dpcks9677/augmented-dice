@@ -18,6 +18,9 @@ const SETTLE_ANGULAR_SPEED_SQ = 0.1;
 const SETTLE_FACE_DOT = 0.92;
 const SETTLE_STABLE_CHECKS = 3;
 const SETTLE_NUDGE_SPEED = 0.9;
+const SETTLE_SEPARATION_DISTANCE = DIE_SIZE * 1.15;
+const SETTLE_SEPARATION_SPEED = 0.45;
+const SETTLE_SEPARATION_MAX_ATTEMPTS = 2;
 
 export class DiceEngine {
   constructor(containerSelector) {
@@ -760,6 +763,51 @@ export class DiceEngine {
     return false;
   }
 
+  separateSettledDice(dice = this.diceArray) {
+    if (
+      this.physicsElapsed < 0.75
+      || (this.settleSeparationAttempts ?? 0) >= SETTLE_SEPARATION_MAX_ATTEMPTS
+    ) return false;
+
+    let separated = false;
+    for (let firstIndex = 0; firstIndex < dice.length; firstIndex++) {
+      const first = dice[firstIndex];
+      if (first.isKept || !first.body) continue;
+
+      for (let secondIndex = firstIndex + 1; secondIndex < dice.length; secondIndex++) {
+        const second = dice[secondIndex];
+        if (second.isKept || !second.body) continue;
+        if (
+          first.body.velocity.lengthSquared() > SETTLE_LINEAR_SPEED_SQ
+          || second.body.velocity.lengthSquared() > SETTLE_LINEAR_SPEED_SQ
+          || first.body.angularVelocity.lengthSquared() > SETTLE_ANGULAR_SPEED_SQ
+          || second.body.angularVelocity.lengthSquared() > SETTLE_ANGULAR_SPEED_SQ
+        ) continue;
+
+        const dx = second.body.position.x - first.body.position.x;
+        const dz = second.body.position.z - first.body.position.z;
+        const distance = Math.hypot(dx, dz);
+        if (distance >= SETTLE_SEPARATION_DISTANCE) continue;
+
+        const angle = distance > 0.001 ? Math.atan2(dz, dx) : (firstIndex * 17 + secondIndex * 31);
+        const pushX = Math.cos(angle) * SETTLE_SEPARATION_SPEED;
+        const pushZ = Math.sin(angle) * SETTLE_SEPARATION_SPEED;
+        first.body.wakeUp();
+        second.body.wakeUp();
+        first.body.velocity.x -= pushX;
+        first.body.velocity.z -= pushZ;
+        second.body.velocity.x += pushX;
+        second.body.velocity.z += pushZ;
+        first.settleStableChecks = 0;
+        second.settleStableChecks = 0;
+        separated = true;
+      }
+    }
+
+    if (separated) this.settleSeparationAttempts = (this.settleSeparationAttempts ?? 0) + 1;
+    return separated;
+  }
+
   createLaunchTransform(config, index, count, layout) {
     const supportHeight = this.getDieSupportHeight(config);
     const centerIndex = index - (count - 1) / 2;
@@ -1015,6 +1063,7 @@ export class DiceEngine {
       this.isObserving = isObserving;
       this.physicsActive = true; 
       this.physicsElapsed = 0;
+      this.settleSeparationAttempts = 0;
       this.isAnimating = false;
       this.currentSpawnTransforms = [];
       this.startRenderLoop();
@@ -1138,6 +1187,7 @@ export class DiceEngine {
 
       const checkSleep = setInterval(() => {
         let allSleeping = true;
+        if (this.separateSettledDice()) allSleeping = false;
         this.diceArray.forEach(die => {
           if (!die.isKept && die.body) {
             // 속도가 매우 낮으면 강제로 sleep시켜 틱틱거림 방지 및 빠른 애니메이션 전환
@@ -1172,6 +1222,7 @@ export class DiceEngine {
 
       this.physicsActive = true;
       this.physicsElapsed = 0;
+      this.settleSeparationAttempts = 0;
       this.isAnimating = false;
       this.finishIngress();
       this.boundaryMode = BOUNDARY_MODES.FLIP;
@@ -1206,6 +1257,7 @@ export class DiceEngine {
 
       const checkFlip = setInterval(() => {
         let allSleeping = true;
+        if (this.separateSettledDice(unkeptDice)) allSleeping = false;
         unkeptDice.forEach(die => {
           if (die.body) {
             // Y축 하한선 강제 클램프 구출 안전망 (확대된 주사위가 바닥을 뚫지 않도록 보정)

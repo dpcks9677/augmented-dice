@@ -326,8 +326,14 @@
           <h2>도전과제</h2>
           <button class="game-modal-close" data-target="modal-achievements">&times;</button>
         </div>
+        <div class="achievement-summary" aria-label="전체 도전과제 진행도">
+          <strong id="modal-achievements-summary-text">0/0 완료함</strong>
+          <div class="achievement-progress-bar" role="progressbar" aria-valuemin="0" aria-valuenow="0" aria-valuemax="0">
+            <span id="modal-achievements-summary-fill"></span>
+          </div>
+        </div>
         <div class="game-modal-body">
-          <p class="modal-placeholder-text">게임을 완료하여 도전과제를 달성해 보세요. (업데이트 예정)</p>
+          <div id="modal-achievements-list" class="achievement-list"></div>
         </div>
       </div>
     </div>
@@ -340,15 +346,31 @@
           <button id="modal-compendium-close" class="game-modal-close" data-target="modal-compendium">&times;</button>
         </div>
         <div id="modal-compendium-body" class="game-modal-body">
-          <div id="modal-compendium-category-tabs" class="modal-compendium-category-tabs">
-            <button class="modal-compendium-tab-btn active" data-category="all">전체</button>
-            <button class="modal-compendium-tab-btn" data-category="변형">변형</button>
-            <button class="modal-compendium-tab-btn" data-category="퀘스트">퀘스트</button>
-            <button class="modal-compendium-tab-btn" data-category="강화">강화</button>
+          <div id="modal-compendium-index">
+            <div id="modal-compendium-category-tabs" class="modal-compendium-category-tabs">
+              <button class="modal-compendium-tab-btn active" data-category="all">전체</button>
+              <button class="modal-compendium-tab-btn" data-category="변형">변형</button>
+              <button class="modal-compendium-tab-btn" data-category="퀘스트">퀘스트</button>
+              <button class="modal-compendium-tab-btn" data-category="강화">강화</button>
+            </div>
+            <hr id="modal-compendium-divider" class="modal-compendium-divider" />
+            <div id="modal-compendium-list" class="modal-compendium-list">
+              <!-- 자바스크립트에서 렌더링 -->
+            </div>
           </div>
-          <hr id="modal-compendium-divider" class="modal-compendium-divider" />
-          <div id="modal-compendium-list" class="modal-compendium-list">
-            <!-- 자바스크립트에서 렌더링 -->
+          <div id="modal-compendium-detail" class="compendium-detail-view hidden" aria-live="polite">
+            <button id="btn-compendium-back" class="compendium-back-btn" type="button">← 도감으로 돌아가기</button>
+            <div class="compendium-detail">
+              <article id="compendium-detail-augment" class="modal-compendium-item compendium-detail-augment"></article>
+              <section class="compendium-stat-card" aria-labelledby="compendium-stat-title">
+                <h3 id="compendium-stat-title">통계</h3>
+                <dl id="compendium-stat-list"></dl>
+              </section>
+              <section class="compendium-achievement-card" aria-labelledby="compendium-achievement-title">
+                <h3 id="compendium-achievement-title">도전과제</h3>
+                <div id="compendium-achievement-list" class="achievement-list"></div>
+              </section>
+            </div>
           </div>
         </div>
       </div>

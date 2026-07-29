@@ -1,5 +1,39 @@
 # Bug Logs
 
+## 2026-07-30 Turn timer and BGM used mismatched elapsed-time bases
+
+- Symptom: The visual turn seconds and BGM cue drifted after a paused action such as rolling dice.
+- Cause: Timer code used a 45.99-second basis while BGM restore used 45 seconds; ducked BGM also kept advancing during timer pauses.
+- Fix: A shared 45.99-second turn-duration constant now supplies every BGM offset, and timer pauses preserve the BGM position until the same timer resumes.
+
+## 2026-07-30 Remote roll did not pause the spectator timer
+
+- Symptom: The observer's turn timer continued decreasing while the opponent's dice were rolling.
+- Cause: The synchronized roll-start handler did not call the shared timer pause function.
+- Fix: Remote roll start now pauses the timer; remote result arrangement resumes it.
+
+## 2026-07-30 Augment progress save failures had no player-visible cause
+
+- Symptom: A completed augmented match could leave no account progress, while the result screen gave no indication whether saving ran or failed.
+- Fix: The end-game modal now reports pending, completed, skipped, and failed personal augment-progress saves. Failed Firestore error codes/messages are shown in the modal and remain logged to the console.
+
+## 2026-07-30 Augment progress was limited to the match saver
+
+- Symptom: Only the representative match-saving client had a path that could update account statistics.
+- Cause: Match history persistence and personal account progression shared the host/saver guard.
+- Fix: Every authenticated, non-forfeiting augmented-mode participant now writes only their own progress through an idempotent per-session receipt.
+
+## 2026-07-30 Settled dice could remain clumped
+
+- Symptom: Slow dice that contacted each other could sleep as a cluster.
+- Fix: Before sleep confirmation, at most twice per roll, low-speed nearby pairs receive a small deterministic horizontal separation velocity.
+
+## 2026-07-29 Side collision walls were inside the recessed STL tray
+
+- Symptom: Dice contacted invisible left/right walls before reaching the visible recessed-tray wall.
+- Cause: Physics used the felt bounds for the side walls; the previous correction incorrectly used the full STL exterior.
+- Fix: Replaced the extended flat floor with a measured central floor, left/right/front slope proxies, and rim-height walls. The rear boundary remains at the keep-pocket transition (`Z=-35`).
+
 ## 2026-07-29 Dice could settle on an edge or vertex
 
 - Symptom: A slow die could remain standing on an edge or vertex until roll finalization.

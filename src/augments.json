@@ -379,7 +379,7 @@
     "id": 44,
     "name": "커플 주사위",
     "en-name": "Couple Dice",
-    "description": "기본 주사위를 <strong><u>커플 주사위</strong></u>로 변경합니다.<br><br>커플 주사위는 족보 기입 시 두 주사위의 눈금이 같다면 +3점 추가 획득하는 특성을 가집니다.",
+    "description": "기본 주사위 2개를 <strong><u>커플 주사위</strong></u>로 변경합니다.<br><br>커플 주사위는 족보 기입 시 두 주사위의 눈금이 같다면 +3점 추가 획득하는 특성을 가집니다.",
     "augmentId": "couple-dice"
   },
   {
@@ -402,7 +402,7 @@
     "name": "등가교환",
     "en-name": "Equivalent Exchange",
     "type": "Enhancement",
-    "description": "게임 중 단 세 번, 리롤을 다 소모한 후에도 -5점의 페널티를 받고 주사위를 추가로 굴릴 수 있습니다.<br><br>(한 라운드에서 연속해서 사용할 수 있습니다.)",
+    "description": "게임 중 세 번, 리롤을 다 소모한 후에도 -5점의 페널티를 받고 주사위를 추가로 굴릴 수 있습니다.<br><br>(한 라운드에서 연속해서 사용할 수 있습니다.)",
     "augmentId": "equivalent-exchange"
   },
   {

@@ -8,13 +8,26 @@ import { getDiceSvg, getSpecialSvg, getVariantSvg, getDicesIconSvg, getAugmented
 import { setupDebugTools } from "./debugTools.js";
 import { uiManager } from "./UIManager.js";
 import "cropperjs/dist/cropper.css";
-import { subscribeAuthState, signInWithGoogle, setNickname, getCurrentUser, saveUserToDB, getUserFromDB, signOutUser, updateUserStatusMsg, updateUserAvatar, updateUserActiveGame, clearUserActiveGame, getUserMatchesFromDB } from "./authEngine.js";
+import { subscribeAuthState, signInWithGoogle, setNickname, getCurrentUser, saveUserToDB, getUserFromDB, signOutUser, updateUserStatusMsg, updateUserAvatar, updateUserActiveGame, clearUserActiveGame, getUserMatchesFromDB, saveAugmentProgress, resetAugmentProgress } from "./authEngine.js";
 import Cropper from "cropperjs";
 import defaultAugmentsData from "./augments.json";
+import { calculateAdoptionRate, createAugmentProgressSession, getAugmentAchievementDefinitions, getAugmentTelemetryDefinitions, getAchievementProgress, getAugmentStats, recordAchievementProgress, recordAugmentMetric, recordAugmentOffer, recordAugmentSelection } from "./augmentProgress.js";
+import { renderAchievementList } from "./achievementUI.js";
 
 import { soundEngine } from "./SoundEngine.js";
 
 let augmentData = defaultAugmentsData || [];
+let augmentProgressSession = null;
+let compendiumIndexScrollTop = 0;
+const diceAugmentTypes = {
+  'weighted-dice': 'heavy',
+  'golden-die': 'golden',
+  '8-sided': 'octahedron',
+  'strange-die': 'weird',
+  'promotion-die': 'promotion',
+  'couple-dice': 'couple',
+  'sevens-dice': 'sevens'
+};
 
 // 첫 사용자 인터랙션 시 Web Audio Context 초기화
 const initSoundEngineOnUserGesture = () => {
@@ -430,10 +443,12 @@ let promotionAcquiredRound = { 1: null, 2: null, 3: null, 4: null };
 let playerTableFlipUsed = { 1: false, 2: false, 3: false, 4: false };
 let equivalentExchangeUses = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let equivalentExchangePenalty = { 1: 0, 2: 0, 3: 0, 4: 0 };
+let equivalentExchangeTurnUses = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let questProgress = { 1: {}, 2: {}, 3: {}, 4: {} };
 let momentumState = { 1: 'ready', 2: 'ready', 3: 'ready', 4: 'ready' };
 let momentumGainedScore = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let bountyHunterTarget = { 1: null, 2: null, 3: null, 4: null };
+let bountyHunterAcquiredRound = { 1: null, 2: null, 3: null, 4: null };
 let bountyHunterProgress = {
   1: { count: 0, penaltyCount: 0 },
   2: { count: 0, penaltyCount: 0 },
@@ -1825,6 +1840,7 @@ networkEngine.on('ingame_message', (data) => {
   if (!window.isMultiplayer || Number(currentPlayer) === Number(window.myPlayerIndex)) return;
 
   if (data.type === 'sync_roll') {
+    pauseTurnTimer();
     rollsLeft = data.rollsLeft;
     if (data.equivalentExchangeUses !== undefined) {
       equivalentExchangeUses[currentPlayer] = data.equivalentExchangeUses;
@@ -1835,7 +1851,6 @@ networkEngine.on('ingame_message', (data) => {
     updateRollsUI();
     clearScorePreviews();
     window.lastRollStartTime = Date.now();
-    soundEngine.duckBGM();
     if (diceEngine) {
       diceEngine.ready.then(() => diceEngine.roll(data.specialConfigs, true, data.spawnTransforms));
     }
@@ -1852,8 +1867,8 @@ networkEngine.on('ingame_message', (data) => {
         keptDice = [];
         activeDice = diceEngine.diceArray.filter(d => d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
         diceEngine.arrangeAll(true);
-        soundEngine.restoreBGM(Math.max(0, 45 - turnTimeRemaining));
         updateScorePreviews();
+        resumeTurnTimer();
       }
     }, remainingDelay);
   } else if (data.type === 'sync_keep') {
@@ -2271,6 +2286,7 @@ function resetGameSession() {
   extraTurns = { 1: 0, 2: 0, 3: 0, 4: 0 };
   isExtraTurnPhase = false;
   isGameEnded = false;
+  augmentProgressSession = null;
   isViewingOpponentAugments = false;
   upperBonusThreshold[1] = 63; upperBonusThreshold[2] = 63; upperBonusThreshold[3] = 63; upperBonusThreshold[4] = 63;
   destroyedStrangeDice[1] = false; destroyedStrangeDice[2] = false; destroyedStrangeDice[3] = false; destroyedStrangeDice[4] = false;
@@ -2311,7 +2327,9 @@ function resetGameSession() {
   activeDice = [];
   equivalentExchangeUses = { 1: 0, 2: 0, 3: 0, 4: 0 };
   equivalentExchangePenalty = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  equivalentExchangeTurnUses = { 1: 0, 2: 0, 3: 0, 4: 0 };
   bountyHunterTarget = { 1: null, 2: null, 3: null, 4: null };
+  bountyHunterAcquiredRound = { 1: null, 2: null, 3: null, 4: null };
   bountyHunterProgress = {
     1: { count: 0, penaltyCount: 0 },
     2: { count: 0, penaltyCount: 0 },
@@ -2535,6 +2553,9 @@ function startMultiplayerGame() {
 
   const isNormalMode = window.pendingLobbyMode === 'normal';
   gameMode = isNormalMode ? 'normal' : 'augmented';
+  if (gameMode === 'augmented') {
+    augmentProgressSession = createAugmentProgressSession();
+  }
 
   initScoreboard();
   updateScoreboard();
@@ -2621,7 +2642,7 @@ function getSeededAugments(round, player) {
 }
 
 function showAugmentSelectionModal(player, onSelect) {
-  stopTurnTimer();
+  pauseTurnTimer();
   const modal = document.getElementById('augment-selection-modal');
   const title = document.getElementById('augment-modal-title');
   const optionsContainer = document.getElementById('augment-options');
@@ -2657,6 +2678,13 @@ function showAugmentSelectionModal(player, onSelect) {
   }
 
   const selectedAugments = getSeededAugments(typeof currentRound !== 'undefined' ? currentRound : 1, player);
+  if (isMyTurn && window.isMultiplayer && gameMode === 'augmented') {
+    recordAugmentOffer(
+      augmentProgressSession,
+      selectedAugments.map(aug => aug.augmentId),
+      `${currentRound}:${player}`
+    );
+  }
 
   let isSelecting = false;
   const cleanupAndSelect = (aug) => {
@@ -2665,6 +2693,9 @@ function showAugmentSelectionModal(player, onSelect) {
       augmentTimerInterval = null;
     }
     modal.classList.add('hidden');
+    if (isMyTurn && window.isMultiplayer && gameMode === 'augmented') {
+      recordAugmentSelection(augmentProgressSession, aug.augmentId);
+    }
     if (window.applyMutation) window.applyMutation(player, aug.augmentId);
     if (onSelect) {
       onSelect();
@@ -2729,9 +2760,10 @@ function showAugmentSelectionModal(player, onSelect) {
   modal.classList.remove('hidden');
 }
 
-// === 턴 타임아웃 45.99초 제어 시스템 ===
+// === 턴 타임아웃 46초(45.99초 유예값) 제어 시스템 ===
+const TURN_DURATION_SECONDS = 45.99;
 let turnTimerInterval = null;
-let turnTimeRemaining = 45.99;
+let turnTimeRemaining = TURN_DURATION_SECONDS;
 
 function startTurnTimer(overrideTime = null) {
   stopTurnTimer();
@@ -2752,12 +2784,12 @@ function startTurnTimer(overrideTime = null) {
     return;
   }
 
-  turnTimeRemaining = overrideTime !== null ? overrideTime : 45.99;
+  turnTimeRemaining = overrideTime !== null ? overrideTime : TURN_DURATION_SECONDS;
   const timerElem = document.getElementById('turn-timer') || els.turnTimer;
   if (timerElem) timerElem.classList.remove('paused');
   updateTurnTimerUI();
 
-  const elapsedTime = Math.max(0, 45.99 - turnTimeRemaining);
+  const elapsedTime = Math.max(0, TURN_DURATION_SECONDS - turnTimeRemaining);
   soundEngine.startBGM(elapsedTime);
 
   turnTimerInterval = setInterval(() => {
@@ -2782,6 +2814,7 @@ function pauseTurnTimer() {
     clearInterval(turnTimerInterval);
     turnTimerInterval = null;
   }
+  soundEngine.pauseBGM();
   const timerElem = document.getElementById('turn-timer') || els.turnTimer;
   if (timerElem) timerElem.classList.add('paused');
 }
@@ -2799,7 +2832,7 @@ function resumeTurnTimer() {
     if (timerElem) timerElem.classList.remove('paused');
     updateTurnTimerUI();
 
-    const elapsedTime = Math.max(0, 45.99 - turnTimeRemaining);
+    const elapsedTime = Math.max(0, TURN_DURATION_SECONDS - turnTimeRemaining);
     soundEngine.startBGM(elapsedTime);
 
     turnTimerInterval = setInterval(() => {
@@ -2961,8 +2994,9 @@ function handlePlayerReconnect(playerIndex) {
 
 
 function startTurn() {
-  stopTurnTimer();
+  pauseTurnTimer();
 
+  equivalentExchangeTurnUses[currentPlayer] = 0;
   rollsLeft = 3;
   keptDice = [];
   activeDice = [];
@@ -3205,8 +3239,6 @@ els.btnRoll.addEventListener('click', async () => {
 
   pauseTurnTimer(); // 주사위 굴리는 동안 타이머 정지
   soundEngine.playSFX('dice_roll');
-  soundEngine.duckBGM();
-
   let isEquivalentRoll = false;
   if (rollsLeft > 0) {
     rollsLeft--;
@@ -3214,6 +3246,7 @@ els.btnRoll.addEventListener('click', async () => {
     isEquivalentRoll = true;
     equivalentExchangeUses[currentPlayer]--;
     equivalentExchangePenalty[currentPlayer] = (equivalentExchangePenalty[currentPlayer] || 0) + 5;
+    equivalentExchangeTurnUses[currentPlayer] = (equivalentExchangeTurnUses[currentPlayer] || 0) + 1;
   }
 
   updateRollsUI(true);
@@ -3269,6 +3302,14 @@ els.btnRoll.addEventListener('click', async () => {
 
   for (let i = 0; i < normalCountToRoll; i++) specialConfigs.push({ type: 'normal' });
 
+  if (isLocalAugmentProgressPlayer()) {
+    Object.entries(diceAugmentTypes).forEach(([augmentId, diceType]) => {
+      if (specialConfigs.some((config) => config.type === diceType)) {
+        recordAugmentMetric(augmentProgressSession, augmentId, 'diceRolls');
+      }
+    });
+  }
+
   // Custom Dice Engine Roll
   diceEngine.cleanUpDeadDice();
 
@@ -3319,7 +3360,6 @@ els.btnRoll.addEventListener('click', async () => {
 
     updateRollsUI();
     resumeTurnTimer(); // 롤링 완료 후 타이머 재개
-    soundEngine.restoreBGM(Math.max(0, 45 - turnTimeRemaining));
     updateScorePreviews(); // 롤링 완료 후 족보 미리보기 및 기입 버튼 활성화
   }, 100); // 틱틱거림 방지를 위해 딜레이 대폭 축소
 });
@@ -3468,6 +3508,28 @@ function getUpperSum(player) {
   }, 0);
 }
 
+function recordDiceScoreUsage(catId, scoreObj) {
+  if (!isLocalAugmentProgressPlayer() || !scoreObj || scoreObj.score <= 0 || !diceEngine) return;
+  const dice = diceEngine.diceArray.filter((die) => die.config?.type !== 'weird');
+  const mutations = activeMutations[currentPlayer] || {};
+  Object.entries(diceAugmentTypes).forEach(([augmentId, diceType]) => {
+    if (!Object.values(mutations).includes(augmentId) || !dice.some((die) => die.config?.type === diceType)) return;
+    const withoutAugmentDice = dice.filter((die) => die.config?.type !== diceType).map((die) => die.value);
+    const withoutScore = calculateScores(withoutAugmentDice, mutations, { bank: yachtBankState[currentPlayer]?.accumulatedScore || 0 })[catId]?.score || 0;
+    if (withoutScore !== scoreObj.score) {
+      recordAugmentMetric(augmentProgressSession, augmentId, 'diceScoreRecords');
+    }
+  });
+
+  const sevensDice = dice.filter((die) => die.config?.type === 'sevens');
+  if (sevensDice.some((die) => die.value === 7) && ['s-straight', 'l-straight'].includes(catId)) {
+    recordAchievementProgress(augmentProgressSession, 'sevens-dice-skill-showcase');
+  }
+  if (Object.values(mutations).includes('couple-dice') && scoreObj.bonusDetails?.some((detail) => detail.value === 3)) {
+    recordAchievementProgress(augmentProgressSession, 'couple-dice-perfect-match');
+  }
+}
+
 function lockScore(catId, scoreInfo, isSync = false, force = false) {
   stopTurnTimer();
   soundEngine.playSFX('scoreboard');
@@ -3504,6 +3566,9 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
 
       momentumState[currentPlayer] = 'used';
       momentumGainedScore[currentPlayer] = newTotal;
+      if (isLocalAugmentProgressPlayer()) {
+        recordAchievementProgress(augmentProgressSession, 'momentum-kneel', momentumBonus, 'max');
+      }
 
       addGameLog({ type: 'system', message: `${getPlayerLabel(currentPlayer)}의 [추진력] 증강이 발동하여 획득 점수가 1.5배로 증가했습니다! (${newTotal}점 획득)` }, 'system', window.isMultiplayer, currentPlayer);
     }
@@ -3520,6 +3585,9 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
     if (actualScore === 0) {
       bhProg.penaltyCount = (bhProg.penaltyCount || 0) + 1;
     }
+    if (isLocalAugmentProgressPlayer() && actualScore >= 20 && currentRound - (bountyHunterAcquiredRound[currentPlayer] || currentRound) < 3) {
+      recordAchievementProgress(augmentProgressSession, 'bounty-hunter-legendary-killer');
+    }
 
     const remainingHits = 3 - bhProg.count;
     if (remainingHits > 0) {
@@ -3530,6 +3598,16 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
       if (!questProgress[currentPlayer]) questProgress[currentPlayer] = {};
       questProgress[currentPlayer].questBonus = (questProgress[currentPlayer].questBonus || 0) + finalReward;
       addGameLog({ type: 'system', message: `[현상금 사냥꾼] 현상금 획득 성공! 보너스 +${finalReward}점을 얻었습니다.` }, 'system', window.isMultiplayer, currentPlayer);
+    }
+  }
+
+  if (isLocalAugmentProgressPlayer()) {
+    recordDiceScoreUsage(catId, scoreObj);
+    if (activeMuts.includes('reverse-choice') && catId === 'yacht' && scoreObj.score === 25) {
+      recordAchievementProgress(augmentProgressSession, 'reverse-choice-unlucky-man');
+    }
+    if (equivalentExchangeTurnUses[currentPlayer] >= 3 && scoreObj.score > 0) {
+      recordAchievementProgress(augmentProgressSession, 'equivalent-exchange-soul-trade');
     }
   }
 
@@ -3635,6 +3713,14 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
       if (keptSum > 0) {
         bankState.accumulatedScore = Math.min(bankState.accumulatedScore + keptSum, 15);
         addGameLog({ type: 'system', message: `[Bank] 요트 뱅크 족보에 주사위 [${keptDice.join(', ')}]를 적립해 ${keptSum}점이 누적되었습니다. (${bankState.accumulatedScore}/15점)` }, 'system', window.isMultiplayer, currentPlayer);
+        if (isLocalAugmentProgressPlayer()) {
+          const enhancedKeptCount = diceEngine.diceArray.filter((die) =>
+            die.isKept && Object.values(diceAugmentTypes).includes(die.config?.type)
+          ).length;
+          if (enhancedKeptCount) {
+            recordAchievementProgress(augmentProgressSession, 'yacht-bank-fence', enhancedKeptCount);
+          }
+        }
       }
       bankState.turnsLeft--;
       if (bankState.turnsLeft === 0) {
@@ -3735,6 +3821,135 @@ function checkExtraTurnsOrEndGame() {
 
 let isGameEnded = false;
 
+function isLocalAugmentProgressPlayer(player = currentPlayer) {
+  return gameMode === 'augmented' && window.isMultiplayer && player === (window.myPlayerIndex || 1) && Boolean(augmentProgressSession);
+}
+
+function getQuestCompleted(augmentId, progress = {}) {
+  const completedFlags = {
+    'yacht-bank': Boolean(yachtBankState[window.myPlayerIndex || 1]?.completed),
+    'fast-straight': progress.fastStraightRewarded,
+    'no-time-to-waste': progress.noTimeRewarded,
+    'step-by-step': progress.stepRewarded,
+    'two-households': progress.twoHouseholdsRewarded,
+    'holdout': progress.holdoutRewarded,
+    'cautious-straight': progress.cautiousRewarded,
+    'every-little': progress.everyLittleRewarded,
+    'copycat': progress.copycatRewarded,
+    'doubling': progress.doublingRewarded,
+    'nozdormu': progress.nozdormuRewarded,
+    'bounty-hunter': (bountyHunterProgress[window.myPlayerIndex || 1]?.count || 0) >= 3
+  };
+  return Boolean(completedFlags[augmentId]);
+}
+
+function didLocalPlayerWin(player) {
+  const scoreOf = (target) => Object.entries(scores[target] || {}).reduce((total, [key, value]) => {
+    if (key === 'bonus') return total + (typeof value === 'object' ? value.score + (value.bonus || 0) : value);
+    return total + (typeof value === 'object' ? value.score + (value.bonus || 0) : value);
+  }, 0) + (questProgress[target]?.questBonus || 0) +
+    ((activeMutations[target]?.yacht === 'yacht-bank' && scores[target]?.yacht === undefined)
+      ? Math.min(yachtBankState[target]?.accumulatedScore || 0, 15) : 0);
+  const myScore = scoreOf(player);
+  const opponents = Array.from({ length: getActivePlayerCount() }, (_, index) => index + 1)
+    .filter((target) => target !== player && !forfeitedPlayers[target]);
+  return opponents.every((target) => myScore > scoreOf(target));
+}
+
+function setAugmentProgressSaveStatus(message = '', state = '') {
+  const status = document.getElementById('endgame-augment-progress-status');
+  if (!status) return;
+  status.hidden = !message;
+  status.textContent = message;
+  status.dataset.state = state;
+}
+
+async function savePersonalAugmentProgress() {
+  const user = getCurrentUser();
+  const myPlayer = window.myPlayerIndex || 1;
+  if (gameMode !== 'augmented') return false;
+  if (!window.isMultiplayer) {
+    setAugmentProgressSaveStatus('도전과제 저장 제외: 멀티플레이 게임이 아님.', 'skipped');
+    return false;
+  }
+  if (!user?.uid) {
+    setAugmentProgressSaveStatus('도전과제 저장 실패: 로그인 정보가 없음.', 'error');
+    return false;
+  }
+  if (forfeitedPlayers[myPlayer]) {
+    setAugmentProgressSaveStatus('도전과제 저장 제외: 기권한 게임임.', 'skipped');
+    return false;
+  }
+  if (!augmentProgressSession) {
+    setAugmentProgressSaveStatus('도전과제 저장 실패: 게임 진행 세션을 찾을 수 없음.', 'error');
+    return false;
+  }
+
+  setAugmentProgressSaveStatus('도전과제 진행도 저장 중...', 'pending');
+
+  Object.values(activeMutations[myPlayer] || {}).forEach((augmentId) => {
+    if (!augmentProgressSession.selections[augmentId]) {
+      recordAugmentSelection(augmentProgressSession, augmentId);
+    }
+  });
+  const selectedAugments = Object.values(activeMutations[myPlayer] || {});
+  const scoreRecords = Object.entries(scores[myPlayer] || {}).filter(([category]) => category !== 'bonus');
+  selectedAugments.forEach((augmentId) => {
+    const metricKeys = new Set(getAugmentTelemetryDefinitions(augmentId).map((metric) => metric.key));
+    if (metricKeys.has('scoreRecords')) {
+      recordAugmentMetric(augmentProgressSession, augmentId, 'scoreRecords', scoreRecords.length);
+      recordAugmentMetric(augmentProgressSession, augmentId, 'scratches', scoreRecords.filter(([, value]) => {
+        const score = typeof value === 'object' ? value.score : value;
+        return score <= 0;
+      }).length);
+    }
+    if (metricKeys.has('questSuccesses')) {
+      recordAugmentMetric(
+        augmentProgressSession,
+        augmentId,
+        getQuestCompleted(augmentId, questProgress[myPlayer] || {}) ? 'questSuccesses' : 'questFailures'
+      );
+    }
+  });
+  if (playerTableFlipUsed[myPlayer]) {
+    recordAugmentMetric(augmentProgressSession, 'table-flip', 'uses');
+  }
+  if (Object.values(activeMutations[myPlayer] || {}).includes('yacht-bank')) {
+    if (yachtBankState[myPlayer]?.completed) {
+      recordAugmentMetric(augmentProgressSession, 'yacht-bank', 'completed');
+    }
+    recordAugmentMetric(
+      augmentProgressSession,
+      'yacht-bank',
+      'bankedScore',
+      Math.min(yachtBankState[myPlayer]?.accumulatedScore || 0, 15)
+    );
+  }
+  if (didLocalPlayerWin(myPlayer)) {
+    if (augmentProgressSession.flags.tableFlipWhileBehind) {
+      recordAchievementProgress(augmentProgressSession, 'table-flip-skilled-player');
+    }
+    if (augmentProgressSession.flags.holdoutTurn12) {
+      recordAchievementProgress(augmentProgressSession, 'holdout-patience-wins');
+    }
+  }
+
+  try {
+    const saved = await saveAugmentProgress(user.uid, augmentProgressSession);
+    if (!saved) {
+      setAugmentProgressSaveStatus('도전과제 저장 실패: 이미 처리된 게임이거나 사용자 데이터를 찾을 수 없음.', 'error');
+      return false;
+    }
+    setAugmentProgressSaveStatus('도전과제 진행도 저장 완료함.', 'success');
+    return true;
+  } catch (error) {
+    console.error('Augment progress save failed:', error);
+    const reason = error?.code || error?.message || '알 수 없는 오류';
+    setAugmentProgressSaveStatus(`도전과제 저장 실패: ${reason}`, 'error');
+    return false;
+  }
+}
+
 function endGame() {
   if (isGameEnded) return;
   isGameEnded = true;
@@ -3834,6 +4049,8 @@ function endGame() {
   }
 
   els.endgameModal?.classList.remove('hidden');
+  setAugmentProgressSaveStatus();
+  void savePersonalAugmentProgress();
 
   const myIdx = window.myPlayerIndex || 1;
   const activePlayerIndices = [];
@@ -4381,6 +4598,9 @@ function updateQuestProgress(player, catId, scoreObj) {
       if (s['s-straight']?.score > 0 && s['l-straight']?.score > 0) {
         prog.fastStraightRewarded = true;
         addReward('재빠른 스트레이트', 15);
+        if (isLocalAugmentProgressPlayer(p) && currentRound <= 5) {
+          recordAchievementProgress(augmentProgressSession, 'fast-straight-speed');
+        }
       }
     }
   }
@@ -4438,6 +4658,9 @@ function updateQuestProgress(player, catId, scoreObj) {
       if (currentRound >= 9) {
         prog.holdoutRewarded = true;
         addReward('알박기', 7);
+        if (isLocalAugmentProgressPlayer(p) && currentRound === 12) {
+          augmentProgressSession.flags.holdoutTurn12 = true;
+        }
       }
     }
   }
@@ -4766,6 +4989,14 @@ window.updateAugmentSidebar = function (player) {
 
             if (rollsLeft >= 3 || !diceEngine || diceEngine.physicsActive) return;
 
+            if (isLocalAugmentProgressPlayer(targetPlayer)) {
+              const totalOf = (player) => Object.values(scores[player] || {}).reduce((total, value) =>
+                total + (typeof value === 'object' ? value.score + (value.bonus || 0) : value), 0
+              ) + (questProgress[player]?.questBonus || 0);
+              const myTotal = totalOf(targetPlayer);
+              augmentProgressSession.flags.tableFlipWhileBehind = Array.from({ length: getActivePlayerCount() }, (_, index) => index + 1)
+                .some((player) => player !== targetPlayer && !forfeitedPlayers[player] && totalOf(player) > myTotal);
+            }
             playerTableFlipUsed[targetPlayer] = true;
             btnFlip.classList.add('used');
             btnFlip.textContent = '판 뒤집음';
@@ -4784,7 +5015,7 @@ window.updateAugmentSidebar = function (player) {
               }, 750);
             }
 
-            stopTurnTimer();
+            pauseTurnTimer();
             els.btnRoll.disabled = true;
 
             if (window.isMultiplayer && networkEngine) {
@@ -4891,6 +5122,7 @@ window.applyMutation = function (player, augmentId, isRemote = false) {
   if (augmentId === 'bounty-hunter') {
     bountyHunterProgress[player] = { count: 0, penaltyCount: 0 };
     bountyHunterTarget[player] = null;
+    bountyHunterAcquiredRound[player] = currentRound;
   }
 
   if (augmentId === 'doubling') {
@@ -4992,6 +5224,11 @@ setupDebugTools({
     }
 
     updateScorePreviews();
+  },
+  resetAugmentProgress: async () => {
+    const user = getCurrentUser();
+    if (!user?.uid) throw new Error('로그인 정보가 없음.');
+    await resetAugmentProgress(user.uid);
   }
 });
 
@@ -5156,14 +5393,16 @@ if (els.btnMenuSettings) {
 }
 
 if (els.btnMenuAchievements) {
-  els.btnMenuAchievements.addEventListener('click', () => {
+  els.btnMenuAchievements.addEventListener('click', async () => {
     openGameModal(els.modalAchievements);
+    await renderAllAchievements();
   });
 }
 
 if (els.btnMenuCompendium) {
   els.btnMenuCompendium.addEventListener('click', () => {
     openGameModal(els.modalCompendium);
+    showCompendiumIndex();
     renderCompendiumAugments(currentCompendiumCategory);
   });
 }
@@ -5178,6 +5417,105 @@ if (els.btnMenuHelp) {
 // 증강 도감 (modal-compendium) 카테고리 탭 & 렌더링 시스템
 // -----------------------------------------------------
 let currentCompendiumCategory = 'all';
+let selectedCompendiumAugment = null;
+
+async function getCurrentProgressData() {
+  const user = getCurrentUser();
+  return user?.uid ? (await getUserFromDB(user.uid) || {}) : {};
+}
+
+function getAugmentIcon(augmentId) {
+  return getVariantSvg(augmentId) || '';
+}
+
+function getAugmentCardHtml(aug, singleLineTag = false) {
+  const isUnavailable = aug.isAvailable === false;
+  const desc = aug.description || `${aug.name} 증강이 적용됩니다.`;
+  return `
+    <div class="modal-compendium-type-text${singleLineTag ? ' is-single-line' : ''}">${getAugmentCategoryEnName(aug, singleLineTag)}</div>
+    ${isUnavailable ? '<div class="modal-compendium-unavailable">리워크 예정</div>' : ''}
+    <div class="aug-slot-header">
+      ${getAugmentIcon(aug.augmentId)}
+      <span class="aug-slot-name">${escapeHtml(aug.name)}</span>
+    </div>
+    <div class="aug-slot-desc">${desc}</div>
+  `;
+}
+
+function showCompendiumIndex(restoreScroll = true) {
+  selectedCompendiumAugment = null;
+  document.getElementById('modal-compendium-index')?.classList.remove('hidden');
+  document.getElementById('modal-compendium-detail')?.classList.add('hidden');
+  const title = document.getElementById('modal-compendium-title');
+  if (title) title.textContent = '증강 도감';
+  requestAnimationFrame(() => {
+    const body = document.getElementById('modal-compendium-body');
+    if (body) body.scrollTop = restoreScroll ? compendiumIndexScrollTop : 0;
+  });
+}
+
+async function showCompendiumDetail(aug) {
+  selectedCompendiumAugment = aug;
+  compendiumIndexScrollTop = document.getElementById('modal-compendium-body')?.scrollTop || 0;
+  const index = document.getElementById('modal-compendium-index');
+  const detail = document.getElementById('modal-compendium-detail');
+  const augmentCard = document.getElementById('compendium-detail-augment');
+  const statList = document.getElementById('compendium-stat-list');
+  const achievementList = document.getElementById('compendium-achievement-list');
+  if (!detail || !augmentCard || !statList || !achievementList) return;
+
+  index?.classList.add('hidden');
+  detail.classList.remove('hidden');
+  augmentCard.className = `modal-compendium-item compendium-detail-augment${aug.isAvailable === false ? ' is-unavailable' : ''}`;
+  augmentCard.innerHTML = getAugmentCardHtml(aug, true);
+  const title = document.getElementById('modal-compendium-title');
+  if (title) title.textContent = aug.name;
+
+  const userData = await getCurrentProgressData();
+  if (selectedCompendiumAugment !== aug) return;
+  const stats = getAugmentStats(userData, aug.augmentId);
+  const adoptionRate = calculateAdoptionRate(stats);
+  statList.innerHTML = `
+    <dt>등장 횟수</dt><dd>${stats.appearances || 0}회</dd>
+    <dt>채택 횟수</dt><dd>${stats.selections || 0}회</dd>
+    <dt>채용률</dt><dd>${adoptionRate.toFixed(1)}%</dd>
+    ${getAugmentTelemetryDefinitions(aug.augmentId).map((metric) =>
+      `<dt>${escapeHtml(metric.label)}</dt><dd>${stats.metrics?.[metric.key] || 0}${metric.unit}</dd>`
+    ).join('')}
+  `;
+
+  renderAchievementList(achievementList, getAugmentAchievementDefinitions(aug).map((definition) => ({
+    definition,
+    progress: getAchievementProgress(userData, definition.id),
+    iconHtml: getAugmentIcon(aug.augmentId)
+  })));
+  document.getElementById('btn-compendium-back')?.focus();
+}
+
+async function renderAllAchievements() {
+  const container = document.getElementById('modal-achievements-list');
+  if (!container) return;
+  const userData = await getCurrentProgressData();
+  const entries = augmentData.flatMap((aug) =>
+    getAugmentAchievementDefinitions(aug).map((definition) => ({
+      definition,
+      progress: getAchievementProgress(userData, definition.id),
+      iconHtml: getAugmentIcon(aug.augmentId)
+    }))
+  );
+  renderAchievementList(container, entries);
+  const completed = entries.filter(({ definition, progress }) =>
+    Boolean(progress.completedAt) || Number(progress.current) >= definition.target
+  ).length;
+  const summaryText = document.getElementById('modal-achievements-summary-text');
+  const summaryFill = document.getElementById('modal-achievements-summary-fill');
+  if (summaryText) summaryText.textContent = `${completed}/${entries.length} 완료함`;
+  if (summaryFill?.parentElement) {
+    summaryFill.style.width = `${entries.length ? (completed / entries.length) * 100 : 0}%`;
+    summaryFill.parentElement.setAttribute('aria-valuenow', String(completed));
+    summaryFill.parentElement.setAttribute('aria-valuemax', String(entries.length));
+  }
+}
 
 function getAugmentCategoryName(aug) {
   if (aug.type === 'Quest') return '퀘스트';
@@ -5190,12 +5528,12 @@ function getAugmentCategoryName(aug) {
   return '기타';
 }
 
-function getAugmentCategoryEnName(aug) {
+function getAugmentCategoryEnName(aug, singleLine = false) {
   if (aug.type && aug.type.includes('Phase 1')) {
-    return 'Quest<br>Phase 1';
+    return singleLine ? 'Quest / Phase 1' : 'Quest<br>Phase 1';
   }
   if (aug.augmentId === 'yacht-bank' || (Array.isArray(aug.types) && aug.types.includes('Modification') && aug.types.includes('Quest'))) {
-    return 'Modification<br>Quest';
+    return singleLine ? 'Modification / Quest' : 'Modification<br>Quest';
   }
   const catName = getAugmentCategoryName(aug);
   if (catName === '변형') return 'Modification';
@@ -5236,26 +5574,23 @@ function renderCompendiumAugments(category = 'all') {
   }
 
   filtered.forEach(aug => {
-    const item = document.createElement('div');
+    const item = document.createElement('button');
     const isUnavailable = aug.isAvailable === false;
     item.className = `augment-option modal-compendium-item${isUnavailable ? ' is-unavailable' : ''}`;
-    
-    const catEnName = getAugmentCategoryEnName(aug);
-    const desc = aug.description || (aug.name + ' 증강이 적용됩니다.');
-    const icon = getVariantSvg(aug.augmentId) || '';
-
-    item.innerHTML = `
-      <div class="modal-compendium-type-text">${catEnName}</div>
-      ${isUnavailable ? '<div class="modal-compendium-unavailable">리워크 예정</div>' : ''}
-      <div class="aug-slot-header">
-        ${icon}
-        <span class="aug-slot-name">${aug.name}</span>
-      </div>
-      <div class="aug-slot-desc">${desc}</div>
-    `;
+    item.type = 'button';
+    item.setAttribute('aria-label', `${aug.name} 상세 정보 보기`);
+    item.innerHTML = getAugmentCardHtml(aug);
+    item.addEventListener('click', () => {
+      void showCompendiumDetail(aug);
+    });
     listContainer.appendChild(item);
   });
 }
+
+document.getElementById('btn-compendium-back')?.addEventListener('click', () => {
+    showCompendiumIndex(false);
+  document.querySelector('.modal-compendium-item')?.focus();
+});
 
 // 탭 버튼 클릭 핸들러 바인딩
 document.querySelectorAll('.modal-compendium-tab-btn').forEach(btn => {
@@ -5293,6 +5628,10 @@ document.querySelectorAll('.game-modal-overlay').forEach(overlay => {
 // ESC 키 입력 시 활성화된 모달 닫기
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    if (!els.modalCompendium?.classList.contains('hidden') && selectedCompendiumAugment) {
+      showCompendiumIndex();
+      return;
+    }
     closeAllGameModals();
   }
 });

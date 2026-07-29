@@ -15,6 +15,7 @@ const FLIP_WALL_HEIGHT = 250;
 const FLIP_CEILING_GAP = 110;
 const CEILING_THICKNESS = 10;
 const RUNWAY_END_PADDING = 4;
+const SLOPE_THICKNESS = 1;
 
 export class DiceBoardPhysics {
   constructor(world) {
@@ -31,14 +32,17 @@ export class DiceBoardPhysics {
     this.clear();
     this.layout = layout;
     this.mode = mode;
+    const profile = this.getCollisionProfile(layout);
+    const { floor } = profile;
     this.floorBody = this.createHorizontalPlate(
-      layout.playBounds.minX,
-      layout.playBounds.maxX,
-      layout.playBounds.minZ,
-      layout.playBounds.maxZ,
-      layout.playSurfaceY,
+      floor.minX,
+      floor.maxX,
+      floor.minZ,
+      floor.maxZ,
+      floor.y,
       BOARD_THICKNESS
     );
+    profile.ramps.forEach(ramp => this.createSlopedPlate(ramp));
 
     if (mode === BOUNDARY_MODES.INGRESS) {
       this.configureIngress(layout);
@@ -49,14 +53,33 @@ export class DiceBoardPhysics {
     }
   }
 
+  getCollisionProfile(layout) {
+    return layout.collisionProfile ?? {
+      bounds: { ...layout.playBounds },
+      floor: { ...layout.playBounds, y: layout.playSurfaceY },
+      ramps: [],
+      wallBottoms: {
+        minX: layout.playSurfaceY,
+        maxX: layout.playSurfaceY,
+        minZ: layout.playSurfaceY,
+        maxZ: layout.playSurfaceY
+      }
+    };
+  }
+
+  getBounds(layout) {
+    return this.getCollisionProfile(layout).bounds;
+  }
+
   configureClosed(layout, wallHeight, ceilingGap) {
-    const { minX, maxX, minZ, maxZ } = layout.playBounds;
-    this.createPerimeterWalls(minX, maxX, minZ, maxZ, layout.playSurfaceY, wallHeight);
-    this.createCeiling(minX, maxX, minZ, maxZ, layout.playSurfaceY + ceilingGap);
+    const profile = this.getCollisionProfile(layout);
+    const { minX, maxX, minZ, maxZ } = profile.bounds;
+    this.createPerimeterWalls(profile.bounds, profile.wallBottoms, wallHeight);
+    this.createCeiling(minX, maxX, minZ, maxZ, Math.max(...Object.values(profile.wallBottoms)) + ceilingGap);
   }
 
   configureIngress(layout) {
-    const { minX, maxX, minZ, maxZ } = layout.playBounds;
+    const { minX, maxX, minZ, maxZ } = this.getBounds(layout);
     const runwayEndZ = Math.max(layout.launchOriginZ + RUNWAY_END_PADDING, maxZ + RUNWAY_END_PADDING);
 
     this.createHorizontalPlate(
@@ -91,28 +114,26 @@ export class DiceBoardPhysics {
     );
   }
 
-  createPerimeterWalls(minX, maxX, minZ, maxZ, floorY, wallHeight) {
+  createPerimeterWalls({ minX, maxX, minZ, maxZ }, wallBottoms, wallHeight) {
     const fullWidth = maxX - minX;
     const fullDepth = maxZ - minZ;
     const centerX = (minX + maxX) / 2;
     const centerZ = (minZ + maxZ) / 2;
-    const wallY = floorY + wallHeight / 2;
-
     this.createStaticBox(
       new CANNON.Vec3((fullWidth + WALL_THICKNESS * 2) / 2, wallHeight / 2, WALL_THICKNESS / 2),
-      new CANNON.Vec3(centerX, wallY, minZ - WALL_THICKNESS / 2)
+      new CANNON.Vec3(centerX, wallBottoms.minZ + wallHeight / 2, minZ - WALL_THICKNESS / 2)
     );
     this.createStaticBox(
       new CANNON.Vec3((fullWidth + WALL_THICKNESS * 2) / 2, wallHeight / 2, WALL_THICKNESS / 2),
-      new CANNON.Vec3(centerX, wallY, maxZ + WALL_THICKNESS / 2)
+      new CANNON.Vec3(centerX, wallBottoms.maxZ + wallHeight / 2, maxZ + WALL_THICKNESS / 2)
     );
     this.createStaticBox(
       new CANNON.Vec3(WALL_THICKNESS / 2, wallHeight / 2, fullDepth / 2 + WALL_THICKNESS),
-      new CANNON.Vec3(minX - WALL_THICKNESS / 2, wallY, centerZ)
+      new CANNON.Vec3(minX - WALL_THICKNESS / 2, wallBottoms.minX + wallHeight / 2, centerZ)
     );
     this.createStaticBox(
       new CANNON.Vec3(WALL_THICKNESS / 2, wallHeight / 2, fullDepth / 2 + WALL_THICKNESS),
-      new CANNON.Vec3(maxX + WALL_THICKNESS / 2, wallY, centerZ)
+      new CANNON.Vec3(maxX + WALL_THICKNESS / 2, wallBottoms.maxX + wallHeight / 2, centerZ)
     );
   }
 
@@ -134,9 +155,31 @@ export class DiceBoardPhysics {
     );
   }
 
-  createStaticBox(halfExtents, position) {
+  createSlopedPlate({ axis, from, to, fromY, toY, min, max }) {
+    const run = to - from;
+    const rise = toY - fromY;
+    const angle = Math.atan2(rise, run);
+    const length = Math.hypot(run, rise);
+    const halfThickness = SLOPE_THICKNESS / 2;
+    const normal = axis === 'x'
+      ? new CANNON.Vec3(-Math.sin(angle), Math.cos(angle), 0)
+      : new CANNON.Vec3(0, Math.cos(angle), -Math.sin(angle));
+    const position = axis === 'x'
+      ? new CANNON.Vec3((from + to) / 2, (fromY + toY) / 2, (min + max) / 2)
+      : new CANNON.Vec3((min + max) / 2, (fromY + toY) / 2, (from + to) / 2);
+    position.vsub(normal.scale(halfThickness), position);
+    const halfExtents = axis === 'x'
+      ? new CANNON.Vec3(length / 2, halfThickness, (max - min) / 2)
+      : new CANNON.Vec3((max - min) / 2, halfThickness, length / 2);
+    const rotation = new CANNON.Quaternion();
+    rotation.setFromAxisAngle(axis === 'x' ? new CANNON.Vec3(0, 0, 1) : new CANNON.Vec3(1, 0, 0), angle);
+    return this.createStaticBox(halfExtents, position, rotation);
+  }
+
+  createStaticBox(halfExtents, position, rotation) {
     const body = new CANNON.Body({ mass: 0, shape: new CANNON.Box(halfExtents) });
     body.position.copy(position);
+    if (rotation) body.quaternion.copy(rotation);
     this.world.addBody(body);
     this.bodies.push(body);
     return body;

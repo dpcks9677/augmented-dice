@@ -1,5 +1,56 @@
 # Handoff
 
+## 2026-07-30 Unified turn-timer BGM timing
+
+- Turn time remains 45.99 seconds as the 46-second grace value.
+- BGM offsets derive from the shared turn-duration constant and pause/resume with the timer instead of advancing silently during dice animations.
+
+## 2026-07-30 Remote-roll timer pause
+
+- Observer clients pause their timer on synchronized opponent-roll start and resume it after final dice arrangement.
+
+## 2026-07-30 Debug augment-progress reset
+
+- Localhost-only debug tools include a confirmed reset for the signed-in account's augment statistics and achievement progress.
+- Match history and receipt records remain intact.
+
+## 2026-07-30 Augment progress save-status visibility
+
+- The end-game modal now shows personal augment-progress save pending, success, skip, or failure status.
+- Firestore failures display the returned error code/message, enabling live-match diagnosis without opening developer tools.
+
+## 2026-07-30 Augment compendium detail implementation
+
+- Preserves the compendium index scroll position after returning from a detail card.
+- Added common mutation/quest/dice-enhancement telemetry and ten requested augment-specific achievements.
+- Added a divider between the augment title and effect description in the expanded detail card.
+- Enlarged the expanded detail-card effect description to 1.28rem (1.6× the compendium card text).
+- Augment cards now open a 2:3 detail layout with an equal-size stats card and a shared achievement list.
+- Completed mastery rows replace progress with `yyyy.mm.dd am/pm nn:mm에 달성`.
+- Each authenticated, non-forfeiting augmented multiplayer participant persists personal appearance, selection, mastery, table-flip, and yacht-bank metrics once per session.
+- Unit checks, production build, DOM grid inspection, and browser console inspection passed. Live two-account Firestore completion remains manual QA.
+
+## 2026-07-30 Augment compendium detail plan
+
+- Planned the selected-augment detail layout, account statistics, shared achievement component, and per-augment telemetry contract.
+- Defined `[Augment Name] Mastery` as selecting the augment and completing 10 games. Plan: `.documents/augment_compendium_detail_implementation_plan.md`.
+- No runtime implementation was applied.
+
+## 2026-07-30 Settled-dice separation
+
+- Low-speed overlapping dice pairs receive at most two deterministic, small horizontal separation impulses before sleep confirmation.
+- The logic runs only on locally simulated rolls and leaves result calculation and final-transform synchronization unchanged.
+
+## 2026-07-30 STL collision-proxy implementation
+
+- Replaced the extended flat collision floor with a measured central floor, left/right/front slope proxies, and rim-height walls.
+- Build, collision-coordinate assertions, and dynamic-body contact checks passed. Plan: `.documents/dice_stl_collision_proxy_plan.md`.
+
+## 2026-07-29 Recess-aligned side walls
+
+- Physics floor and left/right walls now use the central recessed tray X bounds (`-58..58`), not the full STL exterior.
+- Front/back limits remain on the felt play bounds to preserve roll ingress behavior.
+
 ## 2026-07-29 Face-aware dice settling
 
 - Replaced speed-only forced sleep with face-alignment checks in normal rolls and table flips.
