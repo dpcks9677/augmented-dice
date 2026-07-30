@@ -8,11 +8,13 @@ import { getDiceSvg, getSpecialSvg, getVariantSvg, getDicesIconSvg, getAugmented
 import { setupDebugTools } from "./debugTools.js";
 import { uiManager } from "./UIManager.js";
 import "cropperjs/dist/cropper.css";
-import { subscribeAuthState, signInWithGoogle, setNickname, getCurrentUser, saveUserToDB, getUserFromDB, signOutUser, updateUserStatusMsg, updateUserAvatar, updateUserActiveGame, clearUserActiveGame, getUserMatchesFromDB, saveAugmentProgress, resetAugmentProgress } from "./authEngine.js";
+import { subscribeAuthState, signInWithGoogle, setNickname, getCurrentUser, saveUserToDB, getUserFromDB, incrementProfileViews, signOutUser, updateUserStatusMsg, updateUserAvatar, updateUserActiveGame, clearUserActiveGame, getUserMatchesFromDB, saveAugmentProgress, resetAugmentProgress } from "./authEngine.js";
 import Cropper from "cropperjs";
 import defaultAugmentsData from "./augments.json";
 import { calculateAdoptionRate, createAugmentProgressSession, getAugmentAchievementDefinitions, getAugmentTelemetryDefinitions, getAchievementProgress, getAugmentStats, recordAchievementProgress, recordAugmentMetric, recordAugmentOffer, recordAugmentSelection } from "./augmentProgress.js";
 import { renderAchievementList } from "./achievementUI.js";
+import { getProfileModeStats, getTopAugments, updateProfileStats } from "./profileStats.js";
+import { renderProfileRatingGraph } from "./profileRatingGraph.js";
 
 import { soundEngine } from "./SoundEngine.js";
 
@@ -158,6 +160,7 @@ const els = {
   modalSettings: document.getElementById('modal-settings'),
   modalAchievements: document.getElementById('modal-achievements'),
   modalCompendium: document.getElementById('modal-compendium'),
+  modalProfile: document.getElementById('modal-profile'),
   modalHelp: document.getElementById('modal-help')
 };
 
@@ -232,8 +235,8 @@ function initMainSkeletons() {
   const btnLogout = document.getElementById('btn-logout');
   if (btnLogout) btnLogout.classList.add('skeleton-box', 'skeleton-icon-btn');
 
-  const btnEditStatus = document.getElementById('btn-edit-status');
-  if (btnEditStatus) btnEditStatus.classList.add('skeleton-box', 'skeleton-icon-btn');
+  const btnOpenProfile = document.getElementById('btn-open-profile');
+  if (btnOpenProfile) btnOpenProfile.classList.add('skeleton-box', 'skeleton-icon-btn');
 
   const avatarContainer = document.getElementById('profile-avatar-container');
   if (avatarContainer) avatarContainer.classList.add('skeleton-box');
@@ -243,13 +246,6 @@ function initMainSkeletons() {
 
   const statusElem = document.getElementById('profile-status-msg');
   if (statusElem) statusElem.classList.add('skeleton-box', 'skeleton-text-status');
-
-  document.querySelectorAll('.profile-user-detail .detail-val').forEach(el => {
-    el.classList.add('skeleton-box', 'skeleton-detail-val');
-  });
-  document.querySelectorAll('.profile-user-detail .detail-item span:first-child').forEach(el => {
-    el.classList.add('skeleton-box', 'skeleton-detail-label');
-  });
 
   // 2. 경기 기록 (5개 게임 기록 세부 요소 스켈레톤 리스트)
   const historyCard = document.querySelector('.history-card');
@@ -338,8 +334,8 @@ function removeMainSkeletons() {
   const btnLogout = document.getElementById('btn-logout');
   if (btnLogout) btnLogout.classList.remove('skeleton-box', 'skeleton-icon-btn');
 
-  const btnEditStatus = document.getElementById('btn-edit-status');
-  if (btnEditStatus) btnEditStatus.classList.remove('skeleton-box', 'skeleton-icon-btn');
+  const btnOpenProfile = document.getElementById('btn-open-profile');
+  if (btnOpenProfile) btnOpenProfile.classList.remove('skeleton-box', 'skeleton-icon-btn');
 
   const avatarContainer = document.getElementById('profile-avatar-container');
   if (avatarContainer) avatarContainer.classList.remove('skeleton-box');
@@ -350,12 +346,6 @@ function removeMainSkeletons() {
   const statusElem = document.getElementById('profile-status-msg');
   if (statusElem) statusElem.classList.remove('skeleton-box', 'skeleton-text-status');
 
-  document.querySelectorAll('.profile-user-detail .detail-val').forEach(el => {
-    el.classList.remove('skeleton-box', 'skeleton-detail-val');
-  });
-  document.querySelectorAll('.profile-user-detail .detail-item span:first-child').forEach(el => {
-    el.classList.remove('skeleton-box', 'skeleton-detail-label');
-  });
 
   const rollsLeftElem = document.getElementById('rolls-left');
   if (rollsLeftElem) rollsLeftElem.classList.remove('skeleton-box');
@@ -691,8 +681,18 @@ setTimeout(async () => {
   }
 }, 500); // 렌더링 대기
 
-async function refreshUserHistory(uid) {
-  const historyCard = document.querySelector('.history-card');
+const profileDataCache = new Map();
+
+async function getCachedProfileData(uid, force = false) {
+  if (!uid || uid.startsWith('guest')) return null;
+  const cleanProfileUid = uid.split('_')[0];
+  if (!force && profileDataCache.has(cleanProfileUid)) return profileDataCache.get(cleanProfileUid);
+  const data = await getUserFromDB(cleanProfileUid);
+  if (data) profileDataCache.set(cleanProfileUid, data);
+  return data;
+}
+
+async function refreshUserHistory(uid, historyCard = document.querySelector('#profile-content > .history-card'), isCurrent = () => true) {
   if (!historyCard || !uid) return;
 
   const matches = await getUserMatchesFromDB(uid);
@@ -700,7 +700,8 @@ async function refreshUserHistory(uid) {
     .map(player => player?.uid)
     .filter(playerUid => playerUid && !playerUid.startsWith('guest'))
     .map(playerUid => playerUid.split('_')[0]))];
-  const profiles = new Map(await Promise.all(profileIds.map(async profileUid => [profileUid, await getUserFromDB(profileUid)])));
+  const profiles = new Map(await Promise.all(profileIds.map(async profileUid => [profileUid, await getCachedProfileData(profileUid)])));
+  if (!isCurrent()) return;
 
   matches.forEach(match => {
     Object.values(match.players || {}).forEach(player => {
@@ -734,6 +735,21 @@ function renderHistoryAvatar(element, avatarUrl, cropData) {
   image.src = avatarUrl;
 }
 
+function getCleanProfileUid(value) {
+  if (!value || typeof value !== 'string' || value.startsWith('guest')) return null;
+  return value.split('_')[0];
+}
+
+function getHistoryAvatarHtml(player, style = '') {
+  const uid = getCleanProfileUid(player?.uid);
+  if (!uid) return `<div class="history-avatar-mini" style="${style}"></div>`;
+  return `
+    <button class="history-avatar-profile-btn" type="button" data-profile-uid="${escapeHtml(uid)}" aria-label="${escapeHtml(player?.nickname || '플레이어')} 프로필 보기">
+      <span class="history-avatar-mini" style="${style}"></span>
+    </button>
+  `;
+}
+
 function renderHistoryCard(container, matches, myUid) {
   container.innerHTML = '';
 
@@ -744,7 +760,7 @@ function renderHistoryCard(container, matches, myUid) {
   header.className = 'history-header';
   header.innerHTML = `
     <span>경기 기록 (${matchCount})</span>
-    <button class="btn-history-refresh" id="btn-history-refresh" title="경기 기록 새로고침">
+    <button class="btn-history-refresh" type="button" title="경기 기록 새로고침" aria-label="경기 기록 새로고침">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21.5 2v6h-6M2.5 22v-6h6"/>
         <path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8M2.5 16l1.2 1.2A10 10 0 0 0 22.5 12.5"/>
@@ -753,11 +769,11 @@ function renderHistoryCard(container, matches, myUid) {
   `;
   container.appendChild(header);
 
-  const btnRefresh = header.querySelector('#btn-history-refresh');
+  const btnRefresh = header.querySelector('.btn-history-refresh');
   if (btnRefresh) {
     btnRefresh.addEventListener('click', () => {
       btnRefresh.style.transform = 'rotate(360deg)';
-      refreshUserHistory(myUid);
+      void refreshUserHistory(myUid, container);
     });
   }
 
@@ -824,7 +840,7 @@ function renderHistoryCard(container, matches, myUid) {
       }
     });
 
-    const getCleanUidVal = (val) => (!val || typeof val !== 'string') ? val : (val.startsWith('guest') ? val : val.split('_')[0]);
+    const getCleanUidVal = (val) => getCleanProfileUid(val) || val;
     const cleanMyUid = getCleanUidVal(myUid);
 
     let myPlayer = playerList.find(p => p && p.uid && getCleanUidVal(p.uid) === cleanMyUid);
@@ -842,8 +858,8 @@ function renderHistoryCard(container, matches, myUid) {
     const primaryOpponent = otherPlayers[0] || { nickname: '상대방', avatarUrl: null };
     const extraCount = otherPlayers.length > 1 ? otherPlayers.length - 1 : 0;
 
-    const myAvatarStyle = myPlayer?.avatarUrl ? `background-image: url('${myPlayer.avatarUrl}'); background-size: cover;` : '';
-    const oppAvatarStyle = primaryOpponent?.avatarUrl ? `background-image: url('${primaryOpponent.avatarUrl}'); background-size: cover;` : '';
+    const myAvatarStyle = '';
+    const oppAvatarStyle = '';
 
     let oppHtml = `<span class="history-player-name">${escapeHtml(primaryOpponent.nickname || 'Guest')}</span>`;
 
@@ -905,7 +921,7 @@ function renderHistoryCard(container, matches, myUid) {
     let extraScoresHtml = '';
     if (extraCount > 0) {
       restOpponents.forEach(op => {
-        const opAvStyle = op.avatarUrl ? `background-image: url('${op.avatarUrl}'); background-size: cover;` : '';
+        const opAvStyle = '';
         const opScore = op?.totalScore ?? (op?.score ?? 0);
         const isOpForfeited = Boolean(op?.isForfeited);
         const opScoreStyle = isOpForfeited ? 'text-decoration: line-through; color: #888;' : '';
@@ -913,8 +929,8 @@ function renderHistoryCard(container, matches, myUid) {
 
         extraPlayersHtml += `
           <div class="history-player-row history-extra-row">
-            <div class="history-avatar-mini" style="${opAvStyle}"></div>
-            <span class="history-player-name">${op.nickname || 'Guest'}${opForfeitLabel}</span>
+            ${getHistoryAvatarHtml(op, opAvStyle)}
+            <span class="history-player-name">${escapeHtml(op.nickname || 'Guest')}${opForfeitLabel}</span>
           </div>
         `;
         extraScoresHtml += `
@@ -929,13 +945,13 @@ function renderHistoryCard(container, matches, myUid) {
           ${modeIconHtml}
           <span>${modeName}</span>
         </div>
-        <div class="history-players-col">
+          <div class="history-players-col">
           <div class="history-player-row me">
-            <div class="history-avatar-mini" style="${myAvatarStyle}"></div>
-            <span class="history-player-name">${myNameHtml}</span>
+            ${getHistoryAvatarHtml(myPlayer, myAvatarStyle)}
+            <span class="history-player-name">${escapeHtml(myNameHtml)}</span>
           </div>
           <div class="history-player-row">
-            <div class="history-avatar-mini" style="${oppAvatarStyle}"></div>
+            ${getHistoryAvatarHtml(primaryOpponent, oppAvatarStyle)}
             ${oppHtml}
           </div>
           ${extraPlayersHtml}
@@ -957,6 +973,7 @@ function renderHistoryCard(container, matches, myUid) {
     [myPlayer, primaryOpponent, ...restOpponents].forEach((player, index) => {
       renderHistoryAvatar(item.querySelectorAll('.history-avatar-mini')[index], player?.avatarUrl, player?.cropData);
     });
+    bindHistoryProfileButtons(item);
 
     if (extraCount > 0) {
       const extraBtn = item.querySelector('.history-player-extra');
@@ -979,11 +996,234 @@ function renderHistoryCard(container, matches, myUid) {
   container.appendChild(listContainer);
 }
 
+const profilePreviewCard = document.getElementById('profile-preview-card');
+let profilePreviewTimer = null;
+let profilePreviewUid = null;
+let profileModalTargetUid = null;
+let profileEditing = false;
+
+function hideProfilePreview(delay = 0) {
+  clearTimeout(profilePreviewTimer);
+  profilePreviewTimer = setTimeout(() => {
+    profilePreviewUid = null;
+    profilePreviewCard?.classList.add('hidden');
+  }, delay);
+}
+
+async function showProfilePreview(button) {
+  const uid = button?.dataset.profileUid;
+  if (!uid || !profilePreviewCard) return;
+  profilePreviewUid = uid;
+  clearTimeout(profilePreviewTimer);
+  profilePreviewTimer = setTimeout(async () => {
+    const data = await getCachedProfileData(uid);
+    if (!data || !button.isConnected || profilePreviewUid !== uid) return;
+    document.getElementById('profile-preview-name').textContent = data.nickname || 'Player';
+    document.getElementById('profile-preview-status').textContent = data.statusMsg || '';
+    const previewAvatar = document.getElementById('profile-preview-avatar');
+    if (previewAvatar) {
+      previewAvatar.style.backgroundImage = '';
+      previewAvatar.style.backgroundSize = '';
+      previewAvatar.style.backgroundPosition = '';
+      renderHistoryAvatar(previewAvatar, data.avatarUrl, data.cropData);
+    }
+    profilePreviewCard.classList.remove('hidden');
+    const rect = button.getBoundingClientRect();
+    const cardWidth = 260;
+    const cardHeight = profilePreviewCard.offsetHeight || 84;
+    const left = Math.min(window.innerWidth - cardWidth - 12, Math.max(12, rect.left + rect.width / 2 - cardWidth / 2));
+    const below = rect.bottom + 10;
+    const top = below + cardHeight <= window.innerHeight - 12 ? below : Math.max(12, rect.top - cardHeight - 10);
+    profilePreviewCard.style.left = `${left}px`;
+    profilePreviewCard.style.top = `${top}px`;
+  }, 180);
+}
+
+function bindHistoryProfileButtons(root) {
+  root.querySelectorAll('.history-avatar-profile-btn').forEach((button) => {
+    button.addEventListener('pointerenter', () => void showProfilePreview(button));
+    button.addEventListener('pointerleave', () => hideProfilePreview(140));
+    button.addEventListener('focus', () => void showProfilePreview(button));
+    button.addEventListener('blur', () => hideProfilePreview(140));
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      hideProfilePreview();
+      void openProfileModal(button.dataset.profileUid);
+    });
+  });
+}
+
+profilePreviewCard?.addEventListener('pointerenter', () => clearTimeout(profilePreviewTimer));
+profilePreviewCard?.addEventListener('pointerleave', () => hideProfilePreview(100));
+
+function formatProfileDate(value) {
+  if (!value) return '-';
+  const date = value.toDate ? value.toDate() : new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function setProfileEditing(editing) {
+  profileEditing = editing;
+  const status = document.getElementById('profile-modal-status');
+  const input = document.getElementById('profile-modal-status-input');
+  const button = document.getElementById('btn-profile-edit');
+  const avatar = document.getElementById('profile-modal-avatar');
+  status?.classList.toggle('hidden', editing);
+  input?.classList.toggle('hidden', !editing);
+  avatar?.classList.toggle('editing', editing);
+  avatar?.querySelector('.avatar-edit-overlay')?.classList.toggle('hidden', !editing);
+  if (button) button.textContent = editing ? '저장' : '프로필 편집';
+  if (editing && input) {
+    input.value = status?.textContent || '';
+    input.focus();
+  }
+}
+
+function setProfileModalLoading(loading, failed = false) {
+  document.querySelectorAll('#modal-profile .profile-modal-card, #profile-modal-history')
+    .forEach((card) => card.classList.toggle('is-loading', loading));
+  if (!loading && !failed) return;
+  document.getElementById('profile-modal-title').textContent = '프로필';
+  document.getElementById('profile-modal-name').textContent = failed ? '프로필을 불러올 수 없습니다.' : '불러오는 중...';
+  document.getElementById('profile-modal-status').textContent = '';
+  const avatar = document.getElementById('profile-modal-avatar');
+  if (avatar) {
+    avatar.style.backgroundImage = '';
+    avatar.style.backgroundSize = '';
+    avatar.style.backgroundPosition = '';
+  }
+  document.getElementById('btn-profile-edit')?.classList.add('hidden');
+  document.getElementById('btn-my-profile')?.classList.add('hidden');
+}
+
+function renderProfileModal(userData, targetUid) {
+  const currentUser = getCurrentUser();
+  const isMine = Boolean(currentUser?.uid && currentUser.uid === targetUid);
+  const nickname = userData.nickname || 'Player';
+  const status = userData.statusMsg || '';
+  setProfileModalLoading(false);
+  const title = document.getElementById('profile-modal-title');
+  if (title) title.textContent = isMine ? '내 프로필' : '유저 프로필';
+  document.getElementById('profile-modal-name').textContent = nickname;
+  document.getElementById('profile-modal-status').textContent = status;
+
+  const editButton = document.getElementById('btn-profile-edit');
+  editButton?.classList.toggle('hidden', !isMine);
+  document.getElementById('btn-my-profile')?.classList.toggle('hidden', isMine);
+  setProfileEditing(false);
+
+  const avatar = document.getElementById('profile-modal-avatar');
+  if (avatar) {
+    avatar.style.backgroundImage = '';
+    avatar.style.backgroundSize = '';
+    avatar.style.backgroundPosition = '';
+    renderHistoryAvatar(avatar, userData.avatarUrl, userData.cropData);
+  }
+
+  const modeStats = getProfileModeStats(userData);
+  document.getElementById('profile-rating-augmented').textContent = String(modeStats.augmented.rating);
+  document.getElementById('profile-rating-normal').textContent = String(modeStats.normal.rating);
+  document.querySelectorAll('.profile-rating-chart').forEach((chart) => {
+    renderProfileRatingGraph(chart, userData, chart.dataset.ratingMode);
+  });
+  document.getElementById('profile-highest-score').textContent = String(modeStats.normal.highestScore);
+  document.getElementById('profile-highest-score-date').textContent = formatProfileDate(modeStats.normal.highestScoreAt);
+  document.getElementById('profile-upper-bonus-count').textContent = `${modeStats.normal.upperBonusCount}회`;
+  document.getElementById('profile-yacht-count').textContent = `${modeStats.normal.yachtCount}회`;
+  document.getElementById('profile-mode-icon-augmented').innerHTML = getAugmentedDicesIconSvg();
+  document.getElementById('profile-mode-icon-normal').innerHTML = getDicesIconSvg();
+
+  const topAugments = getTopAugments(userData, augmentData);
+  const topList = document.getElementById('profile-top-augments');
+  if (topList) {
+    topList.innerHTML = topAugments.length
+      ? topAugments.map((item) => `
+        <li>
+          <span class="profile-top-augment-icon">${getVariantSvg(item.id) || ''}</span>
+          <span class="profile-top-augment-meta">
+            <strong>${escapeHtml(item.name)}</strong>
+            <span aria-hidden="true">/</span>
+            <span>${item.count}회</span>
+          </span>
+        </li>
+      `).join('')
+      : '<li class="is-empty">기록 없음</li>';
+  }
+}
+
+async function openProfileModal(targetUid) {
+  const uid = getCleanProfileUid(targetUid);
+  if (!uid || !els.modalProfile) return;
+  profileModalTargetUid = uid;
+  openGameModal(els.modalProfile);
+  setProfileModalLoading(true);
+  const history = document.getElementById('profile-modal-history');
+  if (history) history.innerHTML = '<div class="history-empty-text">프로필을 불러오는 중...</div>';
+
+  const userData = await getCachedProfileData(uid);
+  if (profileModalTargetUid !== uid) return;
+  if (!userData) {
+    setProfileModalLoading(false, true);
+    if (history) history.innerHTML = '<div class="history-empty-text">프로필을 불러올 수 없습니다.</div>';
+    return;
+  }
+  renderProfileModal(userData, uid);
+  const currentUser = getCurrentUser();
+  const viewKey = `ad_profile_viewed:${uid}`;
+  if (currentUser?.uid !== uid && sessionStorage.getItem(viewKey) !== '1') {
+    sessionStorage.setItem(viewKey, '1');
+    void incrementProfileViews(uid);
+  }
+  await refreshUserHistory(uid, history, () => profileModalTargetUid === uid);
+}
+
+document.getElementById('btn-open-profile')?.addEventListener('click', () => {
+  const user = getCurrentUser();
+  if (user?.uid) void openProfileModal(user.uid);
+});
+
+document.getElementById('btn-my-profile')?.addEventListener('click', () => {
+  const user = getCurrentUser();
+  if (user?.uid) void openProfileModal(user.uid);
+});
+
+document.getElementById('btn-profile-edit')?.addEventListener('click', async () => {
+  const user = getCurrentUser();
+  if (!user?.uid || user.uid !== profileModalTargetUid) return;
+  if (!profileEditing) {
+    setProfileEditing(true);
+    return;
+  }
+  const input = document.getElementById('profile-modal-status-input');
+  const newMessage = input?.value.trim().substring(0, 30) || '';
+  if (!newMessage) {
+    alert('소개말을 입력해주세요.');
+    return;
+  }
+  if (!await updateUserStatusMsg(user.uid, newMessage)) {
+    alert('소개말 업데이트에 실패했습니다.');
+    return;
+  }
+  const sidebarStatus = document.getElementById('profile-status-msg');
+  if (sidebarStatus) sidebarStatus.textContent = newMessage;
+  document.getElementById('profile-modal-status').textContent = newMessage;
+  localStorage.setItem('ad_status_msg', newMessage);
+  const cached = profileDataCache.get(user.uid) || {};
+  profileDataCache.set(user.uid, { ...cached, statusMsg: newMessage });
+  setProfileEditing(false);
+});
+
+document.getElementById('profile-modal-status-input')?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') document.getElementById('btn-profile-edit')?.click();
+});
+
 // 2. Firebase Auth 흐름 제어
 subscribeAuthState(async (user) => {
   if (user) {
     // Firestore에서 유저 데이터 조회
     const userData = await getUserFromDB(user.uid);
+    if (userData) profileDataCache.set(user.uid, userData);
     refreshUserHistory(user.uid);
 
     if (userData && userData.nickname) {
@@ -1004,26 +1244,6 @@ subscribeAuthState(async (user) => {
       if (profileStatus && userData.statusMsg) {
         profileStatus.textContent = userData.statusMsg;
         localStorage.setItem('ad_status_msg', userData.statusMsg);
-      }
-
-      // 추가 프로필 통계 바인딩
-      const profilePlays = document.getElementById('profile-plays');
-      if (profilePlays) profilePlays.textContent = (userData.stats?.gamesPlayed) || userData.gamesPlayed || 0;
-
-      const profileViews = document.getElementById('profile-views');
-      if (profileViews) profileViews.textContent = userData.profileViews || 0;
-
-      const profileDate = document.getElementById('profile-date');
-      if (profileDate) {
-        if (userData.createdAt) {
-          const dateObj = userData.createdAt.toDate ? userData.createdAt.toDate() : new Date(userData.createdAt);
-          const yyyy = dateObj.getFullYear();
-          const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-          const dd = String(dateObj.getDate()).padStart(2, '0');
-          profileDate.textContent = `${yyyy}.${mm}.${dd}`;
-        } else {
-          profileDate.textContent = '-';
-        }
       }
 
       if (userData.avatarUrl && userData.cropData) {
@@ -1169,14 +1389,6 @@ if (btnLogout) {
       const statusMsg = document.getElementById('profile-status-msg');
       if (statusMsg) statusMsg.textContent = "";
 
-      const profilePlays = document.getElementById('profile-plays');
-      if (profilePlays) profilePlays.textContent = 0;
-      const profileViews = document.getElementById('profile-views');
-      if (profileViews) profileViews.textContent = 0;
-
-      const profileDate = document.getElementById('profile-date');
-      if (profileDate) profileDate.textContent = "-";
-
       resetAvatarUI();
 
       await signOutUser();
@@ -1196,67 +1408,6 @@ if (btnLogout) {
       }
     } catch (e) {
       console.error("Logout failed", e);
-    }
-  });
-}
-
-const profileStatus = document.getElementById('profile-status-msg');
-const btnEditStatus = document.getElementById('btn-edit-status');
-const profileStatusInput = document.getElementById('profile-status-input');
-
-if (btnEditStatus && profileStatus && profileStatusInput) {
-  let isEditing = false;
-  const iconEdit = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>`;
-  const iconSave = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>`;
-
-  const saveStatus = async () => {
-    const user = getCurrentUser();
-    if (!user) return;
-
-    const newMsg = profileStatusInput.value.trim().substring(0, 30);
-    if (newMsg === "") {
-      alert("소개말을 입력해주세요.");
-      return;
-    }
-
-    const success = await updateUserStatusMsg(user.uid, newMsg);
-    if (success) {
-      profileStatus.textContent = newMsg;
-    } else {
-      alert("소개말 업데이트에 실패했습니다.");
-    }
-
-    isEditing = false;
-    profileStatusInput.classList.add('hidden');
-    profileStatus.classList.remove('hidden');
-    btnEditStatus.innerHTML = iconEdit;
-    btnEditStatus.title = "프로필 편집";
-    const avatarCtr = document.getElementById('profile-avatar-container');
-    if (avatarCtr) avatarCtr.classList.remove('editing');
-  };
-
-  btnEditStatus.addEventListener('click', () => {
-    const user = getCurrentUser();
-    if (!user) return;
-
-    if (!isEditing) {
-      isEditing = true;
-      profileStatus.classList.add('hidden');
-      profileStatusInput.classList.remove('hidden');
-      profileStatusInput.value = profileStatus.textContent;
-      profileStatusInput.focus();
-      btnEditStatus.innerHTML = iconSave;
-      btnEditStatus.title = "저장";
-      const avatarCtr = document.getElementById('profile-avatar-container');
-      if (avatarCtr) avatarCtr.classList.add('editing');
-    } else {
-      saveStatus();
-    }
-  });
-
-  profileStatusInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      saveStatus();
     }
   });
 }
@@ -1350,16 +1501,7 @@ els.btnSubmitNickname?.addEventListener('click', async () => {
       els.appContainer?.classList.remove('hidden');
       if (els.myNickname) els.myNickname.textContent = nickname;
       if (els.profileNickname) els.profileNickname.textContent = nickname;
-
-      // 신규가입 UI 업데이트
-      const profilePlays = document.getElementById('profile-plays');
-      if (profilePlays) profilePlays.textContent = 0;
-
-      const profileViews = document.getElementById('profile-views');
-      if (profileViews) profileViews.textContent = 0;
-
-      const profileDate = document.getElementById('profile-date');
-      if (profileDate) profileDate.textContent = new Date().toLocaleDateString();
+      profileDataCache.delete(user.uid);
     }
   } catch (e) {
     alert("닉네임 설정 중 오류가 발생했습니다.");
@@ -2687,7 +2829,10 @@ function showAugmentSelectionModal(player, onSelect) {
   }
 
   let isSelecting = false;
+  let selectionCommitted = false;
   const cleanupAndSelect = (aug) => {
+    if (selectionCommitted) return;
+    selectionCommitted = true;
     if (augmentTimerInterval) {
       clearInterval(augmentTimerInterval);
       augmentTimerInterval = null;
@@ -4085,6 +4230,7 @@ async function saveMatchData() {
   let playerUids = [];
   let maxScore = -1;
   let topUids = [];
+  const matchCompletedAt = new Date().toISOString();
 
   const addUidToPlayerUids = (raw) => {
     if (!raw || typeof raw !== 'string') return;
@@ -4149,6 +4295,10 @@ async function saveMatchData() {
     if (qBonus > 0) {
       playerScores['questBonus'] = qBonus;
     }
+    const upperScore = ['aces', 'deuces', 'threes', 'fours', 'fives', 'sixes']
+      .reduce((total, category) => total + (Number(playerScores[category]) || 0), 0);
+    const upperBonusAchieved = gameMode === 'normal' && upperScore >= 63;
+    const yachtAchieved = gameMode === 'normal' && Number(playerScores.yacht) === 50;
 
     playersData[`p${p}`] = {
       uid: uid,
@@ -4158,7 +4308,9 @@ async function saveMatchData() {
       isForfeited: isForfeited,
       isHost: pInfo ? pInfo.isHost : (p === 1),
       scores: playerScores,
-      augments: Object.values(activeMutations[p] || {})
+      augments: Object.values(activeMutations[p] || {}),
+      upperBonusAchieved,
+      yachtAchieved
     };
   }
 
@@ -4181,7 +4333,7 @@ async function saveMatchData() {
     const docRef = await addDoc(collection(db, "matches"), matchDoc);
 
     // 2. 각 유저별 stats 데이터 누적 업데이트
-    const updateStats = async (uid, isWin, score, augmentsList) => {
+    const updateStats = async (uid, playerData) => {
       if (!uid || uid.startsWith('guest') || uid === 'undefined') return;
       const userRef = doc(db, "users", uid);
 
@@ -4192,26 +4344,14 @@ async function saveMatchData() {
 
           const oldData = sfDoc.data();
           const stats = oldData.stats || {};
-          const gp = (stats.gamesPlayed || 0) + 1;
-          const wins = (stats.wins || 0) + (isWin ? 1 : 0);
-          const losses = (stats.losses || 0) + (!isWin && winnerUid !== 'draw' ? 1 : 0);
-          const highest = Math.max(stats.highestScore || 0, score);
-          const avg = (((stats.averageScore || 0) * (stats.gamesPlayed || 0)) + score) / gp;
-
-          const fav = stats.favoriteAugments || {};
-          augmentsList.forEach(aug => {
-            fav[aug] = (fav[aug] || 0) + 1;
-          });
-
           transaction.update(userRef, {
-            stats: {
-              gamesPlayed: gp,
-              wins: wins,
-              losses: losses,
-              highestScore: highest,
-              averageScore: parseFloat(avg.toFixed(1)),
-              favoriteAugments: fav
-            }
+            stats: updateProfileStats(stats, {
+              mode: gameMode,
+              score: playerData.totalScore,
+              completedAt: matchCompletedAt,
+              upperBonusAchieved: playerData.upperBonusAchieved,
+              yachtAchieved: playerData.yachtAchieved
+            })
           });
         });
       } catch (txErr) {
@@ -4224,13 +4364,13 @@ async function saveMatchData() {
       const pData = playersData[`p${p}`];
       // 본인 계정 통계만 업데이트 (타 유저 문서 수정 시도로 인한 Firestore 403 Forbidden 권한 에러 방지)
       if (pData && pData.uid && curAuthUser?.uid && cleanUid(pData.uid) === cleanUid(curAuthUser.uid)) {
-        const isWin = (winnerUid !== 'draw' && winnerUid === pData.uid);
-        await updateStats(pData.uid, isWin, pData.totalScore, pData.augments);
+        await updateStats(pData.uid, pData);
       }
     }
 
     const currentUser = getCurrentUser();
     if (currentUser?.uid) {
+      profileDataCache.delete(currentUser.uid);
       refreshUserHistory(currentUser.uid);
     }
   } catch (err) {
@@ -5278,6 +5418,7 @@ function renderAvatar(url, cropData, onComplete) {
 
 // Avatar modal logic
 const avatarContainer = document.getElementById('profile-avatar-container');
+const profileModalAvatar = document.getElementById('profile-modal-avatar');
 const cropModal = document.getElementById('crop-modal');
 const cropUrlInput = document.getElementById('crop-image-url');
 const btnCropLoad = document.getElementById('btn-crop-load');
@@ -5290,8 +5431,9 @@ const cropImagePreview = document.getElementById('crop-image-preview');
 
 let cropperInstance = null;
 
-if (avatarContainer && cropModal) {
-  avatarContainer.addEventListener('click', () => {
+if (profileModalAvatar && cropModal) {
+  profileModalAvatar.addEventListener('click', () => {
+    if (!profileEditing) return;
     const user = getCurrentUser();
     if (!user) {
       alert("로그인이 필요합니다.");
@@ -5359,6 +5501,9 @@ if (avatarContainer && cropModal) {
     const success = await updateUserAvatar(user.uid, url, cropData);
     if (success) {
       renderAvatar(url, cropData);
+      renderHistoryAvatar(profileModalAvatar, url, cropData);
+      const cached = profileDataCache.get(user.uid) || {};
+      profileDataCache.set(user.uid, { ...cached, avatarUrl: url, cropData });
       closeModal();
     } else {
       alert("아바타 저장에 실패했습니다.");
@@ -5377,13 +5522,20 @@ function openGameModal(modalEl) {
 function closeGameModal(modalEl) {
   if (!modalEl) return;
   modalEl.classList.add('hidden');
+  if (modalEl === els.modalProfile) {
+    profileModalTargetUid = null;
+    setProfileEditing(false);
+  }
 }
 
 function closeAllGameModals() {
   if (els.modalSettings) els.modalSettings.classList.add('hidden');
   if (els.modalAchievements) els.modalAchievements.classList.add('hidden');
   if (els.modalCompendium) els.modalCompendium.classList.add('hidden');
+  if (els.modalProfile) els.modalProfile.classList.add('hidden');
   if (els.modalHelp) els.modalHelp.classList.add('hidden');
+  profileModalTargetUid = null;
+  setProfileEditing(false);
 }
 
 if (els.btnMenuSettings) {

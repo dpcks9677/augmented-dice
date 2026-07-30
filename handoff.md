@@ -1,5 +1,16 @@
 # Handoff
 
+## 2026-07-30 Profile card rework
+
+- Main profile keeps the existing layout and history card; only joined-date, games-played, and profile-view rows were removed, giving history the freed height.
+- Added a keypad-layout profile modal: profile at 4, empty stats at 5, mode stats across 1–2, and recent matches across 6–3.
+- Both mode ratings show the approved placeholder 500 and an empty SVG graph until the separate rating-system task.
+- History avatars show cached hover/focus previews and open target-UID profile details on click/tap.
+- Other-profile modal opens increment `profileViews` once per browser session; self views are excluded. Firestore rules allow only an authenticated exact +1 update to that field.
+- Profile editing moved to the modal and is visible only for the signed-in user's profile.
+- Normal online match stats now persist highest score with first-achieved date, upper-bonus completions, and actual Yacht-condition entries while preserving all existing stats.
+- Profile tests, augment regression tests, production build, Firestore rules dry-run, responsive DOM/CSS checks, and browser console checks passed. Signed-in two-account interaction remains manual QA.
+
 ## 2026-07-30 Unified turn-timer BGM timing
 
 - Turn time remains 45.99 seconds as the 46-second grace value.
@@ -141,3 +152,98 @@
 - 기존 `.mcp.json` 미추적 파일은 사용자 작업으로 간주하고 건드리지 않는다.
 - 개발 모드에서는 `data-dice-debug` 속성으로 물리 상태를 확인할 수 있다.
 - 실제 멀티플레이 양쪽 브라우저 동시 체감 검증은 후속 수동 QA 항목이다.
+
+## 2026-07-30 프로필 리워크 피드백 반영
+
+- `src/style.css`
+  - history 아바타 내부 요소를 블록으로 고정해 24×24 렌더링 복구
+  - 프로필 편집 버튼 좌측·콘텐츠 너비 적용
+  - 편집 입력 글자 크기 조정
+  - 양 모드 영역 동일 높이, 레이팅 그래프 박스, 모드 아이콘 투명 배경 적용
+  - Top 3 증강 3열 및 아이콘 상단 구조 적용
+- `src/views/game.html`
+  - 각 모드 행을 레이팅 패널과 상세 통계의 2열 구조로 재배치
+- `src/main.js`
+  - Top 3 증강에 SVG 아이콘과 `이름 / 횟수` 마크업 렌더
+- `tests/profileLayout.test.mjs`
+  - history 아바타·편집 버튼·통계 레이아웃 회귀 검사 추가
+
+검증:
+
+- `npm run test:augment-progress` 성공
+- `npm run test:profile-stats` 성공
+- `npm run test:profile-layout` 성공
+- `npm run build` 성공
+- 브라우저 계산값 기준 상·하단 모드 높이 동일, 편집 버튼 콘텐츠 폭, 그래프 배경·테두리, 아이콘 투명 배경 확인
+
+## 2026-07-30 프로필 모달 overflow 안정화
+
+- history 외 프로필 카드는 내부 스크롤을 만들지 않는다.
+- history는 `overflow-y: scroll`과 stable gutter로 항상 스크롤바 폭을 예약한다.
+- 레이팅 그래프는 게임 모드 아이콘·이름·500점 옆의 같은 행에 배치한다.
+- 일반 최고 득점·보너스·요트 카드는 80×76px 기준으로 고정해 남은 영역을 늘려 채우지 않는다.
+- 관련 테스트 3종과 production build 통과.
+
+## 2026-07-30 프로필 통계 시각 통일
+
+- `전적 없음`을 500점 바로 아래로 이동하고 그래프 박스에는 SVG만 남겼다.
+- 일반 통계 카드 높이를 64px로 조정해 Top 3 항목과 맞췄다.
+- 레이팅과 우측 통계 사이에 1px 구분선을 추가했다.
+- 브라우저에서 두 항목 높이 차이 약 1px, 그래프/배경 정렬, 가로 overflow 없음 확인.
+- 관련 테스트 3종과 production build 통과.
+
+## 2026-07-30 프로필 통계 레이아웃 재조정
+
+- 그래프 높이를 64px로 복원했다.
+- SVG에 `preserveAspectRatio="none"`을 적용하고 실선을 `1.5→238.5` 범위로 확장해 배경 좌우 폭과 맞췄다.
+- 레이팅/통계 구분선을 제거했다.
+- 일반 통계와 Top 3 모두 `repeat(3, minmax(0, 1fr))` 열을 사용해 위치·너비를 일치시켰다.
+- 관련 테스트 3종과 production build 통과.
+
+## 2026-07-30 90-day rating graph
+
+- Added `getRatingSeries()` for 90 daily values from `stats.modes.{mode}.ratingHistory`.
+- Missing history renders a flat 500 line; actual rating calculation/storage remains deferred.
+- Added `profileRatingGraph.js` for line/area paths, hover point, date/rating tooltip, focus, and arrow-key navigation.
+- Graph is 70% of its prior column width, 83px high, 1.5px line, with 30% blue area fill.
+- Unit tests, layout checks, augment regression, production build, and browser hover verification passed.
+
+## 2026-07-30 Rating graph hover corrections
+
+- Changed the graph line to sky blue `#60a5fa`.
+- Anchored edge tooltips 4px inside the chart to prevent clipping.
+- Replaced the SVG point with an 8×8px CSS circle so non-uniform SVG scaling cannot distort it.
+- Pointer leave now hides the point and tooltip after 1 second.
+- Browser checks confirmed both edge tooltips, circular point sizing, and delayed dismissal.
+- Follow-up: restored the rating graph line width from `1.5px` to `3px`; profile layout test and production build passed.
+
+## 2026-07-31 Profile target switch and graph exit animation
+
+- Other-user modal titles now read `유저 프로필`; self shows only `프로필 편집`, while other profiles show only `내 프로필`.
+- Rating points are 9.6px with a 12.48px translucent halo (1.3×); pointer exit shrinks the halo to point size for 1 second, then fades/scales the halo, point, and tooltip out together over 300ms.
+- Profile layout/stats, augment regression, and production build passed.
+
+## 2026-07-31 Duplicate augment selection count diagnosis
+
+- Fixed the click-confirm/timer-expiry race with a once-only `selectionCommitted` guard in `cleanupAndSelect()`.
+- Made `recordAugmentSelection()` idempotent per session and augment; duplicate calls remain at one.
+- Augment progress, profile stats/layout tests, and production build passed. Existing persisted duplicate counts were not altered.
+
+## 2026-07-31 Production record reset and legacy cleanup
+
+- On Firebase project `augmented-dice`, reset 11 users by deleting `stats`, `achievements`, and root `gamesPlayed`; deleted 9 matches and 2 augment receipts without backup.
+- Post-check found zero matches, receipts, or users retaining those reset fields. Identity/profile fields including `createdAt` and `profileViews` remain.
+- Removed obsolete `favoriteAugments` compatibility, root `gamesPlayed` creation, and unused generic stats accumulation. `stats.modes` and `stats.augmentStats` are now the active sources.
+- Augment progress, profile stats/layout tests, and production build passed.
+
+## 2026-07-31 Rating graph edge-fill correction
+
+- Extended only the rating area path from the line inset to the full SVG width `x=0..240`, preserving line and hover coordinates.
+- Updated both initial empty-state area paths to cover the same full width.
+- Profile layout/stats tests and production build passed.
+
+## 2026-07-31 Main history height expansion
+
+- Made `#profile-content` consume the remaining sidebar height and removed the 480px cap only from its direct history card.
+- Profile-modal history sizing and scrolling remain unchanged.
+- Profile layout test and production build passed.

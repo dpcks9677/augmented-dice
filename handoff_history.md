@@ -1,5 +1,15 @@
 # Handoff History
 
+## 2026-07-30 Profile card rework
+
+- Removed only the three profile detail rows from the main card and retained the original history card.
+- Added the profile detail modal, responsive keypad grid, placeholder ratings, augment Top 3, normal-mode counters, and self-only editing.
+- Generalized history loading/rendering to explicit UID and container arguments so the sidebar and modal can coexist without duplicate IDs.
+- Added accessible history-avatar profile buttons, fixed-position previews, touch detail opening, user-data caching, and stale-request guards.
+- Added exact-once-per-session other-profile view increments and a narrowly scoped Firestore rule.
+- Added `profileStats.js` so match transactions preserve prior stats and update normal-mode records deterministically.
+- Added profile stat and layout tests; build, syntax, existing augment tests, Firestore rules dry-run, responsive layout checks, and console checks passed.
+
 ## 2026-07-30 Unified turn-timer BGM timing
 
 - Replaced split 45/45.99 BGM offset calculations with `TURN_DURATION_SECONDS`.
@@ -104,6 +114,50 @@
 - First-throw targets now use a narrow range around the board center; crossing that target brakes horizontal motion while preserving the upward/downward flight.
 - The target coordinate is synchronized in spawn transforms for observer consistency.
 
+## 2026-07-30 Profile rework feedback
+
+- Fixed history avatar sizing after the profile-button wrapper changed the avatar root to an inline element.
+- Reworked mode statistics into equal-height augmented/normal rows with boxed rating graphs.
+- Changed Top 3 augments to three horizontal icon-first entries with `name / count` metadata.
+- Reduced and left-aligned the profile edit button, matched edit-input typography, and removed mode-icon backgrounds.
+- Passed augment progress, profile stats, profile layout tests, production build, and browser-computed layout checks.
+
+## 2026-07-30 Profile modal overflow stabilization
+
+- Removed internal scrolling from non-history profile cards.
+- Reserved a permanent vertical scrollbar gutter on profile history to prevent width shifts.
+- Moved rating graphs beside the mode icon, name, and rating.
+- Limited the three normal-mode detail cards to compact 80×76px sizing.
+- Passed profile layout, profile stats, augment progress tests, and production build.
+
+## 2026-07-30 Profile statistics visual alignment
+
+- Moved the shortened `전적 없음` state directly below the 500 rating.
+- Limited the rating background to the graph itself.
+- Matched normal-stat card height to Top 3 augment items and added a divider between rating and detail statistics.
+- Browser metrics confirmed graph/background alignment, roughly equal item heights, and no horizontal overflow.
+
+## 2026-07-30 Profile statistics layout readjustment
+
+- Restored the rating graph to 64px height.
+- Disabled SVG aspect-ratio letterboxing and extended the placeholder line to the graph background edges.
+- Removed the newly added rating/statistics divider.
+- Reused the Top 3 three-column grid sizing for normal-mode statistics.
+- Passed profile layout, profile stats, augment progress tests, and production build.
+
+## 2026-07-30 90-day rating graph
+
+- Added a 90-day daily rating-series normalizer with Firestore timestamp support and a flat 500 fallback.
+- Added a dedicated graph renderer with 1.5px line, 30% blue area fill, 70% width, and 83px height.
+- Added pointer hover and keyboard navigation that reveal a point and date/rating tooltip.
+- Browser verification displayed `2026.06.20 · 515`; all related tests and production build passed.
+
+## 2026-07-30 Rating graph hover corrections
+
+- Changed the line to sky blue, clamped start/end tooltips inside the chart, and moved the hover point out of stretched SVG coordinates.
+- Pointer leave schedules dismissal after 1 second; re-entry cancels the timer.
+- Browser verification confirmed 8×8 circular point geometry, unclipped edge tooltips, and the expected delay.
+
 ## 2026-07-28 — 6시 방향 외부 투척 및 물리판 계획
 
 - 현재 `DiceEngine`, `YachtTrayModel`, STL 형상과 멀티플레이 굴림 동기화 경로를 조사했다.
@@ -134,3 +188,48 @@
 - 고속 진입으로 STL 림을 관통하지 않도록 림 외곽 도달 시점의 최소 높이를 계산해 상승 초기 속도에 반영했다.
 - 일반 5개, 혼합 6개, D8 단일 구성을 각각 100회 시험해 이탈과 안전 복구 0회를 확인했다.
 - 프로덕션 빌드를 다시 통과했다.
+
+## 2026-07-30 — 레이팅 그래프 선 두께 복원
+
+- 프로필 레이팅 그래프 선을 `3px`로 복원했다.
+- 프로필 레이아웃 회귀 테스트와 프로덕션 빌드를 통과했다.
+
+## 2026-07-31 — 타인 프로필 전환·그래프 이탈 애니메이션
+
+- 타인 프로필 제목을 `유저 프로필`로 고정했다.
+- 본인 프로필에는 `프로필 편집`, 타인 프로필에는 로그인 사용자의 상세 프로필로 돌아가는 `내 프로필` 버튼만 표시한다.
+- 그래프 포인트를 9.6px로 확대하고 포인트의 1.3배인 12.48px 반투명 후광을 추가했다.
+- 포인터 이탈 시 후광이 1초 동안 포인트 크기로 줄고, 이후 점·후광·툴팁이 300ms 동안 함께 페이드·축소된다.
+- 관련 테스트 3종과 프로덕션 빌드를 통과했다.
+
+## 2026-07-31 — Top 3 증강 카운트 중복 진단
+
+- 클릭 후 500ms 확정 대기와 선택 제한시간 만료가 겹치면 `cleanupAndSelect()`가 클릭·자동 선택 경로에서 각각 실행될 수 있음을 확인했다.
+- 공통 확정 함수에 1회 가드가 없고 같은 세션의 동일 증강 기록도 누적되므로 `selections[id] === 2`를 재현했다.
+- 저장된 `augmentStats.selections`를 Top 3가 직접 표시해 사용자 제보와 일치한다.
+- `cleanupAndSelect()`에 확정 1회 가드를 추가하고 동일 세션·동일 증강 선택 기록을 멱등화했다.
+- 중복 호출 회귀 테스트와 관련 테스트 3종, 프로덕션 빌드를 통과했다.
+- 이미 저장된 과거 중복 카운트는 유효 기록과 구분할 근거가 없어 변경하지 않았다.
+
+## 2026-07-31 — 프로덕션 기록 초기화·레거시 통계 제거
+
+- Firebase 프로젝트 `augmented-dice`임을 확인하고 사용자 11명의 `stats`, `achievements`, 루트 `gamesPlayed`를 백업 없이 삭제했다.
+- `matches` 9건과 사용자 하위 `augmentStatReceipts` 2건을 삭제했다.
+- 사후 조회에서 경기·영수증 0건, 초기화 필드 잔존 사용자 0명을 확인했다.
+- 닉네임·아바타·소개말·`createdAt`·`profileViews`는 보존했다.
+- 초기화로 호환 필요가 사라진 `favoriteAugments` fallback/누적, 루트 `gamesPlayed` 생성, 범용 `gamesPlayed/wins/losses/highestScore/averageScore` 누적을 제거했다.
+- 모드별 통계와 `augmentStats`는 유지했으며 관련 테스트 3종과 프로덕션 빌드를 통과했다.
+
+## 2026-07-31 — 레이팅 그래프 양 끝 채움 보정
+
+- 채움 경로가 실선과 동일한 `x=1.5~238.5`에서 닫혀 양 끝 1.5 단위가 비는 원인을 확인했다.
+- 실선·호버 좌표는 유지하고 채움만 첫·마지막 높이에서 SVG 전체 `x=0~240`까지 확장했다.
+- 초기 빈 그래프 채움 경로도 전체 너비로 변경하고 회귀 검사를 추가했다.
+- 프로필 레이아웃·통계 테스트와 프로덕션 빌드를 통과했다.
+
+## 2026-07-31 — 메인 history 높이 확장
+
+- 공용 history의 480px 최대 높이 때문에 메인 사이드바 하단이 비는 원인을 확인했다.
+- `#profile-content`가 헤더 아래 남은 높이를 사용하게 하고 직계 history의 최대 높이만 해제했다.
+- 프로필 모달 history의 항상 표시되는 스크롤과 크기는 유지했다.
+- 프로필 레이아웃 테스트와 프로덕션 빌드를 통과했다.

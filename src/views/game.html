@@ -12,17 +12,18 @@
             </svg>
           </button>
           <h2>My Profile</h2>
-          <button id="btn-edit-status" class="icon-btn" title="프로필 편집">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-            </svg>
-          </button>
         </div>
         <div id="profile-content">
           <!-- 1. 프로필 카드 -->
           <div class="profile-card">
-            <div id="profile-avatar-container" class="profile-avatar-placeholder" style="position: relative; overflow: hidden; cursor: pointer;">
+            <button id="btn-open-profile" class="profile-open-btn" type="button" title="프로필 상세 열기" aria-label="프로필 상세 열기">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-plus">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M8 12h8"></path>
+                <path d="M12 8v8"></path>
+              </svg>
+            </button>
+            <div id="profile-avatar-container" class="profile-avatar-placeholder" style="position: relative; overflow: hidden;">
               <canvas id="profile-avatar-canvas" width="120" height="120" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></canvas>
               <div class="avatar-edit-overlay hidden" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
@@ -31,12 +32,6 @@
             <div class="profile-user-info" style="width: 100%; text-align: center;">
               <div id="profile-nickname" class="profile-name">Player</div>
               <div id="profile-status-msg" class="profile-status-msg" style="word-break: keep-all;"></div>
-              <input type="text" id="profile-status-input" class="game-input hidden" maxlength="30" style="margin-top: 8px; width: 100%; font-size: 0.9rem; text-align: center; padding: 4px;" />
-            </div>
-            <div class="profile-user-detail">
-              <div class="detail-item"><span>가입일</span><span id="profile-date" class="detail-val">-</span></div>
-              <div class="detail-item"><span>플레이 횟수</span><span class="detail-val">0</span></div>
-              <div class="detail-item"><span>조회수</span><span class="detail-val">0</span></div>
             </div>
           </div>
           
@@ -335,6 +330,105 @@
         <div class="game-modal-body">
           <div id="modal-achievements-list" class="achievement-list"></div>
         </div>
+      </div>
+    </div>
+
+    <!-- 프로필 상세 모달 -->
+    <div id="modal-profile" class="game-modal-overlay hidden">
+      <div class="game-modal-content profile-modal-content">
+        <div class="game-modal-header">
+          <h2 id="profile-modal-title">프로필</h2>
+          <button class="game-modal-close" data-target="modal-profile" aria-label="프로필 닫기">&times;</button>
+        </div>
+        <div class="game-modal-body profile-modal-body">
+          <div class="profile-modal-actions">
+            <button id="btn-profile-edit" class="compendium-back-btn hidden" type="button">프로필 편집</button>
+            <button id="btn-my-profile" class="compendium-back-btn hidden" type="button">내 프로필</button>
+          </div>
+          <div class="profile-modal-grid">
+            <section class="profile-modal-card profile-modal-identity" aria-labelledby="profile-modal-name">
+              <div id="profile-modal-avatar" class="profile-avatar-placeholder profile-modal-avatar" tabindex="-1">
+                <div class="avatar-edit-overlay hidden">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                </div>
+              </div>
+              <h3 id="profile-modal-name">Player</h3>
+              <p id="profile-modal-status" class="profile-status-msg"></p>
+              <input id="profile-modal-status-input" class="game-input hidden" type="text" maxlength="30" aria-label="프로필 소개말" />
+            </section>
+
+            <section class="profile-modal-card profile-modal-empty-stat" aria-labelledby="profile-modal-stat-title">
+              <h3 id="profile-modal-stat-title">통계</h3>
+              <div></div>
+            </section>
+
+            <section class="profile-modal-card profile-mode-stats" aria-labelledby="profile-mode-stat-title">
+              <h3 id="profile-mode-stat-title">게임 모드 통계</h3>
+              <div class="profile-mode-row">
+                <div class="profile-rating-panel">
+                  <div class="profile-rating-summary">
+                    <div id="profile-mode-icon-augmented" class="profile-mode-icon"></div>
+                    <div class="profile-rating-heading">
+                      <span>증강 요트 다이스</span>
+                      <strong id="profile-rating-augmented">500</strong>
+                      <small>전적 없음</small>
+                    </div>
+                    <div class="profile-rating-chart" data-rating-mode="augmented" tabindex="0" aria-label="증강 요트 다이스 최근 90일 레이팅 그래프">
+                      <svg class="profile-rating-graph" viewBox="0 0 240 64" preserveAspectRatio="none" role="img" aria-label="증강 요트 다이스 레이팅 500점, 전적 없음">
+                        <path class="profile-rating-area" d="M0 32H240V64H0Z"></path>
+                        <path class="profile-rating-line" d="M1.5 32H238.5"></path>
+                      </svg>
+                      <span class="profile-rating-point-halo" aria-hidden="true" hidden></span>
+                      <span class="profile-rating-point" aria-hidden="true" hidden></span>
+                      <output class="profile-rating-tooltip hidden"></output>
+                    </div>
+                  </div>
+                </div>
+                <div class="profile-top-augments">
+                  <strong>Top 3 증강</strong>
+                  <ol id="profile-top-augments"><li class="is-empty">기록 없음</li></ol>
+                </div>
+              </div>
+              <hr />
+              <div class="profile-mode-row profile-mode-row-normal">
+                <div class="profile-rating-panel">
+                  <div class="profile-rating-summary">
+                    <div id="profile-mode-icon-normal" class="profile-mode-icon"></div>
+                    <div class="profile-rating-heading">
+                      <span>일반 요트 다이스</span>
+                      <strong id="profile-rating-normal">500</strong>
+                      <small>전적 없음</small>
+                    </div>
+                    <div class="profile-rating-chart" data-rating-mode="normal" tabindex="0" aria-label="일반 요트 다이스 최근 90일 레이팅 그래프">
+                      <svg class="profile-rating-graph" viewBox="0 0 240 64" preserveAspectRatio="none" role="img" aria-label="일반 요트 다이스 레이팅 500점, 전적 없음">
+                        <path class="profile-rating-area" d="M0 32H240V64H0Z"></path>
+                        <path class="profile-rating-line" d="M1.5 32H238.5"></path>
+                      </svg>
+                      <span class="profile-rating-point-halo" aria-hidden="true" hidden></span>
+                      <span class="profile-rating-point" aria-hidden="true" hidden></span>
+                      <output class="profile-rating-tooltip hidden"></output>
+                    </div>
+                  </div>
+                </div>
+                <dl class="profile-normal-stats">
+                  <div><dt>최고 득점</dt><dd><strong id="profile-highest-score">0</strong><small id="profile-highest-score-date">-</small></dd></div>
+                  <div><dt>보너스 달성</dt><dd id="profile-upper-bonus-count">0회</dd></div>
+                  <div><dt>요트 기입</dt><dd id="profile-yacht-count">0회</dd></div>
+                </dl>
+              </div>
+            </section>
+
+            <section id="profile-modal-history" class="history-card profile-modal-history" aria-label="최근 매치"></section>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="profile-preview-card" class="profile-preview-card hidden" role="tooltip">
+      <div id="profile-preview-avatar" class="profile-avatar-placeholder"></div>
+      <div>
+        <strong id="profile-preview-name">Player</strong>
+        <span id="profile-preview-status"></span>
       </div>
     </div>
 

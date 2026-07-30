@@ -15,6 +15,7 @@ const session = createAugmentProgressSession('test-session');
 recordAugmentOffer(session, ['lucky-sevens', 'lucky-sevens', 'perfect-squares'], '1:1');
 recordAugmentOffer(session, ['lucky-sevens'], '1:1');
 recordAugmentSelection(session, 'lucky-sevens');
+recordAugmentSelection(session, 'lucky-sevens');
 recordAugmentMetric(session, 'table-flip', 'uses');
 recordAugmentMetric(session, 'table-flip', 'unknown');
 

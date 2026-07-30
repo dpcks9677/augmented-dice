@@ -20,7 +20,7 @@
 - `src/views/game.html`의 `modal-compendium`은 카테고리 탭과 카드 목록만 제공한다.
 - `renderCompendiumAugments()`는 카드를 생성하지만 클릭·선택 상태가 없다.
 - `modal-achievements`는 안내 문구만 있으며 공용 도전과제 행 컴포넌트가 없다.
-- 경기 종료 저장은 `stats.favoriteAugments`에 채택 횟수만 누적한다.
+- 경기 종료 저장은 `stats.augmentStats`에 증강별 등장·채택·완주 통계를 누적한다.
 - 현재 경기 기록 저장은 대표 클라이언트가 수행하며, 다른 참가자의 계정 통계 갱신 경로가 없다.
 - 등장 횟수와 증강별 능력 지표를 수집하는 세션 데이터가 없다.
 
@@ -168,17 +168,11 @@ Steam 도전과제는 레이아웃만 참고한다. 색상, 테두리, 그림자
 
 ## 7. 데이터 모델
 
-사용자 문서의 기존 `stats`를 보존하면서 `augmentStats`와 `achievements`를 추가한다.
+사용자 문서의 `stats.augmentStats`와 `achievements`에 진행도를 저장한다.
 
 ```js
 users/{uid} {
   stats: {
-    gamesPlayed,
-    wins,
-    losses,
-    highestScore,
-    averageScore,
-    favoriteAugments,
     augmentStatsVersion: 1,
     augmentStats: {
       [augmentId]: {
@@ -203,7 +197,7 @@ users/{uid} {
 }
 ```
 
-`favoriteAugments`는 기존 프로필 호환을 위해 유지한다. 이후 UI가 `augmentStats`로 전환된 뒤 별도 마이그레이션에서 제거 여부를 결정한다.
+`favoriteAugments` 호환 경로는 2026-07-31 전체 기록 초기화와 함께 제거했다. 증강 선택 통계의 단일 원천은 `stats.augmentStats`이다.
 
 ## 8. 경기 중 수집 로직
 

@@ -40,7 +40,6 @@ export async function saveUserToDB(uid, nickname) {
         nickname: nickname,
         statusMsg: "안녕하세요! 주사위 굴리러 왔습니다.",
         createdAt: serverTimestamp(),
-        gamesPlayed: 0,
         profileViews: 0
       });
     } else {
@@ -75,6 +74,24 @@ export async function getUserFromDB(uid) {
   } catch (error) {
     console.error("Firestore Get Error:", error);
     return null;
+  }
+}
+
+export async function incrementProfileViews(uid) {
+  if (!uid || !auth.currentUser || auth.currentUser.uid === uid) return false;
+  try {
+    await runTransaction(db, async (transaction) => {
+      const userRef = doc(db, "users", uid);
+      const userSnap = await transaction.get(userRef);
+      if (!userSnap.exists()) return;
+      transaction.update(userRef, {
+        profileViews: (Number(userSnap.data().profileViews) || 0) + 1
+      });
+    });
+    return true;
+  } catch (error) {
+    console.error("Profile view update failed:", error);
+    return false;
   }
 }
 

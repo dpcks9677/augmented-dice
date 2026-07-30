@@ -79,7 +79,8 @@ export function recordAugmentOffer(session, augmentIds, receiptKey = '') {
 
 export function recordAugmentSelection(session, augmentId) {
   if (!session || session.saved || !augmentId) return;
-  session.selections[augmentId] = (session.selections[augmentId] || 0) + 1;
+  if (session.selections[augmentId]) return;
+  session.selections[augmentId] = 1;
 }
 
 export function recordAugmentMetric(session, augmentId, metricKey, amount = 1) {
