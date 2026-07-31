@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "C:/Users/dpcks/.local/bin/graphify.EXE hook-check"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [{"hooks":[{"type":"command","command":"node scripts/obsidian-log-hook.mjs prompt"}]}],
+    "Stop": [{"hooks":[{"type":"command","command":"node scripts/obsidian-log-hook.mjs response"}]}],
+    "PreCompact": [{"hooks":[{"type":"command","command":"node scripts/obsidian-log-hook.mjs compact"}]}]
+  }
+}

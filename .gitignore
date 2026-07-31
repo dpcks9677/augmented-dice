@@ -14,6 +14,10 @@ dist-ssr/
 .cache/
 .gemini/
 
+# Generated knowledge graph and project-local Codex skills
+graphify-out/
+.codex/skills/
+
 # Logs
 logs/
 *.log
@@ -22,6 +26,13 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+
+# Local environment and MCP configuration
+.env
+.env.*
+!.env.example
+.mcp.json
+!.mcp.example.json
 
 # Editor & OS Files
 .DS_Store
@@ -42,3 +53,8 @@ scratch_*
 update_svgs.*
 inject_svg.js
 implementation_plan.md
+
+# Local test/tool output
+coverage/
+.vite/
+*.tsbuildinfo
