@@ -2,12 +2,12 @@ import PartySocket from "partysocket";
 import { db } from "./firebaseConfig.js";
 import { collection, addDoc, doc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { networkEngine } from "./networkEngine.js";
-import { calculateScores, mutationDefinitions } from "./scoreEngine.js";
+import { calculateScores, augmentDefinitions } from "./scoreEngine.js";
 import { DiceEngine } from "./DiceEngine.js";
 import { getDiceSvg, getSpecialSvg, getVariantSvg, getDicesIconSvg, getAugmentedDicesIconSvg, getCirclePlusIconSvg, getCircleMinusIconSvg, getFlagIconSvg } from "./svgIcons.js";
 import { setupDebugTools } from "./debugTools.js";
 import "cropperjs/dist/cropper.css";
-import { subscribeAuthState, signInWithGoogle, setNickname, getCurrentUser, saveUserToDB, getUserFromDB, signOutUser, updateUserAvatar, updateUserActiveGame, clearUserActiveGame, saveAugmentProgress, resetAugmentProgress } from "./authEngine.js";
+import { subscribeAuthState, signInWithGoogle, setNickname, getCurrentUser, normalizeUserUid, saveUserToDB, getUserFromDB, signOutUser, updateUserAvatar, updateUserActiveGame, clearUserActiveGame, saveAugmentProgress, resetAugmentProgress } from "./authEngine.js";
 import Cropper from "cropperjs";
 import defaultAugmentsData from "./augments.json";
 import { createAugmentProgressSession, getAugmentTelemetryDefinitions, recordAchievementProgress, recordAugmentMetric, recordAugmentOffer, recordAugmentSelection } from "./augmentProgress.js";
@@ -94,7 +94,7 @@ let rollsLeft = 3;
 let keptDice = []; // 킵된 주사위 배열 (값만 저장)
 let activeDice = []; // 방금 굴린 주사위 배열 (값만 저장)
 let scores = { 1: {}, 2: {}, 3: {}, 4: {} };
-let activeMutations = { 1: {}, 2: {}, 3: {}, 4: {} };
+let activeAugments = { 1: {}, 2: {}, 3: {}, 4: {} };
 let extraTurns = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let isExtraTurnPhase = false;
 let upperBonusThreshold = { 1: 63, 2: 63, 3: 63, 4: 63 };
@@ -112,6 +112,14 @@ let equivalentExchangeUses = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let equivalentExchangePenalty = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let equivalentExchangeTurnUses = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let questProgress = { 1: {}, 2: {}, 3: {}, 4: {} };
+
+function getPlayerAugments(player) {
+  return Object.values(activeAugments[player] || {});
+}
+
+function hasAugment(player, augmentId) {
+  return getPlayerAugments(player).includes(augmentId);
+}
 let momentumState = { 1: 'ready', 2: 'ready', 3: 'ready', 4: 'ready' };
 let momentumGainedScore = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let bountyHunterTarget = { 1: null, 2: null, 3: null, 4: null };
@@ -128,7 +136,7 @@ function isAuthoritativeOnlineMatch() {
   return window.isMultiplayer && (networkEngine.sessionType === 'matchmaking' || Boolean(authoritativeGameState));
 }
 
-initGameLog(() => activeMutations);
+initGameLog(() => activeAugments);
 
 
 // 2. Firebase Auth 흐름 제어
@@ -587,7 +595,7 @@ export async function resetUserSessionState() {
   activeDice = [];
   keptDice = [];
   scores = { 1: {}, 2: {} };
-  activeMutations = { 1: {}, 2: {} };
+  activeAugments = { 1: {}, 2: {} };
   forfeitedPlayers = { 1: false, 2: false, 3: false, 4: false };
 
   const user = getCurrentUser();
@@ -1080,17 +1088,17 @@ networkEngine.on('ingame_message', (data) => {
     return;
   }
 
-  if (data.type === 'apply_mutation' || data.subType === 'apply_mutation') {
-    if (window.applyMutation) {
-      window.applyMutation(data.player, data.augmentId, true);
+  if (data.type === 'apply_augment' || data.subType === 'apply_augment') {
+    if (window.applyAugment) {
+      window.applyAugment(data.player, data.augmentId, true);
     }
     let expectedCount = 0;
     if (currentRound >= 1) expectedCount = 1;
     if (currentRound >= 6) expectedCount = 2;
     if (currentRound >= 9) expectedCount = 3;
 
-    const p1Count = Object.keys(activeMutations[1] || {}).length;
-    const p2Count = Object.keys(activeMutations[2] || {}).length;
+    const p1Count = Object.keys(activeAugments[1] || {}).length;
+    const p2Count = Object.keys(activeAugments[2] || {}).length;
 
     if (p1Count < expectedCount) {
       if (!window.isMultiplayer && typeof updateAugmentSidebar === 'function') updateAugmentSidebar(1);
@@ -1219,7 +1227,7 @@ networkEngine.on('full_game_sync', (data) => {
   }
 
   scores = sData.scores || { 1: {}, 2: {} };
-  activeMutations = sData.activeMutations || { 1: {}, 2: {} };
+  activeAugments = sData.activeAugments || { 1: {}, 2: {} };
   currentRound = sData.currentRound || 1;
   currentPlayer = sData.currentPlayer || 1;
   rollsLeft = sData.rollsLeft !== undefined ? sData.rollsLeft : 3;
@@ -1298,9 +1306,7 @@ networkEngine.on('player_reconnected', (data) => {
 });
 
 function cleanUid(raw) {
-  if (!raw || typeof raw !== 'string') return raw;
-  if (raw.startsWith('guest')) return raw;
-  return raw.split('_')[0];
+  return normalizeUserUid(raw) || raw;
 }
 
 
@@ -1565,7 +1571,7 @@ function resetGameSession() {
   forfeitedPlayers = { 1: false, 2: false, 3: false, 4: false };
   forfeitedPlayerUids = {};
   scores[1] = {}; scores[2] = {}; scores[3] = {}; scores[4] = {};
-  activeMutations[1] = {}; activeMutations[2] = {}; activeMutations[3] = {}; activeMutations[4] = {};
+  activeAugments[1] = {}; activeAugments[2] = {}; activeAugments[3] = {}; activeAugments[4] = {};
   extraTurns = { 1: 0, 2: 0, 3: 0, 4: 0 };
   isExtraTurnPhase = false;
   isGameEnded = false;
@@ -1828,7 +1834,7 @@ function startMultiplayerGame() {
   currentPlayer = 1;
   currentRound = 1;
   scores = { 1: {}, 2: {} };
-  activeMutations = { 1: {}, 2: {} };
+  activeAugments = { 1: {}, 2: {} };
   upperBonusThreshold = { 1: 63, 2: 63 };
   destroyedStrangeDice = { 1: false, 2: false };
   promotionConsumed = { 1: false, 2: false };
@@ -1970,15 +1976,8 @@ async function renderAuthoritativeDice(previousState, state, action) {
       if (authoritativeGameState?.revision === state.revision) {
         await diceEngine.completeAuthoritativeRoll(state.dice, 500);
       }
-    } else if (action?.rollPhysics) {
-      soundEngine.playSFX('dice_roll');
-      const elapsed = 0;
-      await diceEngine.replayAuthoritativeRoll(action.rollPhysics, elapsed);
-      if (authoritativeGameState?.revision === state.revision) {
-        await diceEngine.completeAuthoritativeRoll(state.dice, 500);
-      }
     } else {
-      // finalValues, preset animation, rollPhysics가 모두 없는 경우에만 경고
+      // finalValues와 preset animation이 모두 없는 경우에만 경고
       console.warn('[online] No roll data available, forcing dice state');
       diceEngine.forceDiceState(state.dice);
     }
@@ -2002,7 +2001,7 @@ async function applyAuthoritativeState(state, action = null) {
   stopTurnTimer();
 
   scores = state.scores || scores;
-  activeMutations = state.activeMutations || activeMutations;
+  activeAugments = state.activeAugments || activeAugments;
   currentRound = Number(state.currentRound) || 1;
   currentPlayer = Number(state.currentPlayer) || 1;
   rollsLeft = Number.isFinite(Number(state.rollsLeft)) ? Number(state.rollsLeft) : 3;
@@ -2109,7 +2108,7 @@ function getSeededAugments(round, player) {
   }
 
   // 해당 플레이어가 이미 획득하여 가지고 있는 증강은 다음 드래프트 생성 후보 풀에서 제거
-  const ownedAugmentIds = Object.values(activeMutations[player] || {});
+  const ownedAugmentIds = getPlayerAugments(player);
   if (ownedAugmentIds.length > 0) {
     pool = pool.filter(aug => !ownedAugmentIds.includes(aug.augmentId));
   }
@@ -2212,7 +2211,7 @@ function showAugmentSelectionModal(player, onSelect) {
     if (isMyTurn && window.isMultiplayer && gameMode === 'augmented') {
       recordAugmentSelection(augmentProgressSession, aug.augmentId);
     }
-    if (window.applyMutation) window.applyMutation(player, aug.augmentId);
+    if (window.applyAugment) window.applyAugment(player, aug.augmentId);
     if (onSelect) {
       onSelect();
     }
@@ -2284,10 +2283,10 @@ let turnTimeRemaining = TURN_DURATION_SECONDS;
 function startTurnTimer(overrideTime = null) {
   stopTurnTimer();
   const curP = typeof currentPlayer !== 'undefined' ? currentPlayer : 1;
-  const activeMutsObj = activeMutations[curP] || activeMutations[`p${curP}`] || {};
-  const activeMuts = Object.values(activeMutsObj);
+  const activeAugmentsObj = activeAugments[curP] || activeAugments[`p${curP}`] || {};
+  const activeAugmentsList = Object.values(activeAugmentsObj);
   const activeProg = questProgress[curP] || questProgress[`p${curP}`] || {};
-  if (activeMuts.includes('nozdormu') && !activeProg.nozdormuRewarded) {
+  if (activeAugmentsList.includes('nozdormu') && !activeProg.nozdormuRewarded) {
     if (overrideTime === null || overrideTime > 15) {
       overrideTime = 15;
     }
@@ -2421,7 +2420,7 @@ async function handleTurnTimeout() {
   }
 
   const fullDiceObjects = diceEngine?.diceArray ? diceEngine.diceArray.map(d => ({ value: d.value, type: d.config.type })) : [];
-  const potentialScores = typeof calculateScores === 'function' ? calculateScores(dice5, activeMutations[currentPlayer] || {}, { bank: (yachtBankState[currentPlayer]?.accumulatedScore || 0), fullDice: fullDiceObjects }) : {};
+  const potentialScores = typeof calculateScores === 'function' ? calculateScores(dice5, activeAugments[currentPlayer] || {}, { bank: (yachtBankState[currentPlayer]?.accumulatedScore || 0), fullDice: fullDiceObjects }) : {};
 
   let bestCatId = null;
   let maxScoreVal = -1;
@@ -2544,7 +2543,7 @@ function startTurn() {
   }
 
   // 요트 뱅크: 3턴 진행 완료(turnsLeft === 0) 후 4번째 턴 진입 시 자동 기입 및 턴 자동 넘김
-  if (activeMutations[currentPlayer] && activeMutations[currentPlayer]['yacht'] === 'yacht-bank') {
+  if (activeAugments[currentPlayer] && activeAugments[currentPlayer]['yacht'] === 'yacht-bank') {
     if (!yachtBankState[currentPlayer]) {
       yachtBankState[currentPlayer] = { turnsLeft: 3, accumulatedScore: 0, initialized: true, completed: false };
     }
@@ -2573,9 +2572,9 @@ function startTurn() {
     });
 
     // 현상금 사냥꾼 타겟 지정 시스템
-    const activeMuts = Object.values(activeMutations[currentPlayer] || {});
+    const activeAugmentsList = getPlayerAugments(currentPlayer);
     const bhProg = bountyHunterProgress[currentPlayer] || { count: 0, penaltyCount: 0 };
-    if (activeMuts.includes('bounty-hunter') && bhProg.count < 3) {
+    if (activeAugmentsList.includes('bounty-hunter') && bhProg.count < 3) {
       // 아직 비어있는(unfilled) 카테고리 후보 추출
       const unfilledCats = [];
       const allCats = ['aces', 'deuces', 'threes', 'fours', 'fives', 'sixes', 'choice', '4oak', 'fullhouse', 's-straight', 'l-straight', 'yacht'];
@@ -2612,7 +2611,7 @@ function startTurn() {
 
     // [이벤트 트리거 1: 내 턴이 시작되었을 때 불이 들어옴]
     const bankSt = yachtBankState[currentPlayer];
-    const hasYachtBank = Boolean(activeMutations[currentPlayer] && activeMutations[currentPlayer]['yacht'] === 'yacht-bank');
+    const hasYachtBank = Boolean(activeAugments[currentPlayer] && activeAugments[currentPlayer]['yacht'] === 'yacht-bank');
     const shouldLightUp = hasYachtBank && !bankSt?.completed && (bankSt?.turnsLeft === undefined || bankSt?.turnsLeft > 0);
 
     if (typeof diceEngine !== 'undefined' && diceEngine && typeof diceEngine.setYachtBankActive === 'function') {
@@ -2629,7 +2628,7 @@ function startTurn() {
 
   if (gameMode === 'augmented' || gameMode === 'augmented-hotseat') {
     const isDraftRound = (currentRound === 1 || currentRound === 6 || currentRound === 9);
-    const currentAugCount = Object.keys(activeMutations[currentPlayer] || {}).length;
+    const currentAugCount = Object.keys(activeAugments[currentPlayer] || {}).length;
     let expectedCount = 0;
     if (currentRound >= 1) expectedCount = 1;
     if (currentRound >= 6) expectedCount = 2;
@@ -2645,7 +2644,7 @@ function startTurn() {
 
       showAugmentSelectionModal(currentPlayer, () => {
         if (currentPlayer === 1) {
-          const p2Count = Object.keys(activeMutations[2] || {}).length;
+          const p2Count = Object.keys(activeAugments[2] || {}).length;
           if (p2Count < expectedCount) {
             if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(2);
             showAugmentSelectionModal(2, () => {
@@ -2668,7 +2667,7 @@ function updateRollsUI(isRolling = false) {
   els.rollsLeft.textContent = `남은 굴리기: ${rollsLeft}`;
   const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
 
-  const hasEquivalentExchange = Object.values(activeMutations[currentPlayer] || {}).includes('equivalent-exchange');
+  const hasEquivalentExchange = getPlayerAugments(currentPlayer).includes('equivalent-exchange');
   const canEquivalentExchange = hasEquivalentExchange && (equivalentExchangeUses[currentPlayer] || 0) > 0;
 
   if (isRolling) {
@@ -2696,13 +2695,13 @@ function updateRollsUI(isRolling = false) {
   }
 
   if (typeof diceEngine !== 'undefined' && diceEngine) {
-    const activeMuts = Object.values(activeMutations[currentPlayer] || {});
+    const activeAugmentsList = getPlayerAugments(currentPlayer);
     let baseDiceCount = 5;
-    const totalDiceAllowed = baseDiceCount + (activeMuts.includes('strange-die') && !destroyedStrangeDice[currentPlayer] ? 1 : 0);
+    const totalDiceAllowed = baseDiceCount + (activeAugmentsList.includes('strange-die') && !destroyedStrangeDice[currentPlayer] ? 1 : 0);
 
     // 요트 뱅크 활성화 기간 조건: 증강 보유 중이고 퀘스트 미완료이며 turnsLeft가 남아있거나 방금 선택된 턴인 경우
     const bankSt = yachtBankState[currentPlayer];
-    const hasYachtBank = Boolean(activeMutations[currentPlayer] && activeMutations[currentPlayer]['yacht'] === 'yacht-bank');
+    const hasYachtBank = Boolean(activeAugments[currentPlayer] && activeAugments[currentPlayer]['yacht'] === 'yacht-bank');
     const isYachtBankActive = hasYachtBank && !bankSt?.completed && (bankSt?.turnsLeft === undefined || bankSt?.turnsLeft > 0);
 
     diceEngine.allowKeep = isMyTurn && (rollsLeft < 3 || canEquivalentExchange || isYachtBankActive);
@@ -2757,7 +2756,7 @@ els.btnRoll.addEventListener('click', async () => {
   }
 
   // 실제 게임 모드 로직
-  const hasEE = Object.values(activeMutations[currentPlayer] || {}).includes('equivalent-exchange');
+  const hasEE = getPlayerAugments(currentPlayer).includes('equivalent-exchange');
   const canEE = rollsLeft <= 0 && hasEE && (equivalentExchangeUses[currentPlayer] || 0) > 0;
 
   if (!isMyTurn) return;
@@ -2780,24 +2779,24 @@ els.btnRoll.addEventListener('click', async () => {
   clearScorePreviews();
 
   // 구성(config) 생성
-  const activeMuts = Object.values(activeMutations[currentPlayer] || {});
+  const activeAugmentsList = getPlayerAugments(currentPlayer);
   let baseDiceCount = 5;
   const specialConfigs = [];
 
-  if (activeMuts.includes('strange-die') && !destroyedStrangeDice[currentPlayer]) {
+  if (activeAugmentsList.includes('strange-die') && !destroyedStrangeDice[currentPlayer]) {
     specialConfigs.push({ type: 'weird' });
   }
-  if (activeMuts.includes('promotion-die') && !promotionConsumed[currentPlayer]) {
+  if (activeAugmentsList.includes('promotion-die') && !promotionConsumed[currentPlayer]) {
     const acqRound = promotionAcquiredRound[currentPlayer] || currentRound;
     const pLevel = Math.max(0, currentRound - acqRound);
     specialConfigs.push({ type: 'promotion', promotionLevel: pLevel });
   }
 
-  let heavyCount = activeMuts.includes('weighted-dice') ? 1 : 0;
-  let goldenCount = activeMuts.includes('golden-die') ? 1 : 0;
-  let octCount = activeMuts.includes('8-sided') ? 2 : 0;
-  let coupleCount = activeMuts.includes('couple-dice') ? 2 : 0;
-  let sevensCount = activeMuts.includes('sevens-dice') ? 2 : 0;
+  let heavyCount = activeAugmentsList.includes('weighted-dice') ? 1 : 0;
+  let goldenCount = activeAugmentsList.includes('golden-die') ? 1 : 0;
+  let octCount = activeAugmentsList.includes('8-sided') ? 2 : 0;
+  let coupleCount = activeAugmentsList.includes('couple-dice') ? 2 : 0;
+  let sevensCount = activeAugmentsList.includes('sevens-dice') ? 2 : 0;
 
   // 킵된 주사위에서 소모된 수량 차감
   const keptConfigs = diceEngine.diceArray.filter(d => d.isKept).map(d => d.config.type);
@@ -2823,7 +2822,7 @@ els.btnRoll.addEventListener('click', async () => {
   for (let i = 0; i < coupleCount; i++) specialConfigs.push({ type: 'couple' });
   for (let i = 0; i < sevensCount; i++) specialConfigs.push({ type: 'sevens' });
 
-  const totalDiceAllowed = baseDiceCount + (activeMuts.includes('strange-die') && !destroyedStrangeDice[currentPlayer] ? 1 : 0);
+  const totalDiceAllowed = baseDiceCount + (activeAugmentsList.includes('strange-die') && !destroyedStrangeDice[currentPlayer] ? 1 : 0);
   const normalCountToRoll = totalDiceAllowed - keptConfigs.length - specialConfigs.length;
 
   for (let i = 0; i < normalCountToRoll; i++) specialConfigs.push({ type: 'normal' });
@@ -2900,7 +2899,7 @@ function updateScorePreviews() {
   }
 
   // 요트 뱅크: 킵 존 주사위는 족보 점수 계산에서 제외
-  const isYachtBankActive = (activeMutations[currentPlayer] && activeMutations[currentPlayer]['yacht'] === 'yacht-bank' && yachtBankState[currentPlayer]?.turnsLeft > 0);
+  const isYachtBankActive = (activeAugments[currentPlayer] && activeAugments[currentPlayer]['yacht'] === 'yacht-bank' && yachtBankState[currentPlayer]?.turnsLeft > 0);
   const evalDice = isYachtBankActive ? [...activeDice] : [...keptDice, ...activeDice];
 
   if (evalDice.length > 5) {
@@ -2916,7 +2915,7 @@ function updateScorePreviews() {
 
 function showNotSelectedState(neededCount) {
   if (!scores[currentPlayer]) scores[currentPlayer] = {};
-  if (!activeMutations[currentPlayer]) activeMutations[currentPlayer] = {};
+  if (!activeAugments[currentPlayer]) activeAugments[currentPlayer] = {};
 
   categories.forEach(cat => {
     if (cat.isDivider) return;
@@ -2939,12 +2938,12 @@ function showNotSelectedState(neededCount) {
 
 function previewScores(diceArray) {
   if (!scores[currentPlayer]) scores[currentPlayer] = {};
-  if (!activeMutations[currentPlayer]) activeMutations[currentPlayer] = {};
+  if (!activeAugments[currentPlayer]) activeAugments[currentPlayer] = {};
   if (!yachtBankState[currentPlayer]) yachtBankState[currentPlayer] = { turnsLeft: 0, accumulatedScore: 0, initialized: false, completed: false };
 
   // Get full dice array from engine to pass configs to scoreEngine if needed
   const fullDiceObjects = diceEngine.diceArray.map(d => ({ value: d.value, type: d.config.type }));
-  const potentialScores = calculateScores(diceArray, activeMutations[currentPlayer] || {}, { bank: (yachtBankState[currentPlayer]?.accumulatedScore || 0), fullDice: fullDiceObjects });
+  const potentialScores = calculateScores(diceArray, activeAugments[currentPlayer] || {}, { bank: (yachtBankState[currentPlayer]?.accumulatedScore || 0), fullDice: fullDiceObjects });
 
   categories.forEach(cat => {
     if (cat.isDivider) return;
@@ -2957,8 +2956,8 @@ function previewScores(diceArray) {
     const scoreObj = typeof potentialScores[cat.id] === 'object' ? { ...potentialScores[cat.id] } : { score: potentialScores[cat.id], bonus: 0 };
 
     // 추진력 발동 준비(active) 상태 시 예상 점수에 1.5배 가산분 미리보기 추가
-    const playerMuts = Object.values(activeMutations[currentPlayer] || {});
-    if (playerMuts.includes('momentum') && momentumState[currentPlayer] === 'active' && scoreObj.score > 0) {
+    const playerAugments = getPlayerAugments(currentPlayer);
+    if (playerAugments.includes('momentum') && momentumState[currentPlayer] === 'active' && scoreObj.score > 0) {
       const origTotal = scoreObj.score + (scoreObj.bonus || 0);
       const newTotal = Math.floor(origTotal * 1.5);
       const mBonus = newTotal - origTotal;
@@ -2971,7 +2970,7 @@ function previewScores(diceArray) {
     }
 
     // 요트 뱅크 미리보기 및 잠금 처리
-    const isYachtBankCell = (cat.id === 'yacht' && activeMutations[currentPlayer]['yacht'] === 'yacht-bank');
+    const isYachtBankCell = (cat.id === 'yacht' && activeAugments[currentPlayer]['yacht'] === 'yacht-bank');
     if (isYachtBankCell) {
       const bankVal = Math.min(yachtBankState[currentPlayer]?.accumulatedScore || 0, 15);
       scoreText = `${bankVal}`;
@@ -3027,14 +3026,14 @@ function clearScorePreviews() {
 
 function getUpperSum(player) {
   if (!scores[player]) scores[player] = {};
-  if (!activeMutations[player]) activeMutations[player] = {};
+  if (!activeAugments[player]) activeAugments[player] = {};
   const upperCats = ['aces', 'deuces', 'threes', 'fours', 'fives', 'sixes'];
   return upperCats.reduce((sum, catId) => {
     let scoreVal = scores[player][catId];
     let score = scoreVal ? (typeof scoreVal === 'object' ? scoreVal.score + (scoreVal.bonus || 0) : scoreVal) : 0;
 
-    const mutId = activeMutations[player] ? activeMutations[player][catId] : null;
-    if (mutId && mutationDefinitions[mutId] && mutationDefinitions[mutId].excludeFromUpper) {
+    const augmentId = activeAugments[player] ? activeAugments[player][catId] : null;
+    if (augmentId && augmentDefinitions[augmentId] && augmentDefinitions[augmentId].excludeFromUpper) {
       score = 0; // 상단 보너스 합산 제외
     }
     return sum + score;
@@ -3044,11 +3043,11 @@ function getUpperSum(player) {
 function recordDiceScoreUsage(catId, scoreObj) {
   if (!isLocalAugmentProgressPlayer() || !scoreObj || scoreObj.score <= 0 || !diceEngine) return;
   const dice = diceEngine.diceArray.filter((die) => die.config?.type !== 'weird');
-  const mutations = activeMutations[currentPlayer] || {};
+  const augments = activeAugments[currentPlayer] || {};
   Object.entries(diceAugmentTypes).forEach(([augmentId, diceType]) => {
-    if (!Object.values(mutations).includes(augmentId) || !dice.some((die) => die.config?.type === diceType)) return;
+    if (!Object.values(augments).includes(augmentId) || !dice.some((die) => die.config?.type === diceType)) return;
     const withoutAugmentDice = dice.filter((die) => die.config?.type !== diceType).map((die) => die.value);
-    const withoutScore = calculateScores(withoutAugmentDice, mutations, { bank: yachtBankState[currentPlayer]?.accumulatedScore || 0 })[catId]?.score || 0;
+    const withoutScore = calculateScores(withoutAugmentDice, augments, { bank: yachtBankState[currentPlayer]?.accumulatedScore || 0 })[catId]?.score || 0;
     if (withoutScore !== scoreObj.score) {
       recordAugmentMetric(augmentProgressSession, augmentId, 'diceScoreRecords');
     }
@@ -3058,7 +3057,7 @@ function recordDiceScoreUsage(catId, scoreObj) {
   if (sevensDice.some((die) => die.value === 7) && ['s-straight', 'l-straight'].includes(catId)) {
     recordAchievementProgress(augmentProgressSession, 'sevens-dice-skill-showcase');
   }
-  if (Object.values(mutations).includes('couple-dice') && scoreObj.bonusDetails?.some((detail) => detail.value === 3)) {
+  if (Object.values(augments).includes('couple-dice') && scoreObj.bonusDetails?.some((detail) => detail.value === 3)) {
     recordAchievementProgress(augmentProgressSession, 'couple-dice-perfect-match');
   }
 }
@@ -3080,8 +3079,8 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
   let scoreObj = typeof scoreInfo === 'object' ? scoreInfo : { score: scoreInfo, bonus: 0, bonusDetails: [] };
 
   // 추진력 (momentum) 증강 처리 로직
-  const playerMutations = Object.values(activeMutations[currentPlayer] || {});
-  if (playerMutations.includes('momentum')) {
+  const playerAugments = getPlayerAugments(currentPlayer);
+  if (playerAugments.includes('momentum')) {
     if (!momentumState[currentPlayer]) momentumState[currentPlayer] = 'ready';
 
     if (momentumState[currentPlayer] === 'ready' && scoreObj.score === 0) {
@@ -3108,8 +3107,8 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
   }
 
   // 현상금 사냥꾼 타겟 기입 검증 및 진행도 누적
-  const activeMuts = Object.values(activeMutations[currentPlayer] || {});
-  if (activeMuts.includes('bounty-hunter') && bountyHunterTarget[currentPlayer] === catId) {
+  const activeAugmentsList = getPlayerAugments(currentPlayer);
+  if (activeAugmentsList.includes('bounty-hunter') && bountyHunterTarget[currentPlayer] === catId) {
     const bhProg = bountyHunterProgress[currentPlayer] || { count: 0, penaltyCount: 0 };
     bhProg.count = (bhProg.count || 0) + 1;
 
@@ -3136,7 +3135,7 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
 
   if (isLocalAugmentProgressPlayer()) {
     recordDiceScoreUsage(catId, scoreObj);
-    if (activeMuts.includes('reverse-choice') && catId === 'yacht' && scoreObj.score === 25) {
+    if (activeAugmentsList.includes('reverse-choice') && catId === 'yacht' && scoreObj.score === 25) {
       recordAchievementProgress(augmentProgressSession, 'reverse-choice-unlucky-man');
     }
     if (equivalentExchangeTurnUses[currentPlayer] >= 3 && scoreObj.score > 0) {
@@ -3236,7 +3235,7 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
   updateQuestProgress(currentPlayer, catId, scoreObj);
 
   // 요트 뱅크: 턴 종료 시 킵 존 주사위 눈금 누적 (최대 15점) 및 남은 턴 차감
-  if (activeMutations[currentPlayer] && activeMutations[currentPlayer]['yacht'] === 'yacht-bank') {
+  if (activeAugments[currentPlayer] && activeAugments[currentPlayer]['yacht'] === 'yacht-bank') {
     if (!yachtBankState[currentPlayer]) {
       yachtBankState[currentPlayer] = { turnsLeft: 3, accumulatedScore: 0, initialized: true, completed: false };
     }
@@ -3381,7 +3380,7 @@ function didLocalPlayerWin(player) {
     if (key === 'bonus') return total + (typeof value === 'object' ? value.score + (value.bonus || 0) : value);
     return total + (typeof value === 'object' ? value.score + (value.bonus || 0) : value);
   }, 0) + (questProgress[target]?.questBonus || 0) +
-    ((activeMutations[target]?.yacht === 'yacht-bank' && scores[target]?.yacht === undefined)
+    ((activeAugments[target]?.yacht === 'yacht-bank' && scores[target]?.yacht === undefined)
       ? Math.min(yachtBankState[target]?.accumulatedScore || 0, 15) : 0);
   const myScore = scoreOf(player);
   const opponents = Array.from({ length: getActivePlayerCount() }, (_, index) => index + 1)
@@ -3420,12 +3419,12 @@ async function savePersonalAugmentProgress() {
 
   setAugmentProgressSaveStatus('도전과제 진행도 저장 중...', 'pending');
 
-  Object.values(activeMutations[myPlayer] || {}).forEach((augmentId) => {
+  getPlayerAugments(myPlayer).forEach((augmentId) => {
     if (!augmentProgressSession.selections[augmentId]) {
       recordAugmentSelection(augmentProgressSession, augmentId);
     }
   });
-  const selectedAugments = Object.values(activeMutations[myPlayer] || {});
+  const selectedAugments = getPlayerAugments(myPlayer);
   const scoreRecords = Object.entries(scores[myPlayer] || {}).filter(([category]) => category !== 'bonus');
   selectedAugments.forEach((augmentId) => {
     const metricKeys = new Set(getAugmentTelemetryDefinitions(augmentId).map((metric) => metric.key));
@@ -3447,7 +3446,7 @@ async function savePersonalAugmentProgress() {
   if (playerTableFlipUsed[myPlayer]) {
     recordAugmentMetric(augmentProgressSession, 'table-flip', 'uses');
   }
-  if (Object.values(activeMutations[myPlayer] || {}).includes('yacht-bank')) {
+  if (getPlayerAugments(myPlayer).includes('yacht-bank')) {
     if (yachtBankState[myPlayer]?.completed) {
       recordAugmentMetric(augmentProgressSession, 'yacht-bank', 'completed');
     }
@@ -3500,7 +3499,7 @@ function endGame(serverConfirmed = false) {
   let playerStats = [];
   for (let p = 1; p <= count; p++) {
     let tot = Object.values(scores[p] || {}).reduce(sumObj, 0);
-    if (activeMutations[p] && activeMutations[p]['yacht'] === 'yacht-bank' && (scores[p] && scores[p]['yacht'] === undefined)) {
+    if (activeAugments[p] && activeAugments[p]['yacht'] === 'yacht-bank' && (scores[p] && scores[p]['yacht'] === undefined)) {
       tot += Math.min(yachtBankState[p]?.accumulatedScore || 0, 15);
     }
     tot += (questProgress[p]?.questBonus || 0);
@@ -3665,7 +3664,7 @@ async function saveMatchData() {
     const avatarUrl = pInfo?.avatarUrl || null;
     const qBonus = (questProgress[p]?.questBonus || 0);
     let totScore = Object.values(scores[p] || {}).reduce(sumObj, 0);
-    if (activeMutations[p] && activeMutations[p]['yacht'] === 'yacht-bank' && (scores[p] && scores[p]['yacht'] === undefined)) {
+    if (activeAugments[p] && activeAugments[p]['yacht'] === 'yacht-bank' && (scores[p] && scores[p]['yacht'] === undefined)) {
       totScore += Math.min(yachtBankState[p]?.accumulatedScore || 0, 15);
     }
     totScore += qBonus;
@@ -3702,7 +3701,7 @@ async function saveMatchData() {
       isForfeited: isForfeited,
       isHost: pInfo ? pInfo.isHost : (p === 1),
       scores: playerScores,
-      augments: Object.values(activeMutations[p] || {}),
+      augments: getPlayerAugments(p),
       upperBonusAchieved,
       yachtAchieved
     };
@@ -3998,7 +3997,7 @@ function updateScoreboard() {
             cell.style.color = '';
             cell.title = '';
           } else if (!cell.classList.contains('suggested')) {
-            if (cat.id === 'yacht' && activeMutations[p] && activeMutations[p]['yacht'] === 'yacht-bank') {
+            if (cat.id === 'yacht' && activeAugments[p] && activeAugments[p]['yacht'] === 'yacht-bank') {
               cell.textContent = Math.min(yachtBankState[p]?.accumulatedScore || 0, 15);
               cell.style.color = '#888';
               cell.className = 'score-cell';
@@ -4034,7 +4033,7 @@ function updateScoreboard() {
   for (let p = 1; p <= count; p++) {
     let baseTotal = Object.values(scores[p] || {}).reduce(sumObj, 0);
 
-    if (activeMutations[p] && activeMutations[p]['yacht'] === 'yacht-bank' && (scores[p] && scores[p]['yacht'] === undefined)) {
+    if (activeAugments[p] && activeAugments[p]['yacht'] === 'yacht-bank' && (scores[p] && scores[p]['yacht'] === undefined)) {
       baseTotal += Math.min(yachtBankState[p]?.accumulatedScore || 0, 15);
     }
 
@@ -4114,7 +4113,7 @@ function updateQuestProgress(player, catId, scoreObj) {
   if (!questProgress[p]) questProgress[p] = {};
   const prog = questProgress[p];
   const s = scores[p] || {};
-  const myMutations = Object.values(activeMutations[p] || {});
+  const myAugments = getPlayerAugments(p);
 
   const addReward = (questName, bonusAmount) => {
     prog.questBonus = (prog.questBonus || 0) + bonusAmount;
@@ -4122,7 +4121,7 @@ function updateQuestProgress(player, catId, scoreObj) {
   };
 
   // 1. 티끌 모아 태산 (every-little): 1의 눈이 1개 이상 포함된 족보 기입 (+15점)
-  if (myMutations.includes('every-little') && !prog.everyLittleRewarded) {
+  if (myAugments.includes('every-little') && !prog.everyLittleRewarded) {
     const allDice = [...keptDice, ...activeDice];
     const finalDice = allDice.length >= 5 ? allDice.slice(0, 5) : (diceEngine?.diceArray ? diceEngine.diceArray.map(d => d.value) : []);
     if (finalDice.includes(1) || catId === 'aces') {
@@ -4135,7 +4134,7 @@ function updateQuestProgress(player, catId, scoreObj) {
   }
 
   // 2. 재빠른 스트레이트 (fast-straight): 8턴 안에 S.Straight 및 L.Straight 모두 점수 기입 (+15점)
-  if (myMutations.includes('fast-straight') && !prog.fastStraightRewarded) {
+  if (myAugments.includes('fast-straight') && !prog.fastStraightRewarded) {
     if (currentRound <= 8) {
       if (s['s-straight']?.score > 0 && s['l-straight']?.score > 0) {
         prog.fastStraightRewarded = true;
@@ -4148,7 +4147,7 @@ function updateQuestProgress(player, catId, scoreObj) {
   }
 
   // 3. 낭비할 시간 없다 (no-time-to-waste): 리롤 없이(첫 굴림 후 바로 기입, rollsLeft === 2) 족보 기입 (+15점)
-  if (myMutations.includes('no-time-to-waste') && !prog.noTimeRewarded) {
+  if (myAugments.includes('no-time-to-waste') && !prog.noTimeRewarded) {
     if (rollsLeft === 2) {
       prog.noTimeCount = (prog.noTimeCount || 0) + 1;
       if (prog.noTimeCount >= 3) {
@@ -4159,7 +4158,7 @@ function updateQuestProgress(player, catId, scoreObj) {
   }
 
   // 4. 차근차근 (step-by-step): Aces부터 Sixes까지 순서대로 기입 (상단 보너스 +55점 강화)
-  if (myMutations.includes('step-by-step') && !prog.stepRewarded && !prog.stepFailed) {
+  if (myAugments.includes('step-by-step') && !prog.stepRewarded && !prog.stepFailed) {
     const upperOrder = ['aces', 'deuces', 'threes', 'fours', 'fives', 'sixes'];
     if (upperOrder.includes(catId)) {
       const stepCount = prog.stepCount || 0;
@@ -4177,7 +4176,7 @@ function updateQuestProgress(player, catId, scoreObj) {
   }
 
   // 5. 두 집 살림 (two-households): Choice를 Full House 모양으로, Full House 족보 기입 (+10점)
-  if (myMutations.includes('two-households') && !prog.twoHouseholdsRewarded) {
+  if (myAugments.includes('two-households') && !prog.twoHouseholdsRewarded) {
     if (catId === 'choice') {
       const allDice = [...keptDice, ...activeDice];
       const finalDice = allDice.length >= 5 ? allDice.slice(0, 5) : (diceEngine?.diceArray ? diceEngine.diceArray.map(d => d.value) : []);
@@ -4195,7 +4194,7 @@ function updateQuestProgress(player, catId, scoreObj) {
   }
 
   // 6. 알박기 (holdout): 9턴 이후에 Full House 기입 (+7점)
-  if (myMutations.includes('holdout') && !prog.holdoutRewarded) {
+  if (myAugments.includes('holdout') && !prog.holdoutRewarded) {
     if (catId === 'fullhouse') {
       if (currentRound >= 9) {
         prog.holdoutRewarded = true;
@@ -4208,7 +4207,7 @@ function updateQuestProgress(player, catId, scoreObj) {
   }
 
   // 7. 신중한 스트레이트 (cautious-straight): S.Straight를 L.Straight보다 먼저 기입 (+7점)
-  if (myMutations.includes('cautious-straight') && !prog.cautiousRewarded && !prog.cautiousFailed) {
+  if (myAugments.includes('cautious-straight') && !prog.cautiousRewarded && !prog.cautiousFailed) {
     if (catId === 'l-straight' && s['s-straight'] === undefined) {
       prog.cautiousFailed = true;
     } else if (catId === 'l-straight' && s['s-straight'] !== undefined && !prog.cautiousFailed) {
@@ -4218,7 +4217,7 @@ function updateQuestProgress(player, catId, scoreObj) {
   }
 
   // 8. 카피캣 (copycat): 상대가 입력한 족보를 따라서 3회 기입 (+10점) / 하단 족보 동점 기입 시 즉시 달성
-  if (myMutations.includes('copycat') && !prog.copycatRewarded) {
+  if (myAugments.includes('copycat') && !prog.copycatRewarded) {
     const pNum = (typeof player === 'string' && player.startsWith('p')) ? parseInt(player.slice(1), 10) : Number(player || 1);
     const otherPlayer = pNum === 1 ? 2 : 1;
     const otherScores = scores[otherPlayer] || {};
@@ -4240,7 +4239,7 @@ function updateQuestProgress(player, catId, scoreObj) {
   }
 
   // 9. 더블링 (doubling): 동일한 점수로 족보를 두 번 등록 (스크래치 제외, +10점)
-  if (myMutations.includes('doubling') && !prog.doublingRewarded) {
+  if (myAugments.includes('doubling') && !prog.doublingRewarded) {
     const validScores = [];
     Object.values(s).forEach(val => {
       const sc = typeof val === 'object' ? val.score : val;
@@ -4256,7 +4255,7 @@ function updateQuestProgress(player, catId, scoreObj) {
   }
 
   // 10. 노즈도르무 (nozdormu): 페이즈 종료 시점 달성 (+9점)
-  if (myMutations.includes('nozdormu') && !prog.nozdormuRewarded) {
+  if (myAugments.includes('nozdormu') && !prog.nozdormuRewarded) {
     if (!prog.nozdormuTargetRound) {
       prog.nozdormuTargetRound = currentRound <= 5 ? 5 : (currentRound <= 8 ? 8 : 12);
     }
@@ -4271,7 +4270,7 @@ function updateQuestProgress(player, catId, scoreObj) {
 // 5. 디버그 도구
 // -----------------------------------------------------
 // 좌측 증강 섹션(UI) 업데이트 함수
-function getQuestProgressText(player, mutId) {
+function getQuestProgressText(player, augmentId) {
   const p = (typeof player === 'string' && player.startsWith('p')) ? parseInt(player.slice(1), 10) : Number(player || 1);
   const prog = questProgress[p] || {};
   const s = scores[p] || {};
@@ -4287,7 +4286,7 @@ function getQuestProgressText(player, mutId) {
     return `<div style="margin-top: 4px;">${content}</div>`;
   };
 
-  switch (mutId) {
+  switch (augmentId) {
     case 'fast-straight':
       if (prog.fastStraightRewarded) status = 'completed';
       else if (currentRound > 8 && !(s['s-straight']?.score > 0 && s['l-straight']?.score > 0)) status = 'failed';
@@ -4443,22 +4442,22 @@ window.updateAugmentSidebar = function (player) {
     }
   }
 
-  const muts = Object.values(activeMutations[targetPlayer] || {});
+  const augments = getPlayerAugments(targetPlayer);
   for (let i = 0; i < 3; i++) {
     const slot = document.getElementById(`aug-slot-${i}`);
     if (!slot) continue;
 
-    if (i < muts.length) {
-      const augmentId = muts[i];
-      const mut = mutationDefinitions[augmentId];
-      if (!mut) continue;
+    if (i < augments.length) {
+      const augmentId = augments[i];
+      const augment = augmentDefinitions[augmentId];
+      if (!augment) continue;
       const augInfo = augmentData.find(a => a.augmentId === augmentId) ||
-        augmentData.find(a => a.name.includes(mut.name) || (a.mark && mut.enName && a.mark === mut.enName)) || {};
+        augmentData.find(a => a.name.includes(augment.name) || (a.mark && augment.enName && a.mark === augment.enName)) || {};
       const svgIcon = getVariantSvg(augmentId);
-      let description = augInfo.description || mut.name + ' 증강이 적용되었습니다.';
+      let description = augInfo.description || augment.name + ' 증강이 적용되었습니다.';
 
       let extraHTML = '';
-      if (mut.isQuest && typeof getQuestProgressText === 'function') {
+      if (augment.isQuest && typeof getQuestProgressText === 'function') {
         extraHTML = `<div class="aug-quest-container" style="margin-top: auto; width: 100%; padding-top: 6px;">${getQuestProgressText(targetPlayer, augmentId)}</div>`;
       } else if (augmentId === 'momentum') {
         const mState = momentumState[targetPlayer] || 'ready';
@@ -4496,7 +4495,7 @@ window.updateAugmentSidebar = function (player) {
 
       slot.innerHTML = `
         <div class="aug-slot-filled" style="display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
-          <div class="aug-slot-header">${svgIcon} <span class="aug-slot-name">${augInfo.name || mut.name}</span></div>
+          <div class="aug-slot-header">${svgIcon} <span class="aug-slot-name">${augInfo.name || augment.name}</span></div>
           <div class="aug-slot-desc" style="flex: 1; overflow-y: auto; min-height: 0;">${description}</div>
           ${extraHTML}
         </div>
@@ -4613,20 +4612,20 @@ document.getElementById('btn-toggle-opponent-augments')?.addEventListener('click
   }
 });
 
-window.applyMutation = function (player, augmentId, isRemote = false) {
-  const mut = mutationDefinitions[augmentId];
-  if (!mut) return;
+window.applyAugment = function (player, augmentId, isRemote = false) {
+  const augment = augmentDefinitions[augmentId];
+  if (!augment) return;
 
-  const targetCat = mut.target;
+  const targetCat = augment.target;
 
   // 이미 해당 족보 슬롯에 동일한 증강이 적용된 경우 중복 실행 및 중복 로그 생성 방지
-  if (activeMutations[player] && activeMutations[player][targetCat] === augmentId) {
+  if (activeAugments[player] && activeAugments[player][targetCat] === augmentId) {
     return;
   }
 
   if (!isRemote && window.isMultiplayer && networkEngine) {
     networkEngine.sendMessage({
-      type: 'apply_mutation',
+      type: 'apply_augment',
       player,
       augmentId
     });
@@ -4644,15 +4643,15 @@ window.applyMutation = function (player, augmentId, isRemote = false) {
     }, 'system', window.isMultiplayer, player);
   }
 
-  activeMutations[player][targetCat] = augmentId;
+  activeAugments[player][targetCat] = augmentId;
 
   if (augmentId === 'equivalent-exchange') {
     equivalentExchangeUses[player] = 3;
     equivalentExchangePenalty[player] = 0;
   }
 
-  const augInfo = augmentData.find(a => a.name.includes(mut.name) || (a.mark && mut.enName && a.mark === mut.enName)) || {};
-  addGameLog({ type: 'augment-action', player, meta: { augmentId, name: augInfo.name || mut.name } }, 'augment-action', window.isMultiplayer, player);
+  const augInfo = augmentData.find(a => a.name.includes(augment.name) || (a.mark && augment.enName && a.mark === augment.enName)) || {};
+  addGameLog({ type: 'augment-action', player, meta: { augmentId, name: augInfo.name || augment.name } }, 'augment-action', window.isMultiplayer, player);
 
   // 더블 라지 스트레이트 등 특수 효과 즉시 적용
   if (augmentId === 'double-large-straight') {
@@ -4685,11 +4684,11 @@ window.applyMutation = function (player, augmentId, isRemote = false) {
   }
 
   // 족보 제목 UI 변경 (선택된 플레이어 방향만)
-  const targetTh = document.getElementById(player === 1 ? `cat-title-left-${mut.target}` : `cat-title-right-${mut.target}`);
+  const targetTh = document.getElementById(player === 1 ? `cat-title-left-${augment.target}` : `cat-title-right-${augment.target}`);
 
   if (targetTh) {
     const svgIcon = getVariantSvg(augmentId);
-    targetTh.innerHTML = `${svgIcon} ${mut.enName}`;
+    targetTh.innerHTML = `${svgIcon} ${augment.enName}`;
     targetTh.style.backgroundColor = '#87CEEB'; // Sky Blue
     targetTh.style.color = '#222';
   }
@@ -4704,6 +4703,8 @@ window.applyMutation = function (player, augmentId, isRemote = false) {
     updateScorePreviews();
   }
 };
+
+// 기존 클라이언트 호출 호환용 별칭. 서버 이벤트 이름은 마이그레이션 기간 동안 유지함.
 
 const executePrevTurn = () => {
   const totalCount = getActivePlayerCount();
@@ -4739,7 +4740,7 @@ window.debugNextTurnHandler = executeNextTurn;
 window.debugPrevTurnHandler = executePrevTurn;
 
 setupDebugTools({
-  applyMutation: window.applyMutation,
+  applyAugment: window.applyAugment,
   prevTurn: () => {
     if (window.isMultiplayer) {
       networkEngine.sendMessage({ type: 'ingame_message', subType: 'debug_prev_turn' });

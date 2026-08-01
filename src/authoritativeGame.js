@@ -1,4 +1,4 @@
-import { calculateScores, mutationDefinitions } from "./scoreEngine.js";
+import { calculateScores, augmentDefinitions } from "./scoreEngine.js";
 
 export const SCORE_CATEGORIES = [
   "aces", "deuces", "threes", "fours", "fives", "sixes",
@@ -63,12 +63,12 @@ function expectedAugmentCount(round) {
 }
 
 function getOwnedAugments(state, player) {
-  return Object.values(state.activeMutations[player] || {});
+  return Object.values(state.activeAugments[player] || {});
 }
 
 function getDraftOptions(state, player) {
   const owned = new Set(getOwnedAugments(state, player));
-  const candidates = Object.keys(mutationDefinitions).filter((augmentId) => (
+  const candidates = Object.keys(augmentDefinitions).filter((augmentId) => (
     !UNAVAILABLE_AUGMENTS.has(augmentId)
     && !owned.has(augmentId)
     && (state.currentRound < 6 || !PHASE_ONE_ONLY.has(augmentId))
@@ -145,7 +145,7 @@ function applyUpperBonus(state, player) {
 function getScoringDice(state, player) {
   const dice = state.dice.filter((die) => die.type !== "weird");
   const bank = state.yachtBankState[player];
-  const bankActive = state.activeMutations[player]?.yacht === "yacht-bank"
+  const bankActive = state.activeAugments[player]?.yacht === "yacht-bank"
     && bank?.turnsLeft > 0
     && !bank.completed;
 
@@ -180,29 +180,29 @@ export function previewScores(state, player = state.currentPlayer) {
   const scoringDice = getScoringDice(state, player);
   return calculateScores(
     scoringDice.map((die) => die.value),
-    state.activeMutations[player],
+    state.activeAugments[player],
     getScoreContext(state, player, scoringDice)
   );
 }
 
 function applyQuestProgress(state, player, category, score, scoringDice) {
   const progress = state.questProgress[player];
-  const mutations = getOwnedAugments(state, player);
+  const augments = getOwnedAugments(state, player);
   const playerScores = state.scores[player];
   const diceValues = scoringDice.map((die) => die.value);
 
-  if (mutations.includes("every-little") && !progress.everyLittleRewarded) {
+  if (augments.includes("every-little") && !progress.everyLittleRewarded) {
     progress.everyLittleCount = (progress.everyLittleCount || 0) + diceValues.filter((value) => value === 1).length;
     if (progress.everyLittleCount >= 7) addQuestReward(state, player, "everyLittleRewarded", 15);
   }
 
-  if (mutations.includes("fast-straight") && !progress.fastStraightRewarded && state.currentRound <= 8) {
+  if (augments.includes("fast-straight") && !progress.fastStraightRewarded && state.currentRound <= 8) {
     if (getScoreValue(playerScores["s-straight"]) > 0 && getScoreValue(playerScores["l-straight"]) > 0) {
       addQuestReward(state, player, "fastStraightRewarded", 15);
     }
   }
 
-  if (mutations.includes("no-time-to-waste") && !progress.noTimeRewarded && !progress.noTimeFailed) {
+  if (augments.includes("no-time-to-waste") && !progress.noTimeRewarded && !progress.noTimeFailed) {
     if (state.turnRollCount !== 1) {
       progress.noTimeFailed = true;
     } else {
@@ -211,7 +211,7 @@ function applyQuestProgress(state, player, category, score, scoringDice) {
     }
   }
 
-  if (mutations.includes("step-by-step") && !progress.stepRewarded && !progress.stepFailed) {
+  if (augments.includes("step-by-step") && !progress.stepRewarded && !progress.stepFailed) {
     const order = ["aces", "deuces", "threes", "fours", "fives", "sixes"];
     if (order.includes(category)) {
       if (category === order[progress.stepCount || 0]) {
@@ -223,20 +223,20 @@ function applyQuestProgress(state, player, category, score, scoringDice) {
     }
   }
 
-  if (mutations.includes("two-households") && !progress.twoHouseholdsRewarded) {
+  if (augments.includes("two-households") && !progress.twoHouseholdsRewarded) {
     if (category === "choice" && isFullHouse(diceValues)) progress.twoHouseholdsChoiceDone = true;
     if (progress.twoHouseholdsChoiceDone && getScoreValue(playerScores.fullhouse) > 0) {
       addQuestReward(state, player, "twoHouseholdsRewarded", 10);
     }
   }
 
-  if (mutations.includes("holdout") && !progress.holdoutRewarded) {
+  if (augments.includes("holdout") && !progress.holdoutRewarded) {
     if (category === "fullhouse" && state.currentRound >= 9 && getScoreValue(score) > 0) {
       addQuestReward(state, player, "holdoutRewarded", 7);
     }
   }
 
-  if (mutations.includes("cautious-straight") && !progress.cautiousRewarded && !progress.cautiousFailed) {
+  if (augments.includes("cautious-straight") && !progress.cautiousRewarded && !progress.cautiousFailed) {
     if (category === "l-straight" && playerScores["s-straight"] === undefined) {
       progress.cautiousFailed = true;
     } else if (category === "l-straight") {
@@ -244,7 +244,7 @@ function applyQuestProgress(state, player, category, score, scoringDice) {
     }
   }
 
-  if (mutations.includes("copycat") && !progress.copycatRewarded) {
+  if (augments.includes("copycat") && !progress.copycatRewarded) {
     const opponent = player === 1 ? 2 : 1;
     const opponentScore = state.scores[opponent]?.[category];
     if (opponentScore !== undefined) {
@@ -258,7 +258,7 @@ function applyQuestProgress(state, player, category, score, scoringDice) {
     }
   }
 
-  if (mutations.includes("doubling") && !progress.doublingRewarded) {
+  if (augments.includes("doubling") && !progress.doublingRewarded) {
     const values = SCORE_CATEGORIES
       .map((scoreCategory) => state.scores[player][scoreCategory]?.score)
       .filter((value) => Number(value) > 0);
@@ -267,7 +267,7 @@ function applyQuestProgress(state, player, category, score, scoringDice) {
     }
   }
 
-  if (mutations.includes("bounty-hunter") && state.bountyHunterTarget[player] === category) {
+  if (augments.includes("bounty-hunter") && state.bountyHunterTarget[player] === category) {
     const bounty = state.bountyHunterProgress[player];
     bounty.count += 1;
     if ((score?.score || 0) === 0) bounty.penaltyCount += 1;
@@ -277,17 +277,17 @@ function applyQuestProgress(state, player, category, score, scoringDice) {
   }
 }
 
-function applyMutation(state, player, augmentId) {
-  const mutation = mutationDefinitions[augmentId];
-  if (!mutation) fail("INVALID_AUGMENT", "알 수 없는 증강임.");
-  const target = mutation.target;
-  if (state.activeMutations[player][target] === augmentId) fail("DUPLICATE_AUGMENT", "이미 보유한 증강임.");
+function applyAugment(state, player, augmentId) {
+  const augment = augmentDefinitions[augmentId];
+  if (!augment) fail("INVALID_AUGMENT", "알 수 없는 증강임.");
+  const target = augment.target;
+  if (state.activeAugments[player][target] === augmentId) fail("DUPLICATE_AUGMENT", "이미 보유한 증강임.");
 
   if (state.scores[player][target] !== undefined) {
     delete state.scores[player][target];
     state.extraTurns[player] += 1;
   }
-  state.activeMutations[player][target] = augmentId;
+  state.activeAugments[player][target] = augmentId;
 
   if (augmentId === "double-large-straight") state.upperBonusThreshold[player] = 60;
   if (augmentId === "equivalent-exchange") {
@@ -401,7 +401,7 @@ export function beginTurn(state) {
 
   const bank = state.yachtBankState[player];
   if (
-    state.activeMutations[player]?.yacht === "yacht-bank"
+    state.activeAugments[player]?.yacht === "yacht-bank"
     && bank?.turnsLeft === 0
     && state.scores[player].yacht === undefined
   ) {
@@ -437,7 +437,7 @@ export function createAuthoritativeGame({ mode = "normal", playerCount = 2, seed
     dice: [],
     nextDieId: 1,
     scores: playerMap(playerCount, () => ({})),
-    activeMutations: playerMap(playerCount, () => ({})),
+    activeAugments: playerMap(playerCount, () => ({})),
     extraTurns: playerMap(playerCount, () => 0),
     isExtraTurnPhase: false,
     questProgress: playerMap(playerCount, () => ({ questBonus: 0 })),
@@ -466,7 +466,7 @@ export function selectAugment(state, player, augmentId) {
     fail("NOT_DRAFTING", "현재 증강을 선택할 수 없음.");
   }
   if (!state.draftOptions.includes(augmentId)) fail("AUGMENT_NOT_OFFERED", "제시되지 않은 증강임.");
-  applyMutation(state, player, augmentId);
+  applyAugment(state, player, augmentId);
 
   const expected = expectedAugmentCount(state.currentRound);
   const nextDraftPlayer = Array.from({ length: state.playerCount }, (_, index) => index + 1)
@@ -483,15 +483,15 @@ export function selectAugment(state, player, augmentId) {
 }
 
 function getDesiredDiceTypes(state, player) {
-  const mutations = getOwnedAugments(state, player);
+  const augments = getOwnedAugments(state, player);
   const types = [];
-  if (mutations.includes("strange-die") && !state.destroyedStrangeDice[player]) types.push("weird");
-  if (mutations.includes("promotion-die") && !state.promotionConsumed[player]) types.push("promotion");
-  if (mutations.includes("weighted-dice")) types.push("heavy");
-  if (mutations.includes("golden-die")) types.push("golden");
-  if (mutations.includes("8-sided")) types.push("octahedron", "octahedron");
-  if (mutations.includes("couple-dice")) types.push("couple", "couple");
-  if (mutations.includes("sevens-dice")) types.push("sevens", "sevens");
+  if (augments.includes("strange-die") && !state.destroyedStrangeDice[player]) types.push("weird");
+  if (augments.includes("promotion-die") && !state.promotionConsumed[player]) types.push("promotion");
+  if (augments.includes("weighted-dice")) types.push("heavy");
+  if (augments.includes("golden-die")) types.push("golden");
+  if (augments.includes("8-sided")) types.push("octahedron", "octahedron");
+  if (augments.includes("couple-dice")) types.push("couple", "couple");
+  if (augments.includes("sevens-dice")) types.push("sevens", "sevens");
   return types;
 }
 
@@ -602,7 +602,7 @@ function storeScore(state, player, category, score, scoringDice) {
   }
 
   const bank = state.yachtBankState[player];
-  if (state.activeMutations[player]?.yacht === "yacht-bank" && bank.turnsLeft > 0 && !bank.completed) {
+  if (state.activeAugments[player]?.yacht === "yacht-bank" && bank.turnsLeft > 0 && !bank.completed) {
     const keptSum = state.dice
       .filter((die) => die.kept && die.type !== "weird")
       .reduce((sum, die) => sum + die.value, 0);
@@ -622,7 +622,7 @@ export function scoreCategory(state, player, category) {
   const scoringDice = getScoringDice(state, player);
   const scores = calculateScores(
     scoringDice.map((die) => die.value),
-    state.activeMutations[player],
+    state.activeAugments[player],
     getScoreContext(state, player, scoringDice)
   );
   storeScore(state, player, category, scores[category], scoringDice);
@@ -642,13 +642,13 @@ function forceBestScore(state) {
   let scoringDice = [];
   let scores;
   if (state.turnRollCount < 1) {
-    scores = calculateScores([0, 0, 0, 0, 0], state.activeMutations[player], { bank: state.yachtBankState[player].accumulatedScore, fullDice: [] });
+    scores = calculateScores([0, 0, 0, 0, 0], state.activeAugments[player], { bank: state.yachtBankState[player].accumulatedScore, fullDice: [] });
   } else {
     try {
       scoringDice = getScoringDice(state, player);
       scores = calculateScores(
         scoringDice.map((die) => die.value),
-        state.activeMutations[player],
+        state.activeAugments[player],
         getScoreContext(state, player, scoringDice)
       );
     } catch {
@@ -676,7 +676,7 @@ export function expirePhase(state, { randomInt = secureRandomInt } = {}) {
 export function getPlayerTotal(state, player) {
   let total = Object.values(state.scores[player] || {}).reduce((sum, score) => sum + getScoreValue(score), 0);
   const bank = state.yachtBankState[player];
-  if (state.activeMutations[player]?.yacht === "yacht-bank" && state.scores[player]?.yacht === undefined) {
+  if (state.activeAugments[player]?.yacht === "yacht-bank" && state.scores[player]?.yacht === undefined) {
     total += Math.min(bank?.accumulatedScore || 0, 15);
   }
   total += state.questProgress[player]?.questBonus || 0;

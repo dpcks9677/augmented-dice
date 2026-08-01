@@ -1,10 +1,10 @@
 import { els } from './appShell.js';
 import { networkEngine } from './networkEngine.js';
-import { mutationDefinitions } from './scoreEngine.js';
+import { augmentDefinitions } from './scoreEngine.js';
 import { getCurrentUser } from './authEngine.js';
 import { refreshUserHistory } from './profileController.js';
 
-let mutationsProvider = () => ({});
+let augmentsProvider = () => ({});
 
 export function getPlayerLabel(playerIndex) {
   let name = `Player ${playerIndex}`;
@@ -35,12 +35,12 @@ const DEFAULT_CATEGORY_NAMES = {
 };
 
 function getCategoryDisplayName(catId, player = 1) {
-  const pMuts = mutationsProvider()[player] || {};
-  const mutId = pMuts[catId];
-  if (mutId && mutationDefinitions[mutId]) {
-    const mut = mutationDefinitions[mutId];
-    if (!mut.isEnhancement && !mut.isQuest) {
-      return mut.enName || mut.name;
+  const pMuts = augmentsProvider()[player] || {};
+  const augmentId = pMuts[catId];
+  if (augmentId && augmentDefinitions[augmentId]) {
+    const augment = augmentDefinitions[augmentId];
+    if (!augment.isEnhancement && !augment.isQuest) {
+      return augment.enName || augment.name;
     }
   }
 
@@ -205,8 +205,8 @@ function showMatchInfo() {
   }
 }
 
-export function initGameLog(getMutations) {
-  mutationsProvider = getMutations;
+export function initGameLog(getAugments) {
+  augmentsProvider = getAugments;
   if (els.tabAugmentView) els.tabAugmentView.addEventListener('click', showAugment);
   if (els.tabAugmentViewFromMatch) els.tabAugmentViewFromMatch.addEventListener('click', showAugment);
   if (els.tabMatchInfoView) els.tabMatchInfoView.addEventListener('click', showMatchInfo);

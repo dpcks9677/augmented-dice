@@ -1,4 +1,4 @@
-import { mutationDefinitions } from "./scoreEngine.js";
+import { augmentDefinitions } from "./scoreEngine.js";
 
 export function setupDebugTools(api) {
   const btnDebugToggle = document.getElementById('btn-debug-toggle');
@@ -21,10 +21,10 @@ export function setupDebugTools(api) {
         <option value="1">P1</option>
         <option value="2">P2</option>
       </select>
-      <select id="debug-mutation-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; flex: 1; min-width: 0;">
-        ${Object.keys(mutationDefinitions).filter(id => !mutationDefinitions[id].isEnhancement && !mutationDefinitions[id].isQuest).map(id => `<option value="${id}">${mutationDefinitions[id].name} (${mutationDefinitions[id].target})</option>`).join('')}
+      <select id="debug-modification-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; flex: 1; min-width: 0;">
+        ${Object.keys(augmentDefinitions).filter(id => !augmentDefinitions[id].isEnhancement && !augmentDefinitions[id].isQuest).map(id => `<option value="${id}">${augmentDefinitions[id].name} (${augmentDefinitions[id].target})</option>`).join('')}
       </select>
-      <button id="debug-mutation-apply" style="padding: 4px 12px; background: #0f4c81; color: #fff; border: none; cursor: pointer; white-space: nowrap; flex-shrink: 0;">적용</button>
+      <button id="debug-modification-apply" style="padding: 4px 12px; background: #0f4c81; color: #fff; border: none; cursor: pointer; white-space: nowrap; flex-shrink: 0;">적용</button>
     </div>
 
     <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-start; margin-bottom: 8px; white-space: nowrap;">
@@ -34,7 +34,7 @@ export function setupDebugTools(api) {
         <option value="2">P2</option>
       </select>
       <select id="debug-enhancement-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; flex: 1; min-width: 0;">
-        ${Object.keys(mutationDefinitions).filter(id => mutationDefinitions[id].isEnhancement).map(id => `<option value="${id}">${mutationDefinitions[id].name}</option>`).join('')}
+        ${Object.keys(augmentDefinitions).filter(id => augmentDefinitions[id].isEnhancement).map(id => `<option value="${id}">${augmentDefinitions[id].name}</option>`).join('')}
       </select>
       <button id="debug-enhancement-apply" style="padding: 4px 12px; background: #f39c12; color: #fff; border: none; cursor: pointer; white-space: nowrap; flex-shrink: 0;">적용</button>
     </div>
@@ -46,7 +46,7 @@ export function setupDebugTools(api) {
         <option value="2">P2</option>
       </select>
       <select id="debug-quest-select" style="padding: 4px; background: #333; color: #fff; border: 1px solid #555; flex: 1; min-width: 0;">
-        ${Object.keys(mutationDefinitions).filter(id => mutationDefinitions[id].isQuest).map(id => `<option value="${id}">${mutationDefinitions[id].name}</option>`).join('')}
+        ${Object.keys(augmentDefinitions).filter(id => augmentDefinitions[id].isQuest).map(id => `<option value="${id}">${augmentDefinitions[id].name}</option>`).join('')}
       </select>
       <button id="debug-quest-apply" style="padding: 4px 12px; background: #27ae60; color: #fff; border: none; cursor: pointer; white-space: nowrap; flex-shrink: 0;">적용</button>
     </div>
@@ -65,29 +65,19 @@ export function setupDebugTools(api) {
   `;
   if (debugContent) debugContent.appendChild(debugGroup);
 
-  document.getElementById('debug-mutation-apply')?.addEventListener('click', () => {
-    const selectMut = document.getElementById('debug-mutation-select');
-    const selectPlayer = document.getElementById('debug-player-select');
-    if (selectMut && selectMut.value && selectPlayer) {
-      api.applyMutation(Number(selectPlayer.value), selectMut.value);
-    }
-  });
+  const bindAugmentApply = (buttonId, selectId, playerId) => {
+    document.getElementById(buttonId)?.addEventListener('click', () => {
+      const select = document.getElementById(selectId);
+      const player = document.getElementById(playerId);
+      if (select?.value && player) api.applyAugment(Number(player.value), select.value);
+    });
+  };
 
-  document.getElementById('debug-enhancement-apply')?.addEventListener('click', () => {
-    const selectMut = document.getElementById('debug-enhancement-select');
-    const selectPlayer = document.getElementById('debug-enhancement-player-select');
-    if (selectMut && selectMut.value && selectPlayer) {
-      api.applyMutation(Number(selectPlayer.value), selectMut.value);
-    }
-  });
-
-  document.getElementById('debug-quest-apply')?.addEventListener('click', () => {
-    const selectMut = document.getElementById('debug-quest-select');
-    const selectPlayer = document.getElementById('debug-quest-player-select');
-    if (selectMut && selectMut.value && selectPlayer) {
-      api.applyMutation(Number(selectPlayer.value), selectMut.value);
-    }
-  });
+  [
+    ['debug-modification-apply', 'debug-modification-select', 'debug-player-select'],
+    ['debug-enhancement-apply', 'debug-enhancement-select', 'debug-enhancement-player-select'],
+    ['debug-quest-apply', 'debug-quest-select', 'debug-quest-player-select']
+  ].forEach(([buttonId, selectId, playerId]) => bindAugmentApply(buttonId, selectId, playerId));
 
   document.getElementById('debug-turn-prev')?.addEventListener('click', () => {
     api.prevTurn();

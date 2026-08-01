@@ -9,7 +9,7 @@ export const augmentTelemetryDefinitions = {
   ]
 };
 
-const mutationAugmentIds = new Set([
+const modificationAugmentIds = new Set([
   'lucky-sevens', 'perfect-squares', 'anti-ace-deuces', 'anti-four-threes', 'prime-numbers',
   'anti-six-fours', 'anti-six-fives', 'anti-five-sixes', 'gambler', 'three-of-a-kind',
   'four-by-four', 'tiny-house', 'two-pair', 'head-and-tail', 'evens', 'odds',
@@ -39,7 +39,7 @@ const specialAchievementDefinitions = {
 
 export function getAugmentTelemetryDefinitions(augmentId) {
   return [
-    ...(mutationAugmentIds.has(augmentId) ? [
+    ...(modificationAugmentIds.has(augmentId) ? [
       { key: 'scoreRecords', label: '족보 등록 횟수', unit: '회' },
       { key: 'scratches', label: '스크래치 횟수', unit: '회' }
     ] : []),

@@ -99,6 +99,11 @@ export function getCurrentUser() {
   return auth.currentUser;
 }
 
+export function normalizeUserUid(value) {
+  if (!value || typeof value !== 'string' || value.startsWith('guest')) return null;
+  return value.split('_')[0];
+}
+
 export async function signOutUser() {
   try {
     localStorage.removeItem('ad_logged_in');

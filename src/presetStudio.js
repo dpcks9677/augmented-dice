@@ -5,6 +5,7 @@ import { getOctGeo, getSmoothBeveledOctGeo } from './geometryUtils.js';
 import { getMaterialForDie } from './diceMaterials.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { PresetBaker } from './presetBaker.js';
+import { createCoinMesh } from './CoinModel.js';
 
 const viewerContainer = document.getElementById('viewer-container');
 
@@ -59,11 +60,32 @@ function getViewHeight() {
   return 2 * Math.tan(vFov / 2) * camera.position.y;
 }
 
+function setCameraAngle(angle) {
+  const clamped = THREE.MathUtils.clamp(Number(angle) || 0, 0, 75);
+  const target = boardMode ? new THREE.Vector3(0, 0, 0) : new THREE.Vector3(0, 0.8, 0);
+  const distance = boardMode ? 120 : 14;
+  const radians = THREE.MathUtils.degToRad(clamped);
+  camera.position.set(0, distance * Math.cos(radians), distance * Math.sin(radians));
+  controls.target.copy(target);
+  camera.lookAt(target);
+  controls.update();
+  if (cameraAngleValue) cameraAngleValue.textContent = `${Math.round(clamped)}°`;
+}
+
+function resetCamera() {
+  const defaultAngle = boardMode ? 0 : 35;
+  camera.fov = boardMode ? 10 : 35;
+  setCameraAngle(defaultAngle);
+  camera.updateProjectionMatrix();
+  if (cameraAngle) cameraAngle.value = String(defaultAngle);
+  tray.resize(getViewHeight());
+}
+
 // Tray Model
 const tray = new YachtTrayModel(scene, {
   onLoad: () => {
     tray.resize(getViewHeight());
-    setupDice(false);
+    setBoardMode(false);
     console.log('Tray loaded');
   }
 });
@@ -75,7 +97,7 @@ const boxGeo = new RoundedBoxGeometry(1.62, 1.62, 1.62, 4, 0.22);
 
 let diceMeshes = [];
 
-function setupDice(isOctMode, diceCount = 5, octaCount = 2) {
+function setupDice(isOctMode, diceCount = 5, octaCount = 2, dieType = 'normal', dieTypes = []) {
   diceMeshes.forEach(m => scene.remove(m));
   diceMeshes = [];
   
@@ -84,7 +106,7 @@ function setupDice(isOctMode, diceCount = 5, octaCount = 2) {
   for (let i = 0; i < diceCount; i++) {
     const dieIsOct = isOctMode ? (i >= Math.max(0, diceCount - octaCount)) : false;
     const geometry = dieIsOct ? octGeo : boxGeo;
-    const config = { type: dieIsOct ? 'octahedron' : 'normal' };
+    const config = { type: dieIsOct ? 'octahedron' : (dieTypes[i] || dieType) };
     
     const mesh = new THREE.Mesh(geometry, getMaterialForDie(config));
     mesh.castShadow = true;
@@ -93,6 +115,132 @@ function setupDice(isOctMode, diceCount = 5, octaCount = 2) {
     scene.add(mesh);
     diceMeshes.push(mesh);
   }
+}
+
+function clearModelPreview() {
+  if (!modelPreviewGroup) return;
+  scene.remove(modelPreviewGroup);
+  modelPreviewGroup.traverse(object => {
+    if (!object.isMesh) return;
+    if (Array.isArray(object.material)) object.material.forEach(material => material.dispose());
+    else object.material?.dispose();
+  });
+  modelPreviewGroup = null;
+  modelPreview = null;
+}
+
+function createPreviewMesh(model) {
+  if (model.type === 'coin') return createCoinMesh({ radius: 1.2, thickness: 0.22 });
+  const geometry = model.isOct ? octGeo : boxGeo;
+  const mesh = new THREE.Mesh(geometry, getMaterialForDie({ type: model.type }));
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+function getSelectedModelDefinitions() {
+  return modelDefinitions.filter(model => selectedModels.has(model.id));
+}
+
+function updateSimulationControls() {
+  const coinSelected = selectedModel?.type === 'coin';
+  btnSimulateDice.textContent = coinSelected ? '선택 동전 던지기' : '선택 모델 던지기';
+  btnSimulateDice.hidden = coinSelected;
+  btnSimulateDice.disabled = !boardMode || coinSelected;
+  coinSimulationActions.hidden = !coinSelected;
+  btnFlipCoin.disabled = !boardMode;
+  btnFlipCoinTails.disabled = !boardMode;
+}
+
+function setBoardMode(enabled) {
+  boardMode = enabled;
+  if (tray.mesh) tray.mesh.visible = enabled;
+  resetCamera();
+  boardToggle?.setAttribute('aria-pressed', String(enabled));
+  if (boardToggle) boardToggle.textContent = `보드 위에서 보기: ${enabled ? '켜짐' : '꺼짐'}`;
+  renderModelList();
+  renderSelectedModels();
+}
+
+function renderSelectedModels() {
+  coinAnimation = null;
+  isPlaying = false;
+  currentPlaybackData = null;
+  diceMeshes.forEach(mesh => scene.remove(mesh));
+  diceMeshes = [];
+  clearModelPreview();
+  modelPreviewGroup = new THREE.Group();
+  const models = getSelectedModelDefinitions();
+  const layout = tray.getLayout(getViewHeight());
+  const total = models.reduce((sum, model) => sum + modelCounts[model.id], 0);
+  let slot = 0;
+  models.forEach(model => {
+    for (let index = 0; index < modelCounts[model.id]; index++) {
+      const mesh = createPreviewMesh(model);
+      const supportHeight = model.type === 'coin' ? 0.12 : (model.isOct ? 1.125 : 0.81);
+      const spacing = models.some(item => item.type === 'coin')
+        ? (boardMode ? 3.4 : 3.0)
+        : (boardMode ? 2.2 : 2.4);
+      const x = (slot - (total - 1) / 2) * spacing;
+      const y = boardMode ? layout.playSurfaceY + supportHeight : supportHeight;
+      const z = boardMode ? 0 : 0;
+      mesh.position.set(x, y, z);
+      modelPreviewGroup.add(mesh);
+      if (!modelPreview) modelPreview = mesh;
+      slot++;
+    }
+  });
+  scene.add(modelPreviewGroup);
+  const names = models.map(model => `${model.name} ${modelCounts[model.id]}개`).join(', ');
+  modelStatus.textContent = `${names} · ${boardMode ? '보드 위 배치' : '모델만 보기'}`;
+  updateSimulationControls();
+}
+
+function renderModelList() {
+  if (!modelList) return;
+  modelList.innerHTML = '';
+  modelDefinitions.forEach(model => {
+    const row = document.createElement('div');
+    row.className = 'model-choice';
+    const button = document.createElement('button');
+    button.dataset.modelId = model.id;
+    button.textContent = model.name;
+    button.classList.toggle('active', selectedModels.has(model.id));
+    button.onclick = () => {
+      if (!boardMode) {
+        selectedModels = new Set([model.id]);
+      } else if (model.type === 'coin') {
+        selectedModels = new Set([model.id]);
+      } else {
+        selectedModels.delete('coin');
+        if (selectedModels.has(model.id) && selectedModels.size === 1) return;
+        selectedModels.has(model.id) ? selectedModels.delete(model.id) : selectedModels.add(model.id);
+        if (!selectedModels.size) selectedModels.add(model.id);
+      }
+      selectedModel = modelDefinitions.find(item => selectedModels.has(item.id)) || model;
+      renderModelList();
+      renderSelectedModels();
+    };
+    row.appendChild(button);
+    const count = document.createElement('select');
+    count.className = 'model-count';
+    count.hidden = false;
+    for (let amount = 1; amount <= 5; amount++) {
+      const option = document.createElement('option');
+      option.value = amount;
+      option.textContent = `${amount}개`;
+      option.selected = modelCounts[model.id] === amount;
+      count.appendChild(option);
+    }
+    count.onchange = () => {
+      modelCounts[model.id] = Number(count.value);
+      if (!selectedModels.has(model.id)) selectedModels.add(model.id);
+      selectedModel = model;
+      renderSelectedModels();
+    };
+    row.appendChild(count);
+    modelList.appendChild(row);
+  });
 }
 
 window.addEventListener('resize', () => {
@@ -105,6 +253,35 @@ window.addEventListener('resize', () => {
 
 // UI Logic
 const baker = new PresetBaker();
+const modelList = document.getElementById('model-list');
+const modelStatus = document.getElementById('model-status');
+const simulationStatus = document.getElementById('simulation-status');
+const boardToggle = document.getElementById('btn-board-toggle');
+const btnCameraReset = document.getElementById('btn-camera-reset');
+const cameraAngle = document.getElementById('camera-angle');
+const cameraAngleValue = document.getElementById('camera-angle-value');
+const btnSimulateDice = document.getElementById('btn-simulate-dice');
+const btnFlipCoin = document.getElementById('btn-flip-coin');
+const btnFlipCoinTails = document.getElementById('btn-flip-coin-tails');
+const coinSimulationActions = document.getElementById('coin-simulation-actions');
+const modelDefinitions = [
+  { id: 'normal', name: '일반 6면체', type: 'normal' },
+  { id: 'golden', name: '황금 주사위', type: 'golden' },
+  { id: 'sevens', name: '세븐스 다이스', type: 'sevens' },
+  { id: 'couple', name: '커플 주사위', type: 'couple' },
+  { id: 'promotion', name: '프로모션 주사위', type: 'promotion' },
+  { id: 'strange', name: '이상한 주사위', type: 'weird' },
+  { id: 'heavy', name: '묵직한 주사위', type: 'heavy' },
+  { id: 'octahedron', name: '8면 주사위', type: 'octahedron', isOct: true },
+  { id: 'coin', name: '황금 동전', type: 'coin' }
+];
+let selectedModel = modelDefinitions[0];
+let selectedModels = new Set([selectedModel.id]);
+const modelCounts = Object.fromEntries(modelDefinitions.map(model => [model.id, 1]));
+let boardMode = false;
+let modelPreview = null;
+let modelPreviewGroup = null;
+let coinAnimation = null;
 let generatedPresets = [];
 let keptPresets = [];
 let currentPlaybackData = null;
@@ -246,11 +423,117 @@ function renderPresetList() {
 }
 
 function playPreset(preset) {
-  setupDice((preset.octaCount || 0) > 0, preset.diceCount || 5, preset.octaCount || 0);
+  if (!boardMode) setBoardMode(true);
+  clearModelPreview();
+  coinAnimation = null;
+  const selectedDieTypes = getSelectedModelDefinitions()
+    .flatMap(model => Array.from({ length: modelCounts[model.id] }, () => model));
+  const dieTypes = selectedDieTypes.filter(model => !model.isOct).map(model => model.type);
+  const dieType = dieTypes[0] || 'normal';
+  setupDice((preset.octaCount || 0) > 0, preset.diceCount || 5, preset.octaCount || 0, dieType, dieTypes);
   currentPlaybackData = preset;
   currentPlaybackTime = 0;
   isPlaying = true;
 }
+
+async function simulateSelectedDice() {
+  if (selectedModel.type === 'coin') {
+    simulationStatus.textContent = '주사위 모델을 먼저 선택해 주세요.';
+    return;
+  }
+  btnSimulateDice.disabled = true;
+  btnFlipCoin.disabled = true;
+  btnFlipCoinTails.disabled = true;
+  simulationStatus.textContent = `${selectedModel.name} 투척 중...`;
+  try {
+    const selectedDice = getSelectedModelDefinitions()
+      .flatMap(model => Array.from({ length: modelCounts[model.id] }, () => model))
+      .filter(model => model.type !== 'coin');
+    const octaCount = selectedDice.filter(model => model.isOct).length;
+    const diceCount = selectedDice.length;
+    const mode = octaCount > 0 ? 'octahedron' : 'normal';
+    const preset = normalizePreset(baker.bakeSingle(mode, diceCount, octaCount), {
+      diceCount,
+      octaCount,
+      mode
+    });
+    playPreset(preset);
+    simulationStatus.textContent = `${selectedModel.name} 투척 재생 중`;
+  } catch (error) {
+    simulationStatus.textContent = '주사위 투척에 실패함';
+    console.error('[Preset Studio] Dice simulation failed', error);
+  } finally {
+    updateSimulationControls();
+  }
+}
+
+function flipCoin(side) {
+  if (!boardMode) setBoardMode(true);
+  clearModelPreview();
+  diceMeshes.forEach(mesh => scene.remove(mesh));
+  diceMeshes = [];
+  currentPlaybackData = null;
+  isPlaying = false;
+  const layout = tray.getLayout(getViewHeight());
+  const coinModel = modelDefinitions.find(model => model.id === 'coin');
+  modelPreviewGroup = new THREE.Group();
+  const coinMeshes = [];
+  const coinCount = modelCounts.coin;
+  for (let index = 0; index < coinCount; index++) {
+    const coin = createPreviewMesh(coinModel);
+    coin.position.set((index - (coinCount - 1) / 2) * 3.4, layout.playSurfaceY + 0.14, 0);
+    coin.quaternion.identity();
+    modelPreviewGroup.add(coin);
+    coinMeshes.push(coin);
+  }
+  modelPreview = coinMeshes[0];
+  scene.add(modelPreviewGroup);
+  coinAnimation = {
+    side,
+    meshes: coinMeshes,
+    elapsed: 0,
+    duration: 1.35,
+    startY: layout.playSurfaceY + 0.14,
+    apexY: layout.playSurfaceY + 4.2,
+    targetQuaternion: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), side === 'heads' ? 0 : Math.PI)
+  };
+  modelStatus.textContent = `동전 ${side === 'heads' ? '앞면' : '뒷면'} 착지 예정`;
+  simulationStatus.textContent = '동전이 수직으로 회전 중...';
+}
+
+function updateCoinAnimation(delta) {
+  if (!coinAnimation?.meshes?.length) return;
+  coinAnimation.elapsed += delta;
+  const launchInterval = 0.3;
+  const turns = 5;
+  coinAnimation.meshes.forEach((mesh, index) => {
+    const progress = THREE.MathUtils.clamp(
+      (coinAnimation.elapsed - index * launchInterval) / coinAnimation.duration,
+      0,
+      1
+    );
+    if (coinAnimation.elapsed < index * launchInterval) return;
+    const arc = Math.sin(progress * Math.PI);
+    mesh.position.y = coinAnimation.startY + (coinAnimation.apexY - coinAnimation.startY) * arc;
+    const spin = progress * turns * Math.PI * 2 + (coinAnimation.side === 'tails' ? Math.PI : 0);
+    mesh.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), spin);
+    if (progress >= 1) {
+      mesh.position.y = coinAnimation.startY;
+      mesh.quaternion.copy(coinAnimation.targetQuaternion);
+    }
+  });
+  if (coinAnimation.elapsed >= coinAnimation.duration + (coinAnimation.meshes.length - 1) * launchInterval) {
+    simulationStatus.textContent = `동전 ${coinAnimation.side === 'heads' ? '앞면' : '뒷면'} 착지 완료`;
+    coinAnimation = null;
+  }
+}
+
+btnSimulateDice?.addEventListener('click', simulateSelectedDice);
+btnFlipCoin?.addEventListener('click', () => flipCoin('heads'));
+btnFlipCoinTails?.addEventListener('click', () => flipCoin('tails'));
+boardToggle?.addEventListener('click', () => setBoardMode(!boardMode));
+btnCameraReset?.addEventListener('click', resetCamera);
+cameraAngle?.addEventListener('input', event => setCameraAngle(event.target.value));
 
 btnPlay.onclick = () => {
   if (selectedPresetIndex >= 0) {
@@ -290,6 +573,7 @@ btnExport.onclick = () => {
 const clock = new THREE.Clock();
 
 function updatePlayback(delta) {
+  updateCoinAnimation(delta);
   if (!isPlaying || !currentPlaybackData) return;
 
   currentPlaybackTime += delta;

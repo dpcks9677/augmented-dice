@@ -18,7 +18,7 @@ export function openGameModal(modal) {
 export function getAugmentCategoryName(augment) {
   if (augment.type === 'Quest') return '퀘스트';
   if (augment.type === 'Enhancement') return '강화';
-  if (augment.type === 'Mutation') return '변형';
+  if (augment.type === 'Modification') return '변형';
   if (augment.id >= 1 && augment.id <= 26) return '변형';
   if (augment.id >= 27 && augment.id <= 36) return '퀘스트';
   if (augment.id >= 37 && augment.id <= 46) return '강화';
@@ -40,7 +40,7 @@ export function getAugmentCategoryEnName(augment, singleLine = false) {
 }
 
 export function getAugmentBadgeClass(category) {
-  if (category === '변형') return 'cat-mutation';
+  if (category === '변형') return 'cat-modification';
   if (category === '퀘스트') return 'cat-quest';
   if (category === '강화') return 'cat-enhancement';
   return '';

@@ -22,6 +22,23 @@
       height: 100vh;
       position: relative;
     }
+    .camera-tools {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .camera-tools button { text-align: center; white-space: nowrap; }
+    .camera-angle {
+      height: 130px;
+      writing-mode: vertical-lr;
+      direction: rtl;
+      accent-color: #ffd700;
+    }
     .ui-panel {
       width: 320px;
       height: 100vh;
@@ -110,6 +127,43 @@
       border-color: #ffd700;
       background: #3a3000;
     }
+    .preset-list button.active {
+      border-color: #ffd700;
+      background: #3a3000;
+    }
+    #btn-board-toggle[aria-pressed="true"] {
+      background: #6b4f00;
+      border-color: #ffd700;
+    }
+    #btn-board-toggle {
+      width: 100%;
+      margin-bottom: 8px;
+    }
+    #coin-simulation-actions {
+      flex-direction: row;
+      gap: 8px;
+    }
+    #coin-simulation-actions[hidden] {
+      display: none !important;
+    }
+    #coin-simulation-actions button {
+      flex: 1;
+      text-align: center;
+    }
+    .model-choice {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .model-choice button { flex: 1; }
+    .model-count {
+      width: 54px;
+      padding: 8px 4px;
+      background: #222;
+      color: #fff;
+      border: 1px solid #444;
+      border-radius: 4px;
+    }
     .preset-label {
       white-space: nowrap;
       overflow: hidden;
@@ -144,7 +198,28 @@
     
     <div class="panel-content">
       <div>
-        <div class="section-title">1. 자동 추출 (Bake 100x)</div>
+        <div class="section-title">0. 모델 뷰어</div>
+        <div id="model-list" class="preset-list">
+          <div class="status-text">모델 목록 준비 중...</div>
+        </div>
+        <div id="model-status" class="status-text">모델을 선택하면 보드 위에 표시됨.</div>
+      </div>
+
+      <div>
+        <div class="section-title">1. 판 시뮬레이션</div>
+        <button id="btn-board-toggle" class="btn-action" aria-pressed="false">보드 위에서 보기: 꺼짐</button>
+        <div class="btn-group">
+          <button id="btn-simulate-dice" class="btn-action">선택 모델 던지기</button>
+          <div id="coin-simulation-actions" class="btn-group" hidden>
+            <button id="btn-flip-coin" class="btn-success">동전 앞면 던지기</button>
+            <button id="btn-flip-coin-tails">동전 뒷면 던지기</button>
+          </div>
+        </div>
+        <div id="simulation-status" class="status-text">대기 중...</div>
+      </div>
+
+      <div>
+        <div class="section-title">2. 자동 추출 (Bake 100x)</div>
         <select id="dice-count" style="width: 100%; margin-bottom: 4px; padding: 6px; background: #222; color: white; border: 1px solid #444; border-radius: 4px;">
           <option value="5">전체 주사위 5개</option>
           <option value="4">전체 주사위 4개</option>
@@ -168,7 +243,7 @@
       </div>
 
       <div>
-        <div class="section-title">2. 추출된 프리셋 리뷰</div>
+        <div class="section-title">3. 추출된 프리셋 리뷰</div>
         <div class="btn-group" style="margin-bottom: 10px;">
           <select id="saved-preset-file" style="width: 100%; padding: 6px; background: #222; color: white; border: 1px solid #444; border-radius: 4px;">
             <option value="">저장 프리셋 불러오는 중...</option>
@@ -191,7 +266,13 @@
     </div>
   </div>
 
-  <div id="viewer-container"></div>
+  <div id="viewer-container">
+    <div class="camera-tools" aria-label="카메라 조절">
+      <button id="btn-camera-reset" type="button">카메라 초기화</button>
+      <input id="camera-angle" class="camera-angle" type="range" min="0" max="75" step="1" value="35" aria-label="카메라 각도" />
+      <output id="camera-angle-value" for="camera-angle">35°</output>
+    </div>
+  </div>
 
   <script>
     if (location.protocol === 'file:') {

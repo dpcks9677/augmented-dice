@@ -53,7 +53,7 @@ export class DiceServer {
     this.authoritativePauseUntil = 0;
     this.gameSessionData = {
       scores: { 1: {}, 2: {}, 3: {}, 4: {} },
-      activeMutations: { 1: {}, 2: {}, 3: {}, 4: {} },
+      activeAugments: { 1: {}, 2: {}, 3: {}, 4: {} },
       currentRound: 1,
       currentPlayer: 1,
       rollsLeft: 3,
@@ -660,7 +660,7 @@ export class DiceServer {
 
     try {
       const playerIndex = player.playerIndex;
-      let rollPhysics = null;
+      let animationPayload = null;
       switch (data.type) {
         case "game_roll": {
           if (
@@ -683,7 +683,7 @@ export class DiceServer {
             const presetIndex = Math.floor(Math.random() * 20); // 일반/혼합 프리셋은 총 20종 (0~19)
             const isMirrored = Math.random() < 0.5;
             const presetFile = getPresetFileName(animatedDice, false);
-            rollPhysics = {
+            animationPayload = {
               presetIndex,
               isMirrored,
               presetFile,
@@ -701,7 +701,7 @@ export class DiceServer {
           const presetIndex = Math.floor(Math.random() * 10); // 판 뒤집기 프리셋은 총 10종 (0~9)
           const isMirrored = Math.random() < 0.5;
           const presetFile = getPresetFileName(candidate.dice, true);
-          rollPhysics = {
+          animationPayload = {
             presetIndex,
             isMirrored,
             presetFile,
@@ -725,44 +725,42 @@ export class DiceServer {
           conn.send(JSON.stringify({ type: "error", code: "UNKNOWN_GAME_COMMAND", message: "알 수 없는 게임 명령임." }));
           return;
       }
-      if (rollPhysics) {
-        rollPhysics.animationStartAt = Date.now() + PRESET_START_DELAY_MS;
+      if (animationPayload) {
+        animationPayload.animationStartAt = Date.now() + PRESET_START_DELAY_MS;
         console.info('[online] preset_animation', {
           action: data.type,
-          file: rollPhysics.presetFile,
-          presetIndex: rollPhysics.presetIndex,
-          mirrored: rollPhysics.isMirrored,
-          durationMs: rollPhysics.durationMs,
-          animationStartAt: rollPhysics.animationStartAt,
-          finalValues: getSortedFinalValues(rollPhysics.dice)
+          file: animationPayload.presetFile,
+          presetIndex: animationPayload.presetIndex,
+          mirrored: animationPayload.isMirrored,
+          durationMs: animationPayload.durationMs,
+          animationStartAt: animationPayload.animationStartAt,
+          finalValues: getSortedFinalValues(animationPayload.dice)
         });
       }
       this.broadcastAuthoritativeState({
         kind: data.type,
         player: playerIndex,
         animationId: (data.type === 'game_roll' || data.type === 'game_table_flip') ? `${this.matchId}:${this.authoritativeState.revision}` : null,
-        animation: rollPhysics ? {
-          file: rollPhysics.presetFile,
-          presetIndex: rollPhysics.presetIndex,
-          mirrored: rollPhysics.isMirrored,
-          durationMs: rollPhysics.durationMs
+        animation: animationPayload ? {
+          file: animationPayload.presetFile,
+          presetIndex: animationPayload.presetIndex,
+          mirrored: animationPayload.isMirrored,
+          durationMs: animationPayload.durationMs
         } : null,
-        animationStartAt: rollPhysics?.animationStartAt ?? null,
+        animationStartAt: animationPayload?.animationStartAt ?? null,
         dieId: data.dieId,
         isKept: data.isKept,
         catId: data.catId,
         augmentId: data.augmentId,
-        animationDuration: rollPhysics?.durationMs ?? 0,
-        finalValues: rollPhysics ? getSortedFinalValues(rollPhysics.dice) : null
+        animationDuration: animationPayload?.durationMs ?? 0,
+        finalValues: animationPayload ? getSortedFinalValues(animationPayload.dice) : null
       });
       if (data.type === 'game_score') this.authoritativePauseUntil = Date.now() + 3000;
       if (isCompleteGame(this.authoritativeState)) this.finalizeMatch("completed");
     } catch (error) {
       const code = error instanceof GameRuleError
         ? error.code
-        : String(error?.message || '').startsWith('SERVER_ROLL_')
-          ? 'ROLL_SIMULATION_FAILED'
-          : "GAME_COMMAND_FAILED";
+        : "GAME_COMMAND_FAILED";
       if (!(error instanceof GameRuleError)) console.error("Authoritative command failed:", error);
       conn.send(JSON.stringify({ type: "error", code, message: error.message || "게임 명령 처리에 실패함." }));
       this.sendAuthoritativeState(conn);
@@ -800,7 +798,7 @@ export class DiceServer {
     });
     this.gameSessionData = {
       scores: { 1: {}, 2: {}, 3: {}, 4: {} },
-      activeMutations: { 1: {}, 2: {}, 3: {}, 4: {} },
+      activeAugments: { 1: {}, 2: {}, 3: {}, 4: {} },
       currentRound: 1,
       currentPlayer: 1,
       rollsLeft: 3,

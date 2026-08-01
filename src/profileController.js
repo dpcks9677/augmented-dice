@@ -1,5 +1,5 @@
 import defaultAugmentsData from './augments.json';
-import { getCurrentUser, getUserFromDB, getUserMatchesFromDB, incrementProfileViews, updateUserStatusMsg } from './authEngine.js';
+import { getCurrentUser, getUserFromDB, getUserMatchesFromDB, incrementProfileViews, updateUserStatusMsg, normalizeUserUid } from './authEngine.js';
 import { getProfileModeStats, getTopAugments } from './profileStats.js';
 import { renderProfileRatingGraph } from './profileRatingGraph.js';
 import { getAugmentedDicesIconSvg, getDicesIconSvg, getVariantSvg } from './svgIcons.js';
@@ -63,13 +63,8 @@ export function renderHistoryAvatar(element, avatarUrl, cropData) {
   image.src = avatarUrl;
 }
 
-function getCleanProfileUid(value) {
-  if (!value || typeof value !== 'string' || value.startsWith('guest')) return null;
-  return value.split('_')[0];
-}
-
 function getHistoryAvatarHtml(player, style = '') {
-  const uid = getCleanProfileUid(player?.uid);
+  const uid = normalizeUserUid(player?.uid);
   if (!uid) return `<div class="history-avatar-mini" style="${style}"></div>`;
   return `
     <button class="history-avatar-profile-btn" type="button" data-profile-uid="${escapeHtml(uid)}" aria-label="${escapeHtml(player?.nickname || '플레이어')} 프로필 보기">
@@ -168,7 +163,7 @@ function renderHistoryCard(container, matches, myUid) {
       }
     });
 
-    const getCleanUidVal = (val) => getCleanProfileUid(val) || val;
+    const getCleanUidVal = (val) => normalizeUserUid(val) || val;
     const cleanMyUid = getCleanUidVal(myUid);
 
     let myPlayer = playerList.find(p => p && p.uid && getCleanUidVal(p.uid) === cleanMyUid);
@@ -481,7 +476,7 @@ function renderProfileModal(userData, targetUid) {
 }
 
 async function openProfileModal(targetUid) {
-  const uid = getCleanProfileUid(targetUid);
+  const uid = normalizeUserUid(targetUid);
   if (!uid || !els.modalProfile) return;
   profileModalTargetUid = uid;
   openGameModal(els.modalProfile);

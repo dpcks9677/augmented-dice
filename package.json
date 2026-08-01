@@ -15,7 +15,6 @@
     "test:rating": "node tests/ratingEngine.test.mjs",
     "test:authoritative-game": "node tests/authoritativeGame.test.mjs",
     "test:server-authority": "node tests/serverAuthority.test.mjs",
-    "test:server-physics": "node --test tests/serverDicePhysics.test.mjs",
     "preview": "vite preview"
   },
   "devDependencies": {

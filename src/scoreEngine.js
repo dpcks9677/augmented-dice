@@ -1,4 +1,4 @@
-export const mutationDefinitions = {
+export const augmentDefinitions = {
   // -------------------------
   // Upper Section
   // -------------------------
@@ -193,7 +193,9 @@ export const mutationDefinitions = {
   'equivalent-exchange': { id: 'equivalent-exchange', name: '등가교환', target: 'eh12', enName: 'Equivalent Exchange', isEnhancement: true }
 };
 
-export function calculateScores(dice, activeMutations = {}, context = {}) {
+// 기존 모듈 import 호환용 별칭. 신규 코드는 augmentDefinitions를 사용함.
+
+export function calculateScores(dice, activeAugments = {}, context = {}) {
   const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
   let sum = 0;
   
@@ -228,10 +230,10 @@ export function calculateScores(dice, activeMutations = {}, context = {}) {
   };
 
   // 활성화된 증강 덮어씌우기
-  for (const [targetCat, augmentId] of Object.entries(activeMutations)) {
-    const mut = mutationDefinitions[augmentId];
-    if (mut && !mut.isEnhancement && !mut.isQuest) {
-      scores[targetCat] = mut.calculate(dice, counts, sum, context);
+  for (const [targetCat, augmentId] of Object.entries(activeAugments)) {
+    const augment = augmentDefinitions[augmentId];
+    if (augment && !augment.isEnhancement && !augment.isQuest) {
+      scores[targetCat] = augment.calculate(dice, counts, sum, context);
     }
   }
 
