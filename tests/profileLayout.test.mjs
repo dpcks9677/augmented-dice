@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const html = readFileSync(new URL('../src/views/game.html', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
-const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+const profile = readFileSync(new URL('../src/profileController.js', import.meta.url), 'utf8');
 const ratingGraph = readFileSync(new URL('../src/profileRatingGraph.js', import.meta.url), 'utf8');
 
 assert.ok(html.includes('id="btn-open-profile"'));
@@ -24,8 +24,8 @@ assert.match(css, /#profile-content\s*\{[^}]*flex:\s*1;[^}]*min-height:\s*0;[^}]
 assert.match(css, /#profile-content > \.history-card\s*\{[^}]*min-height:\s*0;[^}]*max-height:\s*none;/);
 assert.match(css, /\.profile-modal-actions\s*\{[^}]*align-self:\s*flex-start;/);
 assert.ok(html.includes('id="btn-my-profile"'));
-assert.ok(main.includes("title.textContent = isMine ? '내 프로필' : '유저 프로필'"));
-assert.ok(main.includes("document.getElementById('btn-my-profile')?.classList.toggle('hidden', isMine)"));
+assert.ok(profile.includes("title.textContent = isMine ? '내 프로필' : '유저 프로필'"));
+assert.ok(profile.includes("document.getElementById('btn-my-profile')?.classList.toggle('hidden', isMine)"));
 assert.match(css, /\.profile-modal-card\s*\{[^}]*overflow:\s*hidden;/);
 assert.match(css, /\.profile-modal-history\s*\{[^}]*overflow-y:\s*scroll;[^}]*scrollbar-gutter:\s*stable;/);
 assert.match(css, /\.profile-normal-stats\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);/);
@@ -44,16 +44,16 @@ assert.equal((html.match(/class="profile-rating-area" d="M0 32H240V64H0Z"/g) || 
 assert.equal((html.match(/class="profile-rating-point"/g) || []).length, 2);
 assert.equal((html.match(/class="profile-rating-point-halo"/g) || []).length, 2);
 assert.equal((html.match(/preserveAspectRatio="none"/g) || []).length, 2);
-assert.ok(main.includes('renderProfileRatingGraph(chart, userData, chart.dataset.ratingMode)'));
+assert.ok(profile.includes('renderProfileRatingGraph(chart, userData, chart.dataset.ratingMode)'));
 assert.ok(ratingGraph.includes('getRatingSeries(userData, mode)'));
 assert.match(ratingGraph, /const areaPath = `M0 .*L240 .*V64H0Z`/);
 assert.ok(ratingGraph.includes('chart.onpointermove'));
 assert.ok(ratingGraph.includes('setTimeout(hidePoint, 1000)'));
 assert.ok(ratingGraph.includes("chart.classList.add('is-rating-point-hiding')"));
 assert.ok(ratingGraph.includes("position > 0.8 ? '4px'"));
-assert.ok(main.includes('class="profile-top-augment-icon"'));
-assert.ok(main.includes('<span aria-hidden="true">/</span>'));
-assert.ok(main.includes('openProfileModal(button.dataset.profileUid)'));
-assert.ok(main.includes('sessionStorage.getItem(viewKey)'));
+assert.ok(profile.includes('class="profile-top-augment-icon"'));
+assert.ok(profile.includes('<span aria-hidden="true">/</span>'));
+assert.ok(profile.includes('openProfileModal(button.dataset.profileUid)'));
+assert.ok(profile.includes('sessionStorage.getItem(viewKey)'));
 
 console.log('profile layout checks passed');

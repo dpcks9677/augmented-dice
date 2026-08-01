@@ -11,6 +11,7 @@
     "test:augment-progress": "node tests/augmentProgress.test.mjs",
     "test:profile-stats": "node tests/profileStats.test.mjs",
     "test:profile-layout": "node tests/profileLayout.test.mjs",
+    "test:main-structure": "node tests/mainStructure.test.mjs",
     "test:rating": "node tests/ratingEngine.test.mjs",
     "test:authoritative-game": "node tests/authoritativeGame.test.mjs",
     "test:server-authority": "node tests/serverAuthority.test.mjs",
