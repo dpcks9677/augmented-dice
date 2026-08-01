@@ -89,7 +89,7 @@ export function createCoinMesh(options = {}) {
   const luckySevenSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 12C9.5 9 8.5 5.5 12 3.5C15.5 5.5 14.5 9 12 12C15 9.5 18.5 8.5 20.5 12C18.5 15.5 15 14.5 12 12C14.5 15 15.5 18.5 12 20.5C8.5 18.5 9.5 15 12 12C9 14.5 5.5 15.5 3.5 12C5.5 8.5 9 9.5 12 12Z"/></svg>`;
   if (typeof DOMParser !== 'undefined') {
     const svgData = new SVGLoader().parse(luckySevenSvg);
-    const luckyShapes = svgData.paths.flatMap(path => SVGLoader.createShapes(path));
+    const luckyShapes = svgData.paths.flatMap(path => path.toShapes());
     const luckyGeometry = new THREE.ShapeGeometry(luckyShapes);
     luckyGeometry.scale(radius * 0.045, radius * 0.045, 1);
     // SVG viewBox(0~24)의 중심을 동전 중심(0, 0)으로 이동함.

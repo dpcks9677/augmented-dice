@@ -355,3 +355,10 @@
 - 원인: `completeAuthoritativeRoll()`이 기존 킵 주사위를 주 정렬 배열에서는 제외했지만 `animationProgress`를 0으로 초기화했음. 정렬 단계가 `idle`로 바뀐 다음 일반 보간 루프가 과거 중앙 `startPosition`부터 킵 슬롯까지의 낡은 애니메이션을 다시 실행했음.
 - 수정: 기존 킵 주사위의 `animationProgress`를 완료 상태 1로 유지하고, 위치·회전·스케일 고정 시에도 완료 상태를 재확정했음.
 - 검증: 관련 주사위 결과·서버 권위 테스트 4개와 프로덕션 빌드, 코드 형식 검증을 통과했음.
+
+## 2026-08-02 프리셋 스튜디오 deprecated API 경고
+
+- 증상: 스튜디오 실행 시 `THREE.Clock` 및 `SVGLoader.createShapes()` deprecated 경고가 출력됨.
+- 원인: Three.js r185에서 `Clock`과 `SVGLoader.createShapes()`가 각각 `Timer`, `shapePath.toShapes()`로 대체됨.
+- 수정: 스튜디오 애니메이션 루프를 `THREE.Timer.update(timestamp)` 기반으로 교체하고 SVG 경로 변환을 `path.toShapes()`로 변경함.
+- 검증: 관련 모듈 구문 검사와 프로덕션 빌드 실행 필요함.
