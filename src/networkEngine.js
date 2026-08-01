@@ -1,29 +1,27 @@
-import PartySocket from 'partysocket';
-import { getCurrentUser, getUserFromDB } from './authEngine.js';
+import PartySocket from "partysocket";
+import { getCurrentUser, getUserFromDB } from "./authEngine.js";
 
 class NetworkEngine {
   constructor() {
     this.socket = null;
+    this.matchmakingSocket = null;
     this.roomCode = null;
+    this.sessionType = null;
+    this.currentMatch = null;
     this.callbacks = {};
   }
 
-  // 이벤트 리스너 등록
   on(event, callback) {
-    if (!this.callbacks[event]) {
-      this.callbacks[event] = [];
-    }
+    if (!this.callbacks[event]) this.callbacks[event] = [];
     this.callbacks[event].push(callback);
   }
 
-  // 이벤트 리스너 해제
   off(event, callback) {
     if (this.callbacks[event]) {
-      this.callbacks[event] = this.callbacks[event].filter(cb => cb !== callback);
+      this.callbacks[event] = this.callbacks[event].filter((item) => item !== callback);
     }
   }
 
-  // 1회성 이벤트 리스너 등록
   once(event, callback) {
     const wrapper = (data) => {
       this.off(event, wrapper);
@@ -32,146 +30,218 @@ class NetworkEngine {
     this.on(event, wrapper);
   }
 
-  // 특정 이벤트의 모든 리스너 제거
   removeAllListeners(event) {
-    if (event) {
-      this.callbacks[event] = [];
-    } else {
-      this.callbacks = {};
-    }
+    if (event) this.callbacks[event] = [];
+    else this.callbacks = {};
   }
 
-  // 내부 이벤트 발생
   emit(event, data) {
-    if (this.callbacks[event]) {
-      // slice()로 복사본을 만들어 루프 도중 off() 실행 시 인덱스 꼬임 방지
-      this.callbacks[event].slice().forEach(cb => cb(data));
-    }
+    this.callbacks[event]?.slice().forEach((callback) => callback(data));
   }
 
-  async connectToLobby(roomCode, isForfeitOnly = false) {
-    const normalizedCode = String(roomCode || '').trim().toUpperCase();
-    this.roomCode = normalizedCode;
+  async getIdentity(requireAuth = false) {
+    const user = getCurrentUser();
+    if (requireAuth && !user) throw new Error("로그인이 필요함.");
 
-    // 현재 접속 중인 소켓이 있으면 닫기
-    if (this.socket) {
-      this.socket.close();
+    let tabId = sessionStorage.getItem("ad_tab_id");
+    if (!tabId) {
+      tabId = Math.random().toString(36).substring(2, 7);
+      sessionStorage.setItem("ad_tab_id", tabId);
     }
 
-    // PartySocket 초기화 (로컬 호스트에서도 배포된 서버 연결)
-    const partyHost = import.meta.env?.VITE_PARTYKIT_HOST || 'server.augmented-dice.workers.dev';
+    let uid = sessionStorage.getItem("ad_guest_uid");
+    if (!uid) {
+      uid = `guest-${Math.random().toString(36).substring(2, 9)}_${tabId}`;
+      sessionStorage.setItem("ad_guest_uid", uid);
+    }
+    let nickname = "Guest";
+    let avatarUrl = null;
+    let idToken = null;
 
-    this.socket = new PartySocket({
-      host: partyHost,
-      room: normalizedCode
-    });
-
-    this.socket.addEventListener('open', async () => {
-      console.log(`Connected to room: ${normalizedCode} (${partyHost})`);
-      
-      // 내 정보 가져오기
-      let tabId = sessionStorage.getItem('ad_tab_id');
-      if (!tabId) {
-        tabId = Math.random().toString(36).substring(2, 7);
-        sessionStorage.setItem('ad_tab_id', tabId);
+    if (user) {
+      uid = user.uid;
+      const dbUser = await getUserFromDB(user.uid);
+      nickname = dbUser?.nickname || user.displayName || "Player";
+      avatarUrl = dbUser?.avatarUrl || user.photoURL || null;
+      idToken = await user.getIdToken();
+    } else {
+      const profileNick = document.getElementById("profile-nickname");
+      if (profileNick?.textContent && profileNick.textContent !== "Player") {
+        nickname = profileNick.textContent;
       }
-
-      const user = getCurrentUser();
-      let uid = sessionStorage.getItem('ad_guest_uid');
-      if (!uid) {
-        uid = `guest-${Math.random().toString(36).substring(2, 9)}_${tabId}`;
-        sessionStorage.setItem('ad_guest_uid', uid);
+      const background = document.getElementById("profile-avatar-container")?.style?.backgroundImage;
+      if (background?.includes("url(")) {
+        avatarUrl = background.replace(/^url\(['"]?/, "").replace(/['"]?\)$/, "");
       }
-      let nickname = "Guest";
-      let avatarUrl = null;
+    }
 
-      if (user) {
-        uid = `${user.uid}_${tabId}`;
+    return { user, uid, tabUid: user ? `${user.uid}_${tabId}` : uid, nickname, avatarUrl, idToken };
+  }
+
+  async connectToLobby(roomCode, isForfeitOnly = false, options = {}) {
+    const normalizedCode = String(roomCode || "").trim().toUpperCase();
+    this.roomCode = normalizedCode;
+    this.sessionType = options.sessionType === "matchmaking" ? "matchmaking" : "lobby";
+    if (this.socket) this.socket.close();
+
+    const partyHost = import.meta.env?.VITE_PARTYKIT_HOST || "augmented-dice-server.augmented-dice.workers.dev";
+    this.socket = new PartySocket({ host: partyHost, room: normalizedCode });
+
+    this.socket.addEventListener("open", async () => {
+      try {
+        const identity = await this.getIdentity(this.sessionType === "matchmaking");
+        const uid = this.sessionType === "matchmaking" ? identity.uid : identity.tabUid;
         window.myUid = uid;
-        const dbUser = await getUserFromDB(user.uid);
-        if (dbUser) {
-          nickname = dbUser.nickname || nickname;
-          avatarUrl = dbUser.avatarUrl || null;
-        }
-      } else {
-        const profileNick = document.getElementById('profile-nickname');
-        if (profileNick && profileNick.textContent !== "Player") {
-          nickname = profileNick.textContent;
-        }
-        const profileAvatarContainer = document.getElementById('profile-avatar-container');
-        const bgImg = profileAvatarContainer?.style?.backgroundImage;
-        if (bgImg && bgImg.includes('url(')) {
-          avatarUrl = bgImg.replace(/^url\(['"]?/, '').replace(/['"]?\)$/, '');
-        }
-      }
 
-      let idToken = null;
-      if (user && typeof user.getIdToken === 'function') {
-        try {
-          idToken = await user.getIdToken();
-        } catch (e) {
-          console.warn("Failed to get ID token:", e);
+        if (!isForfeitOnly) {
+          this.sendMessage({
+            type: "join",
+            uid,
+            authUid: identity.user?.uid || null,
+            idToken: identity.idToken,
+            nickname: identity.nickname,
+            avatarUrl: identity.avatarUrl,
+            mode: options.mode || window.pendingLobbyMode || "normal",
+            sessionType: this.sessionType,
+            matchId: options.matchId || null,
+            matchToken: options.matchToken || null
+          });
         }
+        this.emit("connected", { roomCode: normalizedCode, isForfeitOnly, sessionType: this.sessionType });
+      } catch (error) {
+        this.emit("error", { code: "AUTH_REQUIRED", message: error.message });
+        this.socket?.close();
       }
-
-      window.myUid = uid;
-
-      // 포기하기(isForfeitOnly) 용 연결일 경우 join 메시지 생략하고 connected만 발생
-      if (!isForfeitOnly) {
-        this.sendMessage({
-          type: 'join',
-          uid: uid,
-          idToken: idToken,
-          nickname: nickname,
-          avatarUrl: avatarUrl,
-          mode: window.pendingLobbyMode || 'normal'
-        });
-      }
-      
-      this.emit('connected', { roomCode, isForfeitOnly });
     });
 
-    this.socket.addEventListener('error', (err) => {
-      console.error("PartySocket connection error:", err);
-      this.emit('socket_error', err);
+    this.socket.addEventListener("error", (error) => {
+      console.error('[online] socket_error', error);
+      this.emit("socket_error", error);
     });
-
-    this.socket.addEventListener('close', (event) => {
-      console.warn("PartySocket closed:", event);
-      this.emit('socket_closed', event);
+    this.socket.addEventListener("close", (event) => {
+      console.info('[online] socket_close', { code: event.code, reason: event.reason || '' });
+      this.emit("socket_closed", event);
     });
-
-    this.socket.addEventListener('message', (event) => {
-      const data = JSON.parse(event.data);
-      
-      if (data.type === 'error') {
-        this.emit('error', data);
+    this.socket.addEventListener("message", (event) => {
+      let data;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        console.warn('[online] invalid_message');
         return;
       }
-      
-      if (data.type === 'lobby_state') {
-        this.emit('lobby_state', data);
-      } else if (data.type === 'game_started') {
-        this.emit('game_started', data);
-      } else if (data.type === 'full_game_sync') {
-        this.emit('full_game_sync', data);
-      } else if (data.type === 'player_disconnected') {
-        this.emit('player_disconnected', data);
-      } else if (data.type === 'player_reconnected') {
-        this.emit('player_reconnected', data);
-      } else if (data.type === 'player_forfeited') {
-        this.emit('player_forfeited', data);
-      } else if (data.type === 'game_already_ended') {
-        this.emit('game_already_ended', data);
-      } else {
-        // 기타 인게임 동기화용 메시지 (주사위 등)
-        this.emit('ingame_message', data);
+      if (data.type !== 'authoritative_timer') {
+        console.info('[online] event', { type: data.type, code: data.code || null });
       }
+      if (data.type === 'authoritative_state' && (data.action?.kind === 'game_roll' || data.action?.kind === 'game_table_flip')) {
+        console.info('[online] preset_animation_received', {
+          action: data.action.kind,
+          file: data.action.animation?.file ?? null,
+          presetIndex: data.action.animation?.presetIndex ?? null,
+          mirrored: data.action.animation?.mirrored ?? null,
+          durationMs: data.action.animation?.durationMs ?? null,
+          animationStartAt: data.action.animationStartAt ?? null,
+          finalValues: data.action.finalValues ?? null
+        });
+      }
+      const directEvents = new Set([
+        "error",
+        "lobby_state",
+        "game_started",
+        "full_game_sync",
+        "player_disconnected",
+        "player_reconnected",
+        "player_forfeited",
+        "game_already_ended",
+        "rating_settled",
+        "rating_settlement_failed",
+        "authoritative_state",
+        "authoritative_timer"
+      ]);
+      this.emit(directEvents.has(data.type) ? data.type : "ingame_message", data);
     });
+  }
+
+  async connectToMatchmaking(options) {
+    this.closeMatchmakingSocket();
+    const identity = await this.getIdentity(true);
+    const partyHost = import.meta.env?.VITE_PARTYKIT_HOST || "augmented-dice-server.augmented-dice.workers.dev";
+    this.matchmakingSocket = new PartySocket({
+      host: partyHost,
+      party: "matchmaking",
+      room: `queue-${options.mode}`
+    });
+
+    this.matchmakingSocket.addEventListener("open", () => {
+      console.info('[matchmaking] socket_open', { host: partyHost, mode: options.mode });
+      this.matchmakingSocket.send(JSON.stringify({
+        type: "enqueue",
+        uid: identity.uid,
+        idToken: identity.idToken,
+        nickname: identity.nickname,
+        avatarUrl: identity.avatarUrl,
+        mode: options.mode,
+        lower: options.lower,
+        upper: options.upper
+      }));
+    });
+    this.matchmakingSocket.addEventListener("message", (event) => {
+      let data;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        console.warn('[matchmaking] invalid_message');
+        return;
+      }
+      console.info('[matchmaking] event', { type: data.type, ticketId: data.ticketId || null, matchId: data.matchId || null });
+      if (data.type === "match_found") this.currentMatch = data;
+      this.emit(data.type === "error" ? "matchmaking_error" : data.type, data);
+    });
+    this.matchmakingSocket.addEventListener("error", (error) => {
+      console.error('[matchmaking] socket_error', error);
+      this.emit("matchmaking_error", error);
+    });
+    this.matchmakingSocket.addEventListener("close", (event) => {
+      console.info('[matchmaking] socket_close', { code: event.code, reason: event.reason || '' });
+      this.emit("matchmaking_closed", event);
+    });
+  }
+
+  connectToOnlineMatch(match = this.currentMatch) {
+    if (!match) throw new Error("확정된 매치가 없음.");
+    return this.connectToLobby(match.roomId, false, {
+      sessionType: "matchmaking",
+      mode: match.mode,
+      matchId: match.matchId,
+      matchToken: match.matchToken
+    });
+  }
+
+  cancelMatchmaking() {
+    if (!this.matchmakingSocket) return;
+    const type = this.currentMatch ? "cancel_match" : "cancel_queue";
+    if (this.matchmakingSocket.readyState === WebSocket.OPEN) {
+      this.matchmakingSocket.send(JSON.stringify({ type }));
+    }
+    this.currentMatch = null;
+  }
+
+  notifyMatchStarted() {
+    if (this.matchmakingSocket?.readyState === WebSocket.OPEN) {
+      this.matchmakingSocket.send(JSON.stringify({ type: "match_started" }));
+    }
+    this.closeMatchmakingSocket();
+  }
+
+  closeMatchmakingSocket() {
+    if (this.matchmakingSocket) {
+      this.matchmakingSocket.close();
+      this.matchmakingSocket = null;
+    }
   }
 
   sendMessage(data) {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+    if (this.socket?.readyState === WebSocket.OPEN) {
       this.socket.send(JSON.stringify(data));
     }
   }
@@ -181,19 +251,20 @@ class NetworkEngine {
   }
 
   setReady(isReady) {
-    this.sendMessage({ type: 'ready', isReady });
+    this.sendMessage({ type: "ready", isReady });
   }
 
   startGame() {
-    this.sendMessage({ type: 'start_game' });
+    this.sendMessage({ type: "start_game" });
   }
 
   disconnect() {
-    if (this.socket) {
-      this.socket.close();
-      this.socket = null;
-    }
+    if (this.socket) this.socket.close();
+    this.socket = null;
+    this.closeMatchmakingSocket();
     this.roomCode = null;
+    this.sessionType = null;
+    this.currentMatch = null;
   }
 }
 

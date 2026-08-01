@@ -39,7 +39,7 @@
     "en-name": "Prime Numbers",
     "target": "트리플 (Threes)",
     "mark": "P. Numbers",
-    "description": "쓰리스 족보를 <strong><u>프라임 넘버즈</u></strong> 족보로 변경합니다.<br><br>주사위 5개가 모두 소수(2, 3, 5)일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 12점을 기입할 수 있습니다.",
+    "description": "쓰리스 족보를 <strong><u>프라임 넘버즈</u></strong> 족보로 변경합니다.<br><br>주사위 5개가 모두 소수(2, 3, 5, 7)일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 12점을 기입할 수 있습니다.",
     "augmentId": "prime-numbers"
   },
   {
@@ -180,7 +180,7 @@
     "en-name": "High Dice",
     "target": "라지 스트레이트 (Large Straight)",
     "mark": "High Dice",
-    "description": "라지 스트레이트 족보를 <strong><u>하이 다이스</u></strong> 족보로 변경합니다.<br><br>모든 주사위가 4, 5, 6이고 총합이 26 이상일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 35점을 얻을 수 있습니다.",
+    "description": "라지 스트레이트 족보를 <strong><u>하이 다이스</u></strong> 족보로 변경합니다.<br><br>모든 주사위가 4, 5, 6, 7이고 총합이 26 이상일 때 기입이 가능하며, 족보의 조건을 만족하면 고정 35점을 얻을 수 있습니다.",
     "augmentId": "high-dice"
   },
   {
@@ -249,7 +249,7 @@
     "target": "q2",
     "type": "Quest",
     "reward": "달성 즉시 보너스 +15점 획득",
-    "description": "<strong><u>퀘스트</strong></u>: 앞으로 3턴 간 리롤없이 바로 족보를 기입합니다.<br><br>퀘스트 완료 시, 추가로 15점을 획득합니다.",
+    "description": "<strong><u>퀘스트</strong></u>: 연속된 다음 3턴 동안 리롤 없이 바로 족보를 기입합니다.<br><br>퀘스트 완료 시, 추가로 15점을 획득합니다.",
     "augmentId": "no-time-to-waste"
   },
   {
@@ -299,7 +299,7 @@
     "target": "q7",
     "type": "Quest",
     "reward": "달성 즉시 보너스 +15점 획득",
-    "description": "<strong><u>퀘스트</strong></u>: 족보를 기입할 때, 1 눈금이 나온 주사위를 7개 사용합니다.<br><br>퀘스트 완료 시, 보너스 15점을 획득합니다.",
+    "description": "<strong><u>퀘스트</strong></u>: 족보를 기입할 때, 1 눈금이 나온 주사위를 누적 7개 사용합니다. 한 턴에 여러 개를 사용하면 모두 누적됩니다.<br><br>퀘스트 완료 시, 보너스 15점을 획득합니다.",
     "augmentId": "every-little"
   },
   {
@@ -350,7 +350,7 @@
     "id": 39,
     "name": "황금 주사위",
     "en-name": "Golden Die",
-    "description": "기본 주사위를 <strong><u>황금 주사위</strong></u>로 변경합니다.<br><br>황금 주사위는 족보 기입 시 이 주사위 눈금이 1, 2, 3 중 하나라면 +3점 추가로 획득합니다.",
+    "description": "기본 주사위를 <strong><u>황금 주사위</strong></u>로 변경합니다.<br><br>황금 주사위는 족보 기입 시 이 주사위 눈금이 1, 2, 3 중 하나라면 +2점 추가로 획득합니다.",
     "augmentId": "golden-die"
   },
   {

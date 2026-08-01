@@ -1,6 +1,11 @@
 export const DEFAULT_RATING = 500;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+function readRating(value) {
+  const rating = Number(value);
+  return value !== null && value !== '' && Number.isFinite(rating) ? Math.max(0, rating) : DEFAULT_RATING;
+}
+
 function getRatingDate(value) {
   if (value?.toDate) return value.toDate();
   if (Number.isFinite(value?.seconds)) return new Date(value.seconds * 1000);
@@ -10,7 +15,7 @@ function getRatingDate(value) {
 
 export function getRatingSeries(userData = {}, mode = 'normal', days = 90, now = new Date()) {
   const modeData = userData.stats?.modes?.[mode] || {};
-  const currentRating = Number(modeData.rating) || DEFAULT_RATING;
+  const currentRating = readRating(modeData.rating);
   const dayCount = Math.max(2, Math.floor(Number(days) || 90));
   const endMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   const startMs = endMs - (dayCount - 1) * DAY_MS;
@@ -41,10 +46,10 @@ export function getProfileModeStats(userData = {}) {
   const modes = userData.stats?.modes || {};
   return {
     augmented: {
-      rating: Number(modes.augmented?.rating) || DEFAULT_RATING
+      rating: readRating(modes.augmented?.rating)
     },
     normal: {
-      rating: Number(modes.normal?.rating) || DEFAULT_RATING,
+      rating: readRating(modes.normal?.rating),
       highestScore: Number(modes.normal?.highestScore) || 0,
       highestScoreAt: modes.normal?.highestScoreAt || null,
       upperBonusCount: Number(modes.normal?.upperBonusCount) || 0,
@@ -75,7 +80,7 @@ export function updateProfileStats(stats = {}, result) {
     const oldHighest = Number(oldNormal.highestScore) || 0;
     modes.normal = {
       ...oldNormal,
-      rating: Number(oldNormal.rating) || DEFAULT_RATING,
+      rating: readRating(oldNormal.rating),
       highestScore: Math.max(oldHighest, score),
       highestScoreAt: score > oldHighest ? result.completedAt : (oldNormal.highestScoreAt || null),
       upperBonusCount: (Number(oldNormal.upperBonusCount) || 0) + (result.upperBonusAchieved ? 1 : 0),
@@ -85,7 +90,7 @@ export function updateProfileStats(stats = {}, result) {
     const oldAugmented = modes.augmented || {};
     modes.augmented = {
       ...oldAugmented,
-      rating: Number(oldAugmented.rating) || DEFAULT_RATING
+      rating: readRating(oldAugmented.rating)
     };
   }
 

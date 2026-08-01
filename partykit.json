@@ -1,6 +1,9 @@
 {
   "name": "augmented-dice-server",
   "main": "src/server.js",
+  "parties": {
+    "matchmaking": "src/matchmakingServer.js"
+  },
   "domain": "augmented-dice.workers.dev",
   "compatibilityDate": "2026-07-21"
 }

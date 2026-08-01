@@ -104,6 +104,25 @@ const els = {
   btnAugOnline: document.getElementById('btn-aug-online'),
   btnAugLobby: document.getElementById('btn-aug-lobby'),
   btnAugHotseat: document.getElementById('btn-aug-hotseat'),
+  matchmakingSection: document.getElementById('matchmaking-section'),
+  matchmakingTitle: document.getElementById('matchmaking-title'),
+  matchmakingSettings: document.getElementById('matchmaking-settings'),
+  matchmakingWaiting: document.getElementById('matchmaking-waiting'),
+  matchmakingConfirm: document.getElementById('matchmaking-confirm'),
+  matchmakingLower: document.getElementById('matchmaking-lower'),
+  matchmakingUpper: document.getElementById('matchmaking-upper'),
+  matchmakingMyRating: document.getElementById('matchmaking-my-rating'),
+  matchmakingMyNickname: document.getElementById('matchmaking-my-nickname'),
+  matchmakingMyAvatar: document.getElementById('matchmaking-my-avatar'),
+  matchmakingOpponentName: document.getElementById('matchmaking-opponent-name'),
+  matchmakingOpponentAvatar: document.getElementById('matchmaking-opponent-avatar'),
+  matchmakingCountdown: document.getElementById('matchmaking-countdown'),
+  matchmakingElapsed: document.getElementById('matchmaking-elapsed'),
+  matchmakingError: document.getElementById('matchmaking-error'),
+  btnMatchmakingBack: document.getElementById('btn-matchmaking-back'),
+  btnMatchmakingStart: document.getElementById('btn-matchmaking-start'),
+  btnMatchmakingCancelQueue: document.getElementById('btn-matchmaking-cancel-queue'),
+  btnMatchmakingCancelMatch: document.getElementById('btn-matchmaking-cancel-match'),
 
   lobbySelectSection: document.getElementById('lobby-select-section'),
   lobbySelectModeTitle: document.getElementById('lobby-select-mode-title'),
@@ -172,8 +191,8 @@ const isLocalhost = Boolean(
 );
 
 // 온라인 플레이 2종 (증강 온라인, 요트 온라인)은 개발 우선도에 따라 상시 비활성화
-if (els.btnAugOnline) els.btnAugOnline.disabled = true;
-if (els.btnNormOnline) els.btnNormOnline.disabled = true;
+if (els.btnAugOnline) els.btnAugOnline.disabled = false;
+if (els.btnNormOnline) els.btnNormOnline.disabled = false;
 
 // 로비 플레이 및 핫시트 플레이만 항상 활성화
 if (els.btnAugLobby) els.btnAugLobby.disabled = false;
@@ -217,7 +236,7 @@ let myCropData = null;
 try {
   const cropStr = localStorage.getItem('ad_crop_data');
   if (cropStr) myCropData = JSON.parse(cropStr);
-} catch (e) {}
+} catch (e) { }
 
 // -----------------------------------------------------
 // 스켈레톤 스크린 제어 시스템
@@ -445,6 +464,11 @@ let bountyHunterProgress = {
   3: { count: 0, penaltyCount: 0 },
   4: { count: 0, penaltyCount: 0 }
 };
+let authoritativeGameState = null;
+
+function isAuthoritativeOnlineMatch() {
+  return window.isMultiplayer && (networkEngine.sessionType === 'matchmaking' || Boolean(authoritativeGameState));
+}
 
 function getPlayerLabel(playerIndex) {
   let name = `Player ${playerIndex}`;
@@ -1287,7 +1311,16 @@ subscribeAuthState(async (user) => {
 
             window.currentRoomCode = userData.activeRoomId;
             if (els.lobbyCodeDisplay) els.lobbyCodeDisplay.textContent = userData.activeRoomId;
-            networkEngine.connectToLobby(userData.activeRoomId);
+            const storedOnlineMatch = JSON.parse(sessionStorage.getItem('ad_online_match') || 'null');
+            if (
+              storedOnlineMatch
+              && String(storedOnlineMatch.roomId || '').toUpperCase() === String(userData.activeRoomId).toUpperCase()
+            ) {
+              networkEngine.currentMatch = storedOnlineMatch;
+              networkEngine.connectToOnlineMatch(storedOnlineMatch);
+            } else {
+              networkEngine.connectToLobby(userData.activeRoomId);
+            }
             startMultiplayerGame();
           };
         }
@@ -1656,13 +1689,14 @@ function stopLobbyWaitingAnimation() {
 export async function resetUserSessionState() {
   networkEngine.disconnect();
   networkEngine.removeAllListeners('connected');
+  sessionStorage.removeItem('ad_online_match');
   window.currentRoomCode = null;
   window.lobbyPlayers = [];
   window.myPlayerIndex = null;
   window.gameSessionStarted = false;
   window.isMultiplayer = false;
   window.isReady = false;
-  
+
   currentPlayer = 1;
   currentRound = 1;
   rollsLeft = 3;
@@ -1677,6 +1711,181 @@ export async function resetUserSessionState() {
     await clearUserActiveGame(user.uid);
   }
 }
+
+let matchmakingMode = 'normal';
+let matchmakingRating = 500;
+let matchmakingElapsedTimer = null;
+let matchmakingCountdownTimer = null;
+let matchmakingFailureTimer = null;
+let matchmakingConnectStarted = false;
+
+function clearMatchmakingTimers() {
+  if (matchmakingElapsedTimer) clearInterval(matchmakingElapsedTimer);
+  if (matchmakingCountdownTimer) clearInterval(matchmakingCountdownTimer);
+  if (matchmakingFailureTimer) clearTimeout(matchmakingFailureTimer);
+  matchmakingElapsedTimer = null;
+  matchmakingCountdownTimer = null;
+  matchmakingFailureTimer = null;
+}
+
+function setMatchmakingPanel(panel) {
+  els.matchmakingSettings?.classList.toggle('hidden', panel !== 'settings');
+  els.matchmakingWaiting?.classList.toggle('hidden', panel !== 'waiting');
+  els.matchmakingConfirm?.classList.toggle('hidden', panel !== 'confirm');
+  if (els.btnMatchmakingBack) els.btnMatchmakingBack.disabled = panel === 'confirm';
+}
+
+function populateMatchmakingRanges() {
+  const values = Array.from({ length: 10 }, (_, index) => (index + 1) * 100);
+  const render = (select, unlimitedFirst) => {
+    if (!select || select.options.length) return;
+    const options = unlimitedFirst
+      ? [['unlimited', '제한 없음'], ...values.map((value) => [String(value), String(value)])]
+      : [...values.map((value) => [String(value), String(value)]), ['unlimited', '제한 없음']];
+    options.forEach(([value, label]) => select.add(new Option(label, value)));
+    select.value = 'unlimited';
+  };
+  render(els.matchmakingLower, true);
+  render(els.matchmakingUpper, false);
+}
+
+async function showMatchmaking(mode) {
+  if (!getCurrentUser()) {
+    alert('온라인 플레이는 로그인이 필요함.');
+    return;
+  }
+  await resetUserSessionState();
+  matchmakingMode = mode === 'augmented' ? 'augmented' : 'normal';
+  window.pendingLobbyMode = matchmakingMode;
+  const user = getCurrentUser();
+  const userData = await getUserFromDB(user.uid);
+  const modeData = userData?.stats?.modes?.[matchmakingMode] || {};
+  const storedRating = Number(modeData.rating);
+  matchmakingRating = modeData.rating !== null && modeData.rating !== '' && Number.isFinite(storedRating)
+    ? Math.max(0, storedRating)
+    : 500;
+
+  populateMatchmakingRanges();
+  if (els.matchmakingTitle) {
+    els.matchmakingTitle.textContent = matchmakingMode === 'normal'
+      ? '요트 다이스 온라인 플레이'
+      : '증강 요트 다이스 온라인 플레이';
+  }
+  if (els.matchmakingMyRating) els.matchmakingMyRating.textContent = String(matchmakingRating);
+  if (els.matchmakingMyNickname) els.matchmakingMyNickname.textContent = userData?.nickname || user.displayName || 'Player';
+  if (els.matchmakingMyAvatar) {
+    els.matchmakingMyAvatar.style.backgroundImage = userData?.avatarUrl ? `url('${userData.avatarUrl}')` : '';
+  }
+  if (els.matchmakingError) els.matchmakingError.textContent = '';
+  els.appContainer.className = 'matchmaking-state';
+  setMatchmakingPanel('settings');
+}
+
+function returnToMatchmakingSettings(message = '') {
+  clearMatchmakingTimers();
+  matchmakingConnectStarted = false;
+  sessionStorage.removeItem('ad_online_match');
+  if (els.matchmakingError) els.matchmakingError.textContent = message;
+  if (els.btnMatchmakingCancelMatch) els.btnMatchmakingCancelMatch.disabled = false;
+  setMatchmakingPanel('settings');
+}
+
+function cancelMatchmakingAndReturn() {
+  networkEngine.cancelMatchmaking();
+  setTimeout(() => networkEngine.disconnect(), 120);
+  returnToMatchmakingSettings();
+}
+
+els.btnNormOnline?.addEventListener('click', () => void showMatchmaking('normal'));
+els.btnAugOnline?.addEventListener('click', () => void showMatchmaking('augmented'));
+
+els.btnMatchmakingBack?.addEventListener('click', () => {
+  networkEngine.cancelMatchmaking();
+  networkEngine.disconnect();
+  clearMatchmakingTimers();
+  els.appContainer.className = 'mode-select-state';
+});
+
+els.btnMatchmakingStart?.addEventListener('click', async () => {
+  const lower = els.matchmakingLower?.value || 'unlimited';
+  const upper = els.matchmakingUpper?.value || 'unlimited';
+  if (lower !== 'unlimited' && upper !== 'unlimited' && Number(lower) > Number(upper)) {
+    if (els.matchmakingError) els.matchmakingError.textContent = '하한선은 상한선보다 클 수 없음.';
+    return;
+  }
+
+  if (els.matchmakingError) els.matchmakingError.textContent = '';
+  setMatchmakingPanel('waiting');
+  const startedAt = Date.now();
+  const updateElapsed = () => {
+    const seconds = Math.floor((Date.now() - startedAt) / 1000);
+    if (els.matchmakingElapsed) {
+      els.matchmakingElapsed.textContent = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+    }
+  };
+  updateElapsed();
+  matchmakingElapsedTimer = setInterval(updateElapsed, 1000);
+
+  try {
+    await networkEngine.connectToMatchmaking({
+      mode: matchmakingMode,
+      lower,
+      upper
+    });
+  } catch (error) {
+    returnToMatchmakingSettings(error.message || '매치메이킹 시작에 실패함.');
+  }
+});
+
+els.btnMatchmakingCancelQueue?.addEventListener('click', cancelMatchmakingAndReturn);
+els.btnMatchmakingCancelMatch?.addEventListener('click', cancelMatchmakingAndReturn);
+
+networkEngine.on('match_found', (data) => {
+  clearMatchmakingTimers();
+  matchmakingConnectStarted = false;
+  const match = networkEngine.currentMatch || data;
+  sessionStorage.setItem('ad_online_match', JSON.stringify(match));
+  if (els.matchmakingOpponentName) els.matchmakingOpponentName.textContent = data.opponent?.nickname || 'Opponent';
+  if (els.matchmakingOpponentAvatar) {
+    els.matchmakingOpponentAvatar.style.backgroundImage = data.opponent?.avatarUrl ? `url('${data.opponent.avatarUrl}')` : '';
+  }
+  if (els.btnMatchmakingCancelMatch) els.btnMatchmakingCancelMatch.disabled = false;
+  setMatchmakingPanel('confirm');
+
+  const startsAt = Number(data.startsAt) || Date.now() + 3000;
+  const updateCountdown = () => {
+    const remaining = Math.max(0, startsAt - Date.now());
+    if (els.matchmakingCountdown) els.matchmakingCountdown.textContent = String(Math.max(1, Math.ceil(remaining / 1000)));
+    if (remaining === 0 && !matchmakingConnectStarted) {
+      matchmakingConnectStarted = true;
+      if (els.matchmakingCountdown) els.matchmakingCountdown.textContent = '연결 중';
+      if (els.btnMatchmakingCancelMatch) els.btnMatchmakingCancelMatch.disabled = true;
+      void networkEngine.connectToOnlineMatch(match);
+    }
+  };
+  updateCountdown();
+  matchmakingCountdownTimer = setInterval(updateCountdown, 100);
+  matchmakingFailureTimer = setTimeout(() => {
+    if (!window.gameSessionStarted) {
+      networkEngine.disconnect();
+      returnToMatchmakingSettings('게임 세션 연결에 실패하여 설정 화면으로 돌아왔음.');
+    }
+  }, Math.max(0, startsAt - Date.now()) + 2000);
+});
+
+networkEngine.on('match_cancelled', (data) => {
+  networkEngine.disconnect();
+  returnToMatchmakingSettings(data?.reason || '매치가 취소되었음.');
+});
+
+networkEngine.on('matchmaking_error', (data) => {
+  networkEngine.disconnect();
+  returnToMatchmakingSettings(data?.message || '매치메이킹 서버 연결에 실패함.');
+});
+
+window.addEventListener('pagehide', () => {
+  if (networkEngine.matchmakingSocket) networkEngine.cancelMatchmaking();
+});
 
 function showLobbySelect(mode) {
   resetUserSessionState();
@@ -1891,6 +2100,10 @@ networkEngine.on('lobby_state', (data) => {
 });
 
 networkEngine.on('error', (data) => {
+  if (isAuthoritativeOnlineMatch() && els.appContainer?.classList.contains('playing-state')) {
+    addGameLog(data?.message || '게임 명령이 거부되었습니다.', 'system', false);
+    return;
+  }
   if (!window.pendingLobbyJoinCode) return;
   const isModeMismatch = data?.code === 'ROOM_MODE_MISMATCH';
   const message = isModeMismatch
@@ -1904,8 +2117,14 @@ networkEngine.on('error', (data) => {
   showLobbyJoinError(message);
 });
 
-networkEngine.on('game_started', () => {
+networkEngine.on('game_started', (data) => {
   stopLobbyWaitingAnimation();
+  clearMatchmakingTimers();
+  window.gameSessionStarted = true;
+  if (data?.sessionType === 'matchmaking') {
+    networkEngine.notifyMatchStarted();
+    if (Array.isArray(data.players)) window.lobbyPlayers = data.players;
+  }
   // 모든 기존 상태 클래스를 제거하고 게임 화면으로 이동
   els.appContainer.className = '';
 
@@ -1921,6 +2140,42 @@ networkEngine.on('game_started', () => {
     window.matchTotalPlayers = window.lobbyPlayers.length;
   }
   startMultiplayerGame();
+});
+
+networkEngine.on('rating_settled', (data) => {
+  const user = getCurrentUser();
+  const result = user ? data?.results?.[user.uid] : null;
+  if (result) {
+    addGameLog(`레이팅 ${result.before} → ${result.after} (${result.delta >= 0 ? '+' : ''}${result.delta})`, 'system', false);
+    profileDataCache.delete(user.uid);
+    refreshUserHistory(user.uid);
+  }
+});
+
+networkEngine.on('rating_settlement_failed', () => {
+  addGameLog('레이팅 정산이 지연되고 있음.', 'system', false);
+});
+
+networkEngine.on('authoritative_timer', (data) => {
+  if (!authoritativeGameState || data.revision !== authoritativeGameState.revision) return;
+  authoritativeGameState.turnTimeRemaining = Number(data.turnTimeRemaining) || 0;
+  turnTimeRemaining = authoritativeGameState.turnTimeRemaining;
+  const draftTimerText = document.getElementById('augment-timer-text');
+  if (authoritativeGameState.phase === 'draft' && draftTimerText) {
+    draftTimerText.textContent = `${Math.max(0, Math.floor(turnTimeRemaining))}s`;
+  }
+  updateTurnTimerUI();
+});
+
+networkEngine.on('authoritative_state', (data) => {
+  if (!data?.state) return;
+  authoritativeApplyQueue = authoritativeApplyQueue
+    .then(async () => {
+      // 점수 상태와 로그는 즉시 반영함. 3초 유예는 서버의 다음 입력 차단으로만 유지하고,
+      // 여기서 대기하면 점수 표시·로그·정렬 후속 처리가 모두 지연됨.
+      return applyAuthoritativeState(data.state, data.action);
+    })
+    .catch((error) => console.error('[online] state_apply_failed', error));
 });
 
 networkEngine.on('ingame_message', (data) => {
@@ -2063,6 +2318,22 @@ networkEngine.on('full_game_sync', (data) => {
     window.myPlayerIndex = idx >= 0 ? idx + 1 : (me.isHost ? 1 : 2);
   }
 
+  if (sData.disconnectGrace) {
+    for (let p = 1; p <= 4; p++) {
+      if (sData.disconnectGrace[p] !== undefined) disconnectGrace[p] = sData.disconnectGrace[p];
+    }
+  }
+  if (data.players) {
+    data.players.forEach((p, idx) => {
+      if (p.disconnected) handlePlayerDisconnect(p.playerIndex || (idx + 1));
+    });
+  }
+
+  if (data.authoritativeState) {
+    void applyAuthoritativeState(data.authoritativeState, { kind: 'full_game_sync' });
+    return;
+  }
+
   scores = sData.scores || { 1: {}, 2: {} };
   activeMutations = sData.activeMutations || { 1: {}, 2: {} };
   currentRound = sData.currentRound || 1;
@@ -2071,21 +2342,6 @@ networkEngine.on('full_game_sync', (data) => {
 
   if (sData.matchLogHistory) {
     renderGameLogHistory(sData.matchLogHistory);
-  }
-
-  if (sData.disconnectGrace) {
-    for (let p = 1; p <= 4; p++) {
-      if (sData.disconnectGrace[p] !== undefined) disconnectGrace[p] = sData.disconnectGrace[p];
-    }
-  }
-
-  if (data.players) {
-    data.players.forEach((p, idx) => {
-      if (p.disconnected) {
-        const pIdx = p.playerIndex || (idx + 1);
-        handlePlayerDisconnect(pIdx);
-      }
-    });
   }
 
   activeDice = sData.activeDice || [];
@@ -2402,7 +2658,7 @@ function handleGameForfeit(forfeitedPlayerIndex, forfeitUid = null) {
     const lastSurv = activePlayers[0] || 1;
     const winnerData = window.lobbyPlayers ? window.lobbyPlayers[lastSurv - 1] : null;
     const winnerName = winnerData ? winnerData.nickname : `Player ${lastSurv}`;
-    
+
     stopTurnTimer();
     const winnerTitle = document.getElementById('endgame-winner');
     if (winnerTitle) {
@@ -2414,6 +2670,7 @@ function handleGameForfeit(forfeitedPlayerIndex, forfeitUid = null) {
 
 function resetGameSession() {
   stopTurnTimer();
+  authoritativeGameState = null;
   [1, 2, 3, 4].forEach(pIdx => {
     if (typeof disconnectTimers !== 'undefined' && disconnectTimers[pIdx]) {
       clearInterval(disconnectTimers[pIdx]);
@@ -2722,7 +2979,237 @@ function startMultiplayerGame() {
   }
 
   updateScoreboard();
+  if (isAuthoritativeOnlineMatch()) {
+    authoritativeGameState = null;
+    stopTurnTimer();
+    els.btnRoll.disabled = true;
+    return;
+  }
   startTurn();
+}
+
+function renderAuthoritativeDraft(state) {
+  const modal = document.getElementById('augment-selection-modal');
+  if (!modal) return;
+  if (state.phase !== 'draft') {
+    modal.classList.add('hidden');
+    return;
+  }
+
+  if (augmentTimerInterval) {
+    clearInterval(augmentTimerInterval);
+    augmentTimerInterval = null;
+  }
+  const player = Number(state.draftPlayer);
+  const isMine = player === Number(window.myPlayerIndex);
+  const title = document.getElementById('augment-modal-title');
+  const optionsContainer = document.getElementById('augment-options');
+  const timerText = document.getElementById('augment-timer-text');
+  if (title) title.textContent = isMine ? `Player ${player} 증강 선택` : `Player ${player} 증강 선택 중...`;
+  if (timerText) timerText.textContent = `${Math.max(0, Math.floor(state.turnTimeRemaining || 0))}s`;
+  if (!optionsContainer) return;
+
+  optionsContainer.innerHTML = '';
+  optionsContainer.style.pointerEvents = isMine ? 'auto' : 'none';
+  state.draftOptions.forEach((augmentId) => {
+    const augment = augmentData.find((item) => item.augmentId === augmentId);
+    if (!augment) return;
+    const option = document.createElement('div');
+    option.className = `augment-option${isMine ? '' : ' disabled-option'}`;
+    option.innerHTML = `
+      <div class="modal-compendium-type-text">${getAugmentCategoryEnName(augment)}</div>
+      <div class="aug-slot-header">${getVariantSvg(augmentId) || ''} <span class="aug-slot-name">${augment.name}</span></div>
+      <div class="aug-slot-desc">${augment.description || ''}</div>
+    `;
+    if (isMine) {
+      option.addEventListener('click', () => {
+        optionsContainer.style.pointerEvents = 'none';
+        option.classList.add('selected');
+        networkEngine.sendMessage({ type: 'game_select_augment', augmentId });
+      });
+    }
+    optionsContainer.appendChild(option);
+  });
+  modal.classList.remove('hidden');
+}
+
+const appliedAuthoritativeAnimations = new Set();
+
+async function renderAuthoritativeDice(previousState, state, action) {
+  if (!diceEngine) return;
+  if (action?.kind === 'game_keep' && diceEngine.applyServerKeep(action.dieId, action.isKept)) {
+    return;
+  }
+  const isRoll = action?.kind === 'game_roll' || action?.kind === 'game_table_flip';
+  if (isRoll && action.animationId) {
+    if (appliedAuthoritativeAnimations.has(action.animationId)) return;
+    appliedAuthoritativeAnimations.add(action.animationId);
+    if (appliedAuthoritativeAnimations.size > 32) {
+      const oldest = appliedAuthoritativeAnimations.values().next().value;
+      appliedAuthoritativeAnimations.delete(oldest);
+    }
+  }
+  if (!isRoll || !state.dice.length) {
+    diceEngine.forceDiceState(state.dice);
+    return;
+  }
+
+  const isFlip = action?.kind === 'game_table_flip';
+  const keptIds = new Set((previousState?.dice || []).filter((die) => die.kept).map((die) => die.id));
+  const newDice = isFlip
+    ? state.dice
+    : state.dice.filter((die) => !keptIds.has(die.id));
+  const configs = newDice.map((die) => ({ type: die.type, promotionLevel: die.promotionLevel || 0, serverId: die.id }));
+  if (!configs.length) {
+    diceEngine.forceDiceState(state.dice);
+    return;
+  }
+
+  try {
+    const animation = action?.animation;
+    const presetIndex = Number(animation?.presetIndex);
+    const animationStartedAt = Number(action?.animationStartAt);
+
+    if (action?.finalValues && Number.isInteger(presetIndex)) {
+      const waitMs = Number.isFinite(animationStartedAt) ? Math.max(0, animationStartedAt - Date.now()) : 0;
+      if (waitMs) await new Promise((resolve) => setTimeout(resolve, waitMs));
+      soundEngine.playSFX('dice_roll');
+      const targetValueMap = new Map(action.finalValues.map(fv => [fv.id, fv.value]));
+      const orderedTargets = newDice.map(d => targetValueMap.get(d.id) ?? d.value);
+
+      const replayed = await diceEngine.rollWithTargetValues(configs, orderedTargets, animation, { isFlip, elapsedMs: 0 });
+      if (!replayed) {
+        diceEngine.forceDiceState(state.dice);
+        return;
+      }
+
+      if (authoritativeGameState?.revision === state.revision) {
+        await diceEngine.completeAuthoritativeRoll(state.dice, 500);
+      }
+    } else if (action?.rollPhysics) {
+      soundEngine.playSFX('dice_roll');
+      const elapsed = 0;
+      await diceEngine.replayAuthoritativeRoll(action.rollPhysics, elapsed);
+      if (authoritativeGameState?.revision === state.revision) {
+        await diceEngine.completeAuthoritativeRoll(state.dice, 500);
+      }
+    } else {
+      // finalValues, preset animation, rollPhysics가 모두 없는 경우에만 경고
+      console.warn('[online] No roll data available, forcing dice state');
+      diceEngine.forceDiceState(state.dice);
+    }
+  } catch (error) {
+    console.warn('[online] Authoritative roll failed, falling back to forceDiceState', error);
+    diceEngine.forceDiceState(state.dice);
+  }
+}
+
+let authoritativeApplyQueue = Promise.resolve();
+let lastAuthoritativeActionRevision = 0;
+
+async function applyAuthoritativeState(state, action = null) {
+  const previousState = authoritativeGameState;
+  const turnChanged = !previousState
+    || previousState.currentPlayer !== state.currentPlayer
+    || previousState.phase !== state.phase;
+  const scoreGrace = action?.kind === 'game_score' && turnChanged && !state.ended;
+  authoritativeGameState = state;
+  const revision = state.revision;
+  stopTurnTimer();
+
+  scores = state.scores || scores;
+  activeMutations = state.activeMutations || activeMutations;
+  currentRound = Number(state.currentRound) || 1;
+  currentPlayer = Number(state.currentPlayer) || 1;
+  rollsLeft = Number.isFinite(Number(state.rollsLeft)) ? Number(state.rollsLeft) : 3;
+  extraTurns = state.extraTurns || extraTurns;
+  isExtraTurnPhase = Boolean(state.isExtraTurnPhase);
+  upperBonusThreshold = state.upperBonusThreshold || upperBonusThreshold;
+  yachtBankState = state.yachtBankState || yachtBankState;
+  destroyedStrangeDice = state.destroyedStrangeDice || destroyedStrangeDice;
+  promotionConsumed = state.promotionConsumed || promotionConsumed;
+  promotionAcquiredRound = state.promotionAcquiredRound || promotionAcquiredRound;
+  playerTableFlipUsed = state.playerTableFlipUsed || playerTableFlipUsed;
+  equivalentExchangeUses = state.equivalentExchangeUses || equivalentExchangeUses;
+  equivalentExchangePenalty = state.equivalentExchangePenalty || equivalentExchangePenalty;
+  equivalentExchangeTurnUses = state.equivalentExchangeTurnUses || equivalentExchangeTurnUses;
+  questProgress = state.questProgress || questProgress;
+  momentumState = state.momentumState || momentumState;
+  bountyHunterTarget = state.bountyHunterTarget || bountyHunterTarget;
+  bountyHunterAcquiredRound = state.bountyHunterAcquiredRound || bountyHunterAcquiredRound;
+  bountyHunterProgress = state.bountyHunterProgress || bountyHunterProgress;
+  turnTimeRemaining = Number(state.turnTimeRemaining) || 0;
+
+  keptDice = (state.dice || []).filter((die) => die.kept && die.type !== 'weird').map((die) => die.value).sort((a, b) => a - b);
+  activeDice = (state.dice || []).filter((die) => !die.kept && die.type !== 'weird').map((die) => die.value).sort((a, b) => a - b);
+
+  renderAuthoritativeDraft(state);
+  updateScoreboard();
+  updateMatchProfiles();
+  if (!scoreGrace) {
+    updateTurnHighlights();
+    updateAugmentSidebar?.(currentPlayer);
+    updateTurnTimerUI();
+  }
+
+  if (state.phase === 'draft') {
+    els.gameStatus.textContent = `P${state.draftPlayer} 증강 선택 중`;
+    els.btnRoll.disabled = true;
+  } else if (!state.ended) {
+    els.gameStatus.textContent = currentRound > 12
+      ? `P${currentPlayer}의 추가 턴 (라운드 ${currentRound})`
+      : `P${currentPlayer}의 턴 (라운드 ${currentRound}/12)`;
+  }
+
+  await renderAuthoritativeDice(previousState, state, action);
+  if (authoritativeGameState?.revision !== revision) return;
+
+  if (revision > lastAuthoritativeActionRevision && action?.kind) {
+    lastAuthoritativeActionRevision = revision;
+    if (action.kind === 'game_roll' || action.kind === 'game_table_flip') {
+      addGameLog({ type: 'roll-result', player: action.player, meta: { values: state.dice.filter((die) => !die.kept).map((die) => die.value) } }, 'roll-result', false, action.player);
+    } else if (action.kind === 'game_score') {
+      const score = state.scores?.[action.player]?.[action.catId];
+      const value = typeof score === 'object' ? score.score : score;
+      addGameLog({ type: 'score-record', player: action.player, meta: { catId: action.catId, score: value } }, 'score-record', false, action.player);
+    } else if (action.kind === 'game_select_augment') {
+      addGameLog({ type: 'augment-action', player: action.player, meta: { augmentId: action.augmentId } }, 'augment-action', false, action.player);
+    } else if (action.kind === 'timeout') {
+      addGameLog({ type: 'timeout', player: action.player, meta: { catId: action.catId, score: action.score ?? 0 } }, 'timeout', false, action.player);
+    }
+  }
+  if (turnChanged && !scoreGrace && state.phase === 'action' && state.currentPlayer) {
+    addGameLog({ type: 'turn-start', player: state.currentPlayer, round: state.currentRound }, 'turn-start', false, state.currentPlayer);
+    if (Number(state.currentPlayer) === Number(window.myPlayerIndex)) soundEngine.playSFX('turn_change');
+  }
+  if (scoreGrace) {
+    setTimeout(() => {
+      if (authoritativeGameState?.revision !== revision) return;
+      updateTurnHighlights();
+      updateAugmentSidebar?.(currentPlayer);
+      updateTurnTimerUI();
+      if (state.phase === 'action' && state.currentPlayer) {
+        addGameLog({ type: 'turn-start', player: state.currentPlayer, round: state.currentRound }, 'turn-start', false, state.currentPlayer);
+        if (Number(state.currentPlayer) === Number(window.myPlayerIndex)) soundEngine.playSFX('turn_change');
+      }
+    }, 3000);
+  }
+
+  if (state.phase === 'action' && state.turnRollCount > 0 && state.dice.length) {
+    updateScorePreviews();
+  } else {
+    clearScorePreviews();
+  }
+  updateRollsUI();
+
+  if (turnChanged && state.phase === 'action' && !state.ended) {
+    const elapsedTime = Math.max(0, TURN_DURATION_SECONDS - Number(state.turnTimeRemaining || 0));
+    soundEngine.startBGM(elapsedTime);
+  }
+
+  const isMyTurn = Number(currentPlayer) === Number(window.myPlayerIndex);
+  if (state.phase !== 'action' || !isMyTurn || state.ended) els.btnRoll.disabled = true;
+  if (state.ended) endGame(true);
 }
 
 let augmentTimerInterval = null;
@@ -2763,7 +3250,7 @@ function getSeededAugments(round, player) {
   // 멀티플레이 모드 시 방 코드(PIN) 기반 시드 셔플 사용
   const roomCode = els.lobbyCodeDisplay?.textContent?.trim() || networkEngine.roomCode || window.currentRoomCode || 'DEFAULT';
   const seedStr = `${roomCode}_R${round}_P${player}`;
-  
+
   let hash = 0;
   for (let i = 0; i < seedStr.length; i++) {
     hash = (hash * 31 + seedStr.charCodeAt(i)) & 0x7fffffff;
@@ -3195,12 +3682,12 @@ function startTurn() {
 
   window.proceedTurnStart = function () {
     startTurnTimer();
-    
+
     // 이전 턴의 fade-out 효과 클래스 잔재 정리
     document.querySelectorAll('.fade-out-target').forEach(el => {
       el.classList.remove('fade-out-target', 'bounty-target-highlight');
     });
-    
+
     // 현상금 사냥꾼 타겟 지정 시스템
     const activeMuts = Object.values(activeMutations[currentPlayer] || {});
     const bhProg = bountyHunterProgress[currentPlayer] || { count: 0, penaltyCount: 0 };
@@ -3296,7 +3783,7 @@ function startTurn() {
 function updateRollsUI(isRolling = false) {
   els.rollsLeft.textContent = `남은 굴리기: ${rollsLeft}`;
   const isMyTurn = !window.isMultiplayer || currentPlayer === window.myPlayerIndex;
-  
+
   const hasEquivalentExchange = Object.values(activeMutations[currentPlayer] || {}).includes('equivalent-exchange');
   const canEquivalentExchange = hasEquivalentExchange && (equivalentExchangeUses[currentPlayer] || 0) > 0;
 
@@ -3372,6 +3859,16 @@ els.btnRoll.addEventListener('click', async () => {
       diceEngine.arrangeAll(true);
       if (diceBoxReady) els.btnRoll.disabled = false;
     }, 100);
+    return;
+  }
+
+  if (isAuthoritativeOnlineMatch()) {
+    if (!isMyTurn || authoritativeGameState?.phase !== 'action') return;
+    const unkeptDice = (authoritativeGameState?.dice || []).filter((die) => !die.kept);
+    if (authoritativeGameState?.turnRollCount > 0 && !unkeptDice.length) return;
+    els.btnRoll.disabled = true;
+    clearScorePreviews();
+    networkEngine.sendMessage({ type: 'game_roll' });
     return;
   }
 
@@ -3574,7 +4071,7 @@ function previewScores(diceArray) {
     if (!cell) return;
 
     const scoreObj = typeof potentialScores[cat.id] === 'object' ? { ...potentialScores[cat.id] } : { score: potentialScores[cat.id], bonus: 0 };
-    
+
     // 추진력 발동 준비(active) 상태 시 예상 점수에 1.5배 가산분 미리보기 추가
     const playerMuts = Object.values(activeMutations[currentPlayer] || {});
     if (playerMuts.includes('momentum') && momentumState[currentPlayer] === 'active' && scoreObj.score > 0) {
@@ -3604,7 +4101,14 @@ function previewScores(diceArray) {
     if (isMyTurn && !isYachtBankCell) {
       cell.classList.remove('suggested-readonly');
       cell.classList.add('suggested');
-      cell.onclick = () => lockScore(cat.id, potentialScores[cat.id]);
+      cell.onclick = () => {
+        if (isAuthoritativeOnlineMatch()) {
+          cell.onclick = null;
+          networkEngine.sendMessage({ type: 'game_score', catId: cat.id });
+        } else {
+          lockScore(cat.id, potentialScores[cat.id]);
+        }
+      };
     } else {
       cell.classList.remove('suggested');
       cell.classList.add('suggested-readonly');
@@ -3724,7 +4228,7 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
   if (activeMuts.includes('bounty-hunter') && bountyHunterTarget[currentPlayer] === catId) {
     const bhProg = bountyHunterProgress[currentPlayer] || { count: 0, penaltyCount: 0 };
     bhProg.count = (bhProg.count || 0) + 1;
-    
+
     // 스크래치(0점) 기입 여부 판정
     const actualScore = scoreObj.score !== undefined ? scoreObj.score : 0;
     if (actualScore === 0) {
@@ -4095,11 +4599,11 @@ async function savePersonalAugmentProgress() {
   }
 }
 
-function endGame() {
+function endGame(serverConfirmed = false) {
   if (isGameEnded) return;
   isGameEnded = true;
 
-  if (window.isMultiplayer) {
+  if (window.isMultiplayer && !serverConfirmed && !isAuthoritativeOnlineMatch()) {
     networkEngine.sendMessage({ type: 'game_ended' });
   }
   const user = getCurrentUser();
@@ -4116,6 +4620,7 @@ function endGame() {
       tot += Math.min(yachtBankState[p]?.accumulatedScore || 0, 15);
     }
     tot += (questProgress[p]?.questBonus || 0);
+    tot -= (equivalentExchangePenalty[p] || 0);
 
     const pData = (window.initialMatchPlayers && window.initialMatchPlayers[p - 1])
       ? window.initialMatchPlayers[p - 1]
@@ -4160,8 +4665,8 @@ function endGame() {
       const card = document.createElement('div');
       card.className = `endgame-score-card ${isWinner ? 'winner-card' : ''} ${stat.isForfeited ? 'forfeit-card' : ''}`;
 
-      const avatarStyle = stat.avatarUrl 
-        ? `background-image: url('${stat.avatarUrl}'); background-size: cover; background-position: center; background-repeat: no-repeat;` 
+      const avatarStyle = stat.avatarUrl
+        ? `background-image: url('${stat.avatarUrl}'); background-size: cover; background-position: center; background-repeat: no-repeat;`
         : 'background-color: #ccc;';
       const forfeitText = '';
       const scoreDisplayStyle = stat.isForfeited ? 'text-decoration: line-through !important; color: #888 !important;' : '';
@@ -4219,7 +4724,12 @@ function sanitizeForFirestore(obj) {
 }
 
 async function saveMatchData() {
-  if (gameMode === 'hotseat' || gameMode === 'augmented-hotseat' || !window.isMultiplayer) {
+  if (
+    gameMode === 'hotseat'
+    || gameMode === 'augmented-hotseat'
+    || !window.isMultiplayer
+    || networkEngine.sessionType === 'matchmaking'
+  ) {
     return;
   }
 
@@ -4616,7 +5126,7 @@ function updateScoreboard() {
               cell.title = '';
             }
           }
-          
+
         }
       }
 
@@ -4674,6 +5184,14 @@ setTimeout(async () => {
   diceEngine.onDieClick = (val, isKept, dieIndex) => {
     // 로비 화면일 경우 점수 연산 생략 (클릭/킵만 작동)
     if (els.appContainer?.classList.contains('mode-select-state')) return;
+
+    if (isAuthoritativeOnlineMatch()) {
+      const die = diceEngine.diceArray[dieIndex];
+      if (die?.serverId !== undefined) {
+        networkEngine.sendMessage({ type: 'game_keep', dieId: die.serverId, isKept });
+      }
+      return;
+    }
 
     // 상태 배열을 엔진과 동기화 (이상한 주사위는 족보 계산 배열에서 제외)
     activeDice = diceEngine.diceArray.filter(d => !d.isKept && d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
@@ -4825,7 +5343,7 @@ function updateQuestProgress(player, catId, scoreObj) {
       const lowerCats = ['choice', '4oak', 'fullhouse', 's-straight', 'l-straight', 'yacht'];
       const myScore = scoreObj ? (typeof scoreObj === 'object' ? scoreObj.score : scoreObj) : (s[catId]?.score !== undefined ? s[catId].score : s[catId]);
       const oppScore = typeof otherScores[catId] === 'object' ? otherScores[catId].score : otherScores[catId];
-      
+
       if (lowerCats.includes(catId) && myScore === oppScore && myScore > 0) {
         prog.copycatSpecialCleared = true;
         prog.copycatRewarded = true;
@@ -4879,8 +5397,8 @@ function getQuestProgressText(player, mutId) {
   const line = (text, isDone, isFailed = false) => {
     const isInactive = isFailed || status === 'failed' || isDone;
     const opacity = isDone ? '0.7' : '0.6';
-    const content = isInactive 
-      ? `<span style="text-decoration: line-through; opacity: ${opacity};"><strong><u>퀘스트</u></strong>: ${text}</span>` 
+    const content = isInactive
+      ? `<span style="text-decoration: line-through; opacity: ${opacity};"><strong><u>퀘스트</u></strong>: ${text}</span>`
       : `<strong><u>퀘스트</u></strong>: ${text}`;
     return `<div style="margin-top: 4px;">${content}</div>`;
   };
@@ -5128,6 +5646,12 @@ window.updateAugmentSidebar = function (player) {
             }
 
             if (rollsLeft >= 3 || !diceEngine || diceEngine.physicsActive) return;
+
+            if (isAuthoritativeOnlineMatch()) {
+              btnFlip.disabled = true;
+              networkEngine.sendMessage({ type: 'game_table_flip' });
+              return;
+            }
 
             if (isLocalAugmentProgressPlayer(targetPlayer)) {
               const totalOf = (player) => Object.values(scores[player] || {}).reduce((total, value) =>
@@ -5632,8 +6156,8 @@ async function showCompendiumDetail(aug) {
     <dt>채택 횟수</dt><dd>${stats.selections || 0}회</dd>
     <dt>채용률</dt><dd>${adoptionRate.toFixed(1)}%</dd>
     ${getAugmentTelemetryDefinitions(aug.augmentId).map((metric) =>
-      `<dt>${escapeHtml(metric.label)}</dt><dd>${stats.metrics?.[metric.key] || 0}${metric.unit}</dd>`
-    ).join('')}
+    `<dt>${escapeHtml(metric.label)}</dt><dd>${stats.metrics?.[metric.key] || 0}${metric.unit}</dd>`
+  ).join('')}
   `;
 
   renderAchievementList(achievementList, getAugmentAchievementDefinitions(aug).map((definition) => ({
@@ -5740,7 +6264,7 @@ function renderCompendiumAugments(category = 'all') {
 }
 
 document.getElementById('btn-compendium-back')?.addEventListener('click', () => {
-    showCompendiumIndex(false);
+  showCompendiumIndex(false);
   document.querySelector('.modal-compendium-item')?.focus();
 });
 
@@ -5750,7 +6274,7 @@ document.querySelectorAll('.modal-compendium-tab-btn').forEach(btn => {
     document.querySelectorAll('.modal-compendium-tab-btn').forEach(b => b.classList.remove('active'));
     const targetBtn = e.currentTarget;
     targetBtn.classList.add('active');
-    
+
     const cat = targetBtn.getAttribute('data-category');
     currentCompendiumCategory = cat;
     renderCompendiumAugments(cat);

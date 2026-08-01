@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>주사위 프리셋 스튜디오</title>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/gh/sun-typeface/SUIT@2/fonts/variable/woff2/SUIT-Variable.css" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #111;
+      font-family: 'SUIT Variable', -apple-system, sans-serif;
+      color: #fff;
+      display: flex;
+    }
+    #viewer-container {
+      flex: 1;
+      height: 100vh;
+      position: relative;
+    }
+    .ui-panel {
+      width: 320px;
+      height: 100vh;
+      background: rgba(20, 20, 20, 0.95);
+      border-right: 1px solid #333;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      z-index: 10;
+    }
+    .panel-header {
+      padding: 20px;
+      border-bottom: 1px solid #333;
+    }
+    .panel-header h2 {
+      margin: 0;
+      font-size: 1.2rem;
+      color: #ffd700;
+    }
+    .panel-content {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .section-title {
+      font-size: 0.9rem;
+      color: #888;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    button {
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      padding: 10px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-family: 'SUIT Variable', sans-serif;
+      transition: all 0.2s;
+      text-align: left;
+    }
+    button:hover:not(:disabled) {
+      background: #555;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-action {
+      background: #1a4b8c;
+      border-color: #2a6bcc;
+    }
+    .btn-action:hover:not(:disabled) {
+      background: #2a6bcc;
+    }
+    .btn-success {
+      background: #1a6b3c;
+      border-color: #2a8c4c;
+    }
+    .preset-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .preset-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: #222;
+      border: 1px solid #444;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .preset-item.selected {
+      border-color: #ffd700;
+      background: #3a3000;
+    }
+    .preset-label {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+      margin-right: 8px;
+    }
+    .preset-item .score {
+      flex-shrink: 0;
+      font-size: 0.8rem;
+      color: #aaa;
+    }
+    .status-text {
+      font-size: 0.85rem;
+      color: #aaa;
+      margin-top: 10px;
+    }
+    .footer-actions {
+      padding: 20px;
+      border-top: 1px solid #333;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="ui-panel">
+    <div class="panel-header">
+      <h2>프리셋 스튜디오</h2>
+    </div>
+    
+    <div class="panel-content">
+      <div>
+        <div class="section-title">1. 자동 추출 (Bake 100x)</div>
+        <select id="dice-count" style="width: 100%; margin-bottom: 4px; padding: 6px; background: #222; color: white; border: 1px solid #444; border-radius: 4px;">
+          <option value="5">전체 주사위 5개</option>
+          <option value="4">전체 주사위 4개</option>
+          <option value="3">전체 주사위 3개</option>
+          <option value="2">전체 주사위 2개</option>
+          <option value="1">전체 주사위 1개</option>
+        </select>
+        <select id="octa-count" style="width: 100%; margin-bottom: 8px; padding: 6px; background: #222; color: white; border: 1px solid #444; border-radius: 4px;">
+          <option value="2">그 중 8면체 2개</option>
+          <option value="1">그 중 8면체 1개</option>
+          <option value="3">그 중 8면체 3개</option>
+          <option value="4">그 중 8면체 4개</option>
+          <option value="5">그 중 8면체 5개</option>
+        </select>
+        <div class="btn-group">
+          <button id="btn-bake-normal">일반 6면체 추출</button>
+          <button id="btn-bake-octa">8면체 추출</button>
+          <button id="btn-bake-flip">판 뒤집기 추출</button>
+        </div>
+        <div id="bake-status" class="status-text">대기 중...</div>
+      </div>
+
+      <div>
+        <div class="section-title">2. 추출된 프리셋 리뷰</div>
+        <div class="btn-group" style="margin-bottom: 10px;">
+          <select id="saved-preset-file" style="width: 100%; padding: 6px; background: #222; color: white; border: 1px solid #444; border-radius: 4px;">
+            <option value="">저장 프리셋 불러오는 중...</option>
+          </select>
+          <button id="btn-load-saved-preset" disabled>저장 프리셋 불러오기</button>
+        </div>
+        <div class="preset-list" id="preset-list">
+          <div class="status-text">추출된 프리셋이 없습니다.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-actions">
+      <div class="btn-group" style="margin-bottom: 12px;">
+        <button id="btn-play" class="btn-action" disabled>▶ 선택한 프리셋 재생</button>
+        <button id="btn-keep" class="btn-success" disabled>★ 현재 프리셋 확정 (Keep)</button>
+      </div>
+      <div class="section-title">확정된 팩: <span id="kept-count">0</span>개</div>
+      <button id="btn-export" disabled>최종 JSON 팩 다운로드</button>
+    </div>
+  </div>
+
+  <div id="viewer-container"></div>
+
+  <script>
+    if (location.protocol === 'file:') {
+      document.body.innerHTML = '<main style="margin:auto;max-width:560px;padding:24px;color:#fff;font:16px/1.6 sans-serif"><h1>프리셋 스튜디오는 로컬 서버가 필요함</h1><p>ES 모듈은 file:// 주소에서 실행할 수 없음.</p><pre style="padding:12px;background:#222;border-radius:6px">npm run preset-studio</pre><p>명령 실행 뒤 자동으로 열린 http:// 주소를 사용하면 됨.</p></main>';
+    } else {
+      const script = document.createElement('script');
+      script.type = 'module';
+      script.src = '/src/presetStudio.js';
+      document.body.append(script);
+    }
+  </script>
+</body>
+</html>

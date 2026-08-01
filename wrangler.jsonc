@@ -1,6 +1,6 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "server",
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "augmented-dice-server",
   "main": "src/server.js",
   "compatibility_date": "2026-07-21",
   "durable_objects": {
@@ -11,12 +11,18 @@
       }
     ]
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "augmented-dice",
+      "database_id": "2a3a7506-ed9a-4a37-9737-1324618316e9",
+      "migrations_dir": "migrations"
+    }
+  ],
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": [
-        "DiceServer"
-      ]
+      "new_sqlite_classes": ["DiceServer"]
     }
   ]
 }

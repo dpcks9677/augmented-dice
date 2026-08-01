@@ -26,6 +26,10 @@ const changedRatings = getRatingSeries({
 }, 'normal', 4, new Date('2026-07-30T12:00:00.000Z'));
 assert.deepEqual(changedRatings.map((point) => point.rating), [510, 510, 510, 530]);
 
+assert.equal(getProfileModeStats({
+  stats: { modes: { normal: { rating: 0 }, augmented: { rating: 0 } } }
+}).normal.rating, 0);
+
 const first = updateProfileStats({ augmentStats: { kept: { selections: 4 } } }, {
   mode: 'normal',
   score: 250,

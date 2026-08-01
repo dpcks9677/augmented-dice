@@ -53,6 +53,8 @@ scratch_*
 update_svgs.*
 inject_svg.js
 implementation_plan.md
+firestore-users.json
+users.sql
 
 # Local test/tool output
 coverage/
