@@ -167,8 +167,8 @@ export class YachtTrayModel {
     this.loadPromise = new Promise(resolve => {
       new STLLoader().load(
         getAssetUrl(),
-        geometry => {
-          this.createMesh(geometry);
+        async geometry => {
+          await this.createMesh(geometry);
           resolve(true);
         },
         undefined,
@@ -181,7 +181,7 @@ export class YachtTrayModel {
     return this.loadPromise;
   }
 
-  createMesh(geometry) {
+  async createMesh(geometry) {
     geometry.translate(-SOURCE_CENTER.x, -SOURCE_CENTER.y, -SOURCE_PLAY_SURFACE_Z);
     geometry.rotateX(-Math.PI / 2);
     geometry.computeVertexNormals();
@@ -217,9 +217,9 @@ export class YachtTrayModel {
       rimTopY: geometry.boundingBox.max.y
     };
     this.scene?.add(this.mesh);
+    await this.loadCorduroyMaterials();
     this.isReady = true;
     this.onLoad?.();
-    this.loadCorduroyMaterials();
   }
 
   applyVertexColors(geometry) {

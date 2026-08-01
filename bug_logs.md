@@ -362,3 +362,10 @@
 - 원인: Three.js r185에서 `Clock`과 `SVGLoader.createShapes()`가 각각 `Timer`, `shapePath.toShapes()`로 대체됨.
 - 수정: 스튜디오 애니메이션 루프를 `THREE.Timer.update(timestamp)` 기반으로 교체하고 SVG 경로 변환을 `path.toShapes()`로 변경함.
 - 검증: 관련 모듈 구문 검사와 프로덕션 빌드 실행 필요함.
+
+## 2026-08-02 게임 보드 재질 초기 적용 지연
+
+- 증상: 사이트 진입 직후 기본 STL 보드가 먼저 보이고, 주사위 굴림 시점에 코듀로이·Soft Plastic 재질이 적용됨.
+- 원인: `YachtTrayModel.createMesh()`가 텍스처 로딩 완료 전에 `onLoad`를 호출해 게임 초기화가 먼저 완료됨.
+- 수정: 텍스처·재질 그룹 적용을 `onLoad`와 `isReady` 설정 전에 완료하도록 로딩 순서를 변경함.
+- 검증: `npm run build`와 실제 초기 진입 화면 확인 필요함.
