@@ -185,7 +185,7 @@ function showAugment() {
   if (els.tabMatchInfoViewFromAug) els.tabMatchInfoViewFromAug.classList.remove('active');
 }
 
-function showMatchInfo() {
+export function showMatchInfo() {
   if (els.augmentSection) {
     els.augmentSection.classList.add('hidden');
     els.augmentSection.style.display = 'none';

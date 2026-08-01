@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { OctahedronGeometry } from 'three';
 import { getOctGeo, getSmoothBeveledOctGeo } from './geometryUtils.js';
 import { getMaterialForDie } from './diceMaterials.js';
@@ -8,12 +9,69 @@ import { YachtTrayModel } from './YachtTrayModel.js';
 import { BOUNDARY_MODES, DiceBoardPhysics } from './DiceBoardPhysics.js';
 import { alignKeyframesToFinalQuaternion, interpolateKeyframes } from './onlineDiceAnimator.js';
 import { getQuaternionForValue, getFaceNormal, getDieValueFromQuaternion } from './diceFace.js';
+import { getDicePresetKey, isPresetCompatible } from './dicePresetRules.js';
 
 const DIE_SIZE = 1.62;
 const DIE_HALF_SIZE = DIE_SIZE / 2;
-const ARRANGED_DICE_CAMERA_LIFT = 30;
-const ARRANGED_DICE_SPACING = 2.65;
+const ARRANGEMENT_CAMERA_TILT = THREE.MathUtils.degToRad(12);
+// Lower the visual sort row for the 12° board camera; this only affects the
+// post-roll arrangement target, not the physics floor or die result.
+const ARRANGEMENT_LAYOUT = {
+  cameraTilt: ARRANGEMENT_CAMERA_TILT,
+  cameraLift: 40,
+  spacing: 2.4,
+  centerZOffset: 8
+};
+const ARRANGEMENT_DURATION_MS = 500;
+const KEEP_DIE_LAYOUT = {
+  scale: 1.2,
+  scaleByType: { octahedron: 1 },
+  duration: 0.33
+};
+const KEEP_DIE_TILT = {
+  angle: THREE.MathUtils.degToRad(10),
+  axis: new THREE.Vector3(1, 0, 0),
+  byType: { octahedron: 1 }
+};
+const ARRANGEMENT_SHADOW_OFFSET = { x: 0.34, z: -8 };
+const HOVER_HIGHLIGHT_MARGIN = 1.21;
+const HOVER_HIGHLIGHT_LINE_WIDTH_SCALE = 0.8;
+const HOVER_HIGHLIGHT_POSITION_OFFSET = new THREE.Vector3(0, 0, 0);
+const HOVER_POSITION_CORRECTION = {
+  xFactor: 0.06,
+  yFactor: 0.04,
+  keepYFactor: 0.06
+};
 const DIE_SURFACE_CLEARANCE = 0.035;
+
+function getPresetAnimationDuration(presetData, isFlip = false) {
+  const frameCount = Array.isArray(presetData?.frames) ? presetData.frames.length : 0;
+  const fps = Number(presetData?.fps) || (isFlip ? 40 : 20);
+  if (frameCount <= 1 || fps <= 0) return 0;
+
+  const motionThreshold = 0.003;
+  let lastMovingFrame = 0;
+  for (let frameIndex = 1; frameIndex < frameCount; frameIndex += 1) {
+    const previous = presetData.frames[frameIndex - 1];
+    const current = presetData.frames[frameIndex];
+    const dieCount = Math.min(previous?.length || 0, current?.length || 0);
+    let frameMoved = false;
+    for (let dieIndex = 0; dieIndex < dieCount && !frameMoved; dieIndex += 1) {
+      const previousDie = previous[dieIndex] || [];
+      const currentDie = current[dieIndex] || [];
+      for (let valueIndex = 0; valueIndex < 7; valueIndex += 1) {
+        if (Math.abs(Number(currentDie[valueIndex] || 0) - Number(previousDie[valueIndex] || 0)) > motionThreshold) {
+          frameMoved = true;
+          break;
+        }
+      }
+    }
+    if (frameMoved) lastMovingFrame = frameIndex;
+  }
+
+  const completionFrame = Math.min(frameCount - 1, lastMovingFrame + 1);
+  return completionFrame * (1000 / fps);
+}
 const INGRESS_TIMEOUT_SECONDS = 1.6;
 const SETTLE_LINEAR_SPEED_SQ = 0.1;
 const SETTLE_ANGULAR_SPEED_SQ = 0.1;
@@ -34,6 +92,7 @@ export class DiceEngine {
     this.isAnimating = false;
     this.soundEnabled = true;
     this.activeHitAudios = new Set();
+    this.presetSoundTimers = [];
     this.visualRandomState = null;
     this.authoritativeAnimationId = 0;
     this.authoritativeAnimationPhase = 'idle';
@@ -50,6 +109,7 @@ export class DiceEngine {
     this.initThree();
     this.trayModel = new YachtTrayModel(this.scene, {
       onLoad: () => {
+        this.trayModel.mesh?.layers.enable(1);
         this.container.classList.add('tray-model-loaded');
         this.container.classList.remove('tray-model-loading', 'tray-model-error');
         this.onWindowResize();
@@ -108,27 +168,29 @@ export class DiceEngine {
     const baseUrl = import.meta.env.BASE_URL || '/';
     const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
     const promises = [];
+    const loadPresetJson = (url) => fetch(url).then((res) => (
+      res.ok && res.headers.get('content-type')?.includes('application/json')
+        ? res.json()
+        : null
+    ));
 
     // Flip presets
-    for (let i = 1; i <= 5; i++) {
-      const p = fetch(`${normalizedBase}presets/dice_presets_flip_${i}.json`)
-        .then(res => res.json())
-        .then(data => this.presetCache.set(`flip_${i}`, data))
+    for (let i = 1; i <= 6; i++) {
+      const p = loadPresetJson(`${normalizedBase}presets/dice_presets_flip_${i}.json`)
+        .then(data => {
+          if (data) this.presetCache.set(`flip_${i}`, data);
+        })
         .catch(e => console.error(`Failed to load flip_${i} preset:`, e));
       promises.push(p);
     }
 
     // Mixed and Normal presets
-    for (let n = 0; n <= 5; n++) {
-      for (let o = 0; o <= 5; o++) {
+    for (let n = 0; n <= 6; n++) {
+      for (let o = 0; o <= 6; o++) {
         const count = n + o;
-        if (count >= 1 && count <= 5) {
+        if (count >= 1 && count <= 6) {
           const key = o === 0 ? `normal_${n}` : `mixed_${n}normal_${o}octa`;
-          const p = fetch(`${normalizedBase}presets/dice_presets_${key}.json`)
-            .then(res => {
-              if (!res.ok) return null;
-              return res.json();
-            })
+          const p = loadPresetJson(`${normalizedBase}presets/dice_presets_${key}.json`)
             .then(data => {
               if (data) this.presetCache.set(key, data);
             })
@@ -172,6 +234,8 @@ export class DiceEngine {
 
   initAudio() {
     this.hitSounds = [];
+    const baseUrl = import.meta.env.BASE_URL || '/';
+    const soundBase = `${baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`}sounds/`;
 
     // 추가해주신 7개의 소리 파일 목록
     const soundFiles = [
@@ -180,11 +244,13 @@ export class DiceEngine {
     ];
 
     soundFiles.forEach(fileName => {
-      const audio = new Audio(`/sounds/${fileName}`);
+      const audio = new Audio(`${soundBase}${fileName}`);
+      audio.preload = 'auto';
       this.hitSounds.push(audio);
     });
 
-    this.cardboardHitSound = new Audio('/sounds/cardboard_hit.wav');
+    this.cardboardHitSound = new Audio(`${soundBase}cardboard_hit.wav`);
+    this.cardboardHitSound.preload = 'auto';
   }
 
   playHitSound(velocity) {
@@ -249,6 +315,7 @@ export class DiceEngine {
 
   initThree() {
     this.scene = new THREE.Scene();
+    RectAreaLightUniformsLib.init();
 
     // 모든 영역의 기본 가시성. 킵 존처럼 림에 가려지는 곳도 균일하게 읽힌다.
     const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x2a1018, 0.72);
@@ -257,14 +324,18 @@ export class DiceEngine {
     // 접지 그림자만 담당하는 메인광. 짧은 사선으로 입체감은 남긴다.
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.78);
     // 화면 기준 2시 방향으로 짧은 그림자 방향을 만든다.
-    dirLight.position.set(-7, 28, 7);
+    // Aim the key light at the board center so the 12° camera tilt does not
+    // push die shadows outside the playable surface.
+    dirLight.position.set(-8, 48, 16);
+    dirLight.target.position.set(0, 0, 0);
+    this.scene.add(dirLight.target);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048; // 그림자 해상도 증가
     dirLight.shadow.mapSize.height = 2048;
-    dirLight.shadow.camera.left = -30;
-    dirLight.shadow.camera.right = 30;
-    dirLight.shadow.camera.top = 30;
-    dirLight.shadow.camera.bottom = -30;
+    dirLight.shadow.camera.left = -40;
+    dirLight.shadow.camera.right = 40;
+    dirLight.shadow.camera.top = 40;
+    dirLight.shadow.camera.bottom = -40;
     dirLight.shadow.normalBias = 0.008;
     dirLight.shadow.bias = -0.00015; // 접지감은 유지하고 그림자 들뜸은 줄임
     dirLight.shadow.radius = 3;
@@ -276,10 +347,57 @@ export class DiceEngine {
     fillLight.castShadow = false;
     this.scene.add(fillLight);
 
+    const boardTextureLightPositions = [
+      [0, 14, 42], [0, 14, -42], [42, 14, 0], [-42, 14, 0]
+    ];
+    boardTextureLightPositions.forEach(([x, y, z]) => {
+      const light = new THREE.RectAreaLight(0xffffff, 0.72, 58, 16);
+      light.layers.set(1);
+      light.position.set(x, y, z);
+      light.lookAt(0, 0, 0);
+      this.scene.add(light);
+    });
+
+    const stairShadowLight = new THREE.DirectionalLight(0xffffff, 0.34);
+    stairShadowLight.layers.set(1);
+    stairShadowLight.position.set(8, 22, -34);
+    stairShadowLight.target.position.set(0, 0, 8);
+    stairShadowLight.castShadow = true;
+    stairShadowLight.shadow.mapSize.width = 1024;
+    stairShadowLight.shadow.mapSize.height = 1024;
+    stairShadowLight.shadow.camera.left = -70;
+    stairShadowLight.shadow.camera.right = 70;
+    stairShadowLight.shadow.camera.top = 70;
+    stairShadowLight.shadow.camera.bottom = -70;
+    stairShadowLight.shadow.normalBias = 0.03;
+    stairShadowLight.shadow.bias = -0.0002;
+    this.scene.add(stairShadowLight);
+    this.scene.add(stairShadowLight.target);
+
+    const stairSpotLight = new THREE.SpotLight(0xffffff, 0.5, 120, Math.PI / 5, 0.72, 1.2);
+    stairSpotLight.layers.set(1);
+    stairSpotLight.position.set(12, 18, -30);
+    stairSpotLight.target.position.set(0, 0, 8);
+    stairSpotLight.castShadow = true;
+    stairSpotLight.shadow.mapSize.width = 512;
+    stairSpotLight.shadow.mapSize.height = 512;
+    stairSpotLight.shadow.camera.near = 1;
+    stairSpotLight.shadow.camera.far = 120;
+    stairSpotLight.shadow.bias = -0.0003;
+    this.scene.add(stairSpotLight);
+    this.scene.add(stairSpotLight.target);
+
 
     // Initialize camera with dummy aspect, will be updated in onWindowResize
     this.camera = new THREE.PerspectiveCamera(10, 1, 0.1, 200);
-    this.camera.position.set(0, 120, 0);
+    this.camera.layers.enable(1);
+    const cameraDistance = 120;
+    const cameraTilt = this.container.id === 'dice-board-area' ? ARRANGEMENT_CAMERA_TILT : 0;
+    this.camera.position.set(
+      0,
+      cameraDistance * Math.cos(cameraTilt),
+      cameraDistance * Math.sin(cameraTilt)
+    );
     this.camera.lookAt(0, 0, 0);
 
     this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
@@ -313,20 +431,25 @@ export class DiceEngine {
     const hCtx = hoverCanvas.getContext('2d');
 
     hCtx.strokeStyle = '#ffff00'; // 색상 롤백 (원래의 밝은 노란색)
-    hCtx.lineWidth = 25; // 기존보다 약 2.5배 이상 눈에 띄게 두꺼운 선
+    hCtx.lineWidth = 25 * HOVER_HIGHLIGHT_LINE_WIDTH_SCALE;
+    hCtx.lineCap = 'round';
+    hCtx.lineJoin = 'round';
     const hPad = hCtx.lineWidth / 2 + 2;
     const hRad = 40; // 둥근 모서리 반경
 
+    const hCornerLength = 52;
+    const hCornerRadius = 16;
+    const hMin = hPad;
+    const hMax = 256 - hPad;
     hCtx.beginPath();
-    hCtx.moveTo(hPad + hRad, hPad);
-    hCtx.lineTo(256 - hPad - hRad, hPad);
-    hCtx.quadraticCurveTo(256 - hPad, hPad, 256 - hPad, hPad + hRad);
-    hCtx.lineTo(256 - hPad, 256 - hPad - hRad);
-    hCtx.quadraticCurveTo(256 - hPad, 256 - hPad, 256 - hPad - hRad, 256 - hPad);
-    hCtx.lineTo(hPad + hRad, 256 - hPad);
-    hCtx.quadraticCurveTo(hPad, 256 - hPad, hPad, 256 - hPad - hRad);
-    hCtx.lineTo(hPad, hPad + hRad);
-    hCtx.quadraticCurveTo(hPad, hPad, hPad + hRad, hPad);
+    hCtx.moveTo(hMin + hCornerLength, hMin); hCtx.lineTo(hMin + hCornerRadius, hMin);
+    hCtx.quadraticCurveTo(hMin, hMin, hMin, hMin + hCornerRadius); hCtx.lineTo(hMin, hMin + hCornerLength);
+    hCtx.moveTo(hMax - hCornerLength, hMin); hCtx.lineTo(hMax - hCornerRadius, hMin);
+    hCtx.quadraticCurveTo(hMax, hMin, hMax, hMin + hCornerRadius); hCtx.lineTo(hMax, hMin + hCornerLength);
+    hCtx.moveTo(hMin, hMax - hCornerLength); hCtx.lineTo(hMin, hMax - hCornerRadius);
+    hCtx.quadraticCurveTo(hMin, hMax, hMin + hCornerRadius, hMax); hCtx.lineTo(hMin + hCornerLength, hMax);
+    hCtx.moveTo(hMax, hMax - hCornerLength); hCtx.lineTo(hMax, hMax - hCornerRadius);
+    hCtx.quadraticCurveTo(hMax, hMax, hMax - hCornerRadius, hMax); hCtx.lineTo(hMax - hCornerLength, hMax);
     hCtx.stroke();
 
     const hoverTex = new THREE.CanvasTexture(hoverCanvas);
@@ -350,7 +473,8 @@ export class DiceEngine {
     const ohCtx = octHoverCanvas.getContext('2d');
 
     ohCtx.strokeStyle = '#ffff00';
-    ohCtx.lineWidth = 25 / 1.65; // 크기 1.65배(1.5 * 1.1) 확장에 맞춰 선 두께는 시각적으로 동일하게 유지
+    ohCtx.lineWidth = (25 / 1.65) * HOVER_HIGHLIGHT_LINE_WIDTH_SCALE;
+    ohCtx.lineCap = 'round';
     ohCtx.lineJoin = 'round';
 
     const hexR = 105; // 육각형 크기 (주사위를 충분히 감싸도록 설정)
@@ -364,6 +488,20 @@ export class DiceEngine {
       vertices.push({ x: px, y: py });
     }
 
+    const octCornerLength = 0.32;
+    ohCtx.beginPath();
+    for (let i = 0; i < vertices.length; i++) {
+      const vertex = vertices[i];
+      const prev = vertices[(i + vertices.length - 1) % vertices.length];
+      const next = vertices[(i + 1) % vertices.length];
+      const toPrev = new THREE.Vector2(prev.x - vertex.x, prev.y - vertex.y).normalize();
+      const toNext = new THREE.Vector2(next.x - vertex.x, next.y - vertex.y).normalize();
+      ohCtx.moveTo(vertex.x + toPrev.x * hexR * octCornerLength, vertex.y + toPrev.y * hexR * octCornerLength);
+      ohCtx.lineTo(vertex.x, vertex.y);
+      ohCtx.lineTo(vertex.x + toNext.x * hexR * octCornerLength, vertex.y + toNext.y * hexR * octCornerLength);
+    }
+    ohCtx.stroke();
+    /*
     const cornerRadius = 15; // 모서리 둥글기 반경
     ohCtx.beginPath();
 
@@ -380,7 +518,7 @@ export class DiceEngine {
     }
 
     ohCtx.closePath();
-    ohCtx.stroke();
+    ohCtx.stroke(); */
 
     const octHoverTex = new THREE.CanvasTexture(octHoverCanvas);
     const octHoverPlane = new THREE.PlaneGeometry(1.65 * 1.65, 1.65 * 1.65); // 지름 1.65배(1.5 * 1.1) 증가
@@ -916,6 +1054,8 @@ export class DiceEngine {
 
   cancelAuthoritativeAnimation() {
     this.authoritativeAnimationId++;
+    this.presetSoundTimers.forEach(timer => clearTimeout(timer));
+    this.presetSoundTimers = [];
     this.authoritativeAnimationPhase = 'idle';
     if (this.observingResolve) {
       this.observingResolve();
@@ -924,14 +1064,23 @@ export class DiceEngine {
   }
 
   playPresetRoll(configs, targetValues, animation, { isFlip = false, elapsedMs = 0 }) {
-    this.cancelAuthoritativeAnimation();
     if (!Array.isArray(targetValues) || targetValues.length !== configs.length) return Promise.resolve(false);
-    if (isFlip) {
-      this.clearAll();
-    } else {
-      this.clearUnkept();
+    const presetIndex = Number(animation?.presetIndex);
+    const isMirrored = Boolean(animation?.mirrored);
+    if (!Number.isInteger(presetIndex)) return Promise.resolve(false);
+
+    const key = getDicePresetKey(configs, { isFlip });
+    const presets = this.presetCache.get(key);
+    const presetData = presets?.[presetIndex % presets.length];
+
+    if (!isPresetCompatible(presetData, configs.length)) {
+      console.warn('Preset data not found or invalid in cache:', { presetIndex, isMirrored, key });
+      return Promise.resolve(false);
     }
 
+    this.cancelAuthoritativeAnimation();
+    if (isFlip) this.clearAll();
+    else this.clearUnkept();
     this.physicsActive = false;
     this.isObserving = false;
     this.isRollSettling = true;
@@ -939,42 +1088,22 @@ export class DiceEngine {
     const animationId = ++this.authoritativeAnimationId;
     this.startRenderLoop();
 
-    const presetIndex = Number(animation?.presetIndex);
-    const isMirrored = Boolean(animation?.mirrored);
-    if (!Number.isInteger(presetIndex)) return Promise.resolve(false);
-
-    let presetData = null;
-    const numNormal = configs.filter(c => c.type !== 'octahedron').length;
-    const numOcta = configs.filter(c => c.type === 'octahedron').length;
-    let key = '';
-
-    if (isFlip) {
-      key = `flip_${configs.length}`;
-      const p = this.presetCache.get(key) || this.presetCache.get('flip_5');
-      if (p) presetData = p[presetIndex % p.length];
-    } else {
-      key = numOcta === 0 ? `normal_${numNormal}` : `mixed_${numNormal}normal_${numOcta}octa`;
-      const p = this.presetCache.get(key) || this.presetCache.get(`normal_${numNormal}`) || this.presetCache.get('normal_5');
-      if (p) presetData = p[presetIndex % p.length];
-    }
-
-    if (!presetData || !presetData.frames || !presetData.frames.length) {
-      console.warn('Preset data not found or invalid in cache:', { presetIndex, isMirrored, key });
-      return Promise.resolve(false);
-    }
-
     const fileName = `dice_presets_${key}.json`;
     const selectedPresetIndex = presetIndex % (this.presetCache.get(key)?.length || 1);
-    console.info(`🎲 [Preset Roll] Server Values (ascending):`, [...targetValues].sort((a, b) => a - b));
+    const valueSourceLabel = window.isMultiplayer ? 'Server Values' : 'Local Values';
+    console.info(`🎲 [Preset Roll] ${valueSourceLabel} (ascending):`, [...targetValues].sort((a, b) => a - b));
     console.info(`🎲 [Preset Roll] File: "${fileName}" | Selected Index: #${selectedPresetIndex} (Raw: ${presetIndex}) | Mirrored: ${isMirrored}`);
 
     if (!this.octGeoCache) this.octGeoCache = getSmoothBeveledOctGeo();
     const layout = this.getBoardLayout();
 
-    const fps = presetData.fps || (isFlip ? 40 : 20);
+    const fps = Number(presetData.fps) || (isFlip ? 40 : 20);
     const msPerFrame = 1000 / fps;
-    const totalDuration = (presetData.frames.length - 1) * msPerFrame;
+    const totalDuration = getPresetAnimationDuration(presetData, isFlip);
+    this.schedulePresetSoundEvents(presetData.soundEvents, elapsedMs, animationId);
+    console.info(`🎲 [Preset Roll] Animation Duration: ${Math.round(totalDuration)}ms (${presetData.frames.length} frames @ ${fps}fps)`);
 
+    const numNormal = configs.filter((config) => config.type !== 'octahedron').length;
     let normalIdxCounter = 0;
     let octaIdxCounter = numNormal;
 
@@ -1076,6 +1205,36 @@ export class DiceEngine {
         resolve(true);
       };
       requestAnimationFrame(tick);
+    });
+  }
+
+  schedulePresetSoundEvents(events, elapsedMs, animationId) {
+    if (!this.soundEnabled || !Array.isArray(events)) return;
+    events.forEach(event => {
+      const delay = Math.max(0, (Number(event.time) * 1000) - Math.max(0, Number(elapsedMs) || 0));
+      const timer = setTimeout(() => {
+        if (animationId !== this.authoritativeAnimationId) return;
+        const source = this.hitSounds[Math.floor(Math.random() * this.hitSounds.length)];
+        if (!source) return;
+        const clone = source.cloneNode();
+        if (event.type === 'impact' && Number(event.startOffset) > 0) {
+          try { clone.currentTime = Number(event.startOffset); } catch (error) { /* ignore seek limitations */ }
+        }
+        if (event.type === 'impact') {
+          const stopAtHalfDuration = () => {
+            if (Number.isFinite(clone.duration) && clone.duration > 0) {
+              setTimeout(() => clone.pause(), clone.duration * 250);
+            }
+          };
+          if (clone.readyState >= 1) stopAtHalfDuration();
+          else clone.addEventListener('loadedmetadata', stopAtHalfDuration, { once: true });
+        }
+        clone.volume = THREE.MathUtils.clamp(Number(event.volume) || 0.45, 0, 1);
+        this.activeHitAudios.add(clone);
+        clone.addEventListener('ended', () => this.activeHitAudios.delete(clone), { once: true });
+        clone.play().catch(() => {});
+      }, delay);
+      this.presetSoundTimers.push(timer);
     });
   }
 
@@ -1361,15 +1520,17 @@ export class DiceEngine {
   }
 
 
-  completeAuthoritativeRoll(diceState = [], duration = 500) {
+  completeAuthoritativeRoll(diceState = [], duration = ARRANGEMENT_DURATION_MS) {
     const animationId = ++this.authoritativeAnimationId;
-    const totalDuration = Math.max(250, Number(duration) || 500);
+    const totalDuration = Math.max(250, Number(duration) || ARRANGEMENT_DURATION_MS);
     const byId = new Map(diceState.map((die) => [die.id, die]));
     const activeSlots = new Map(diceState
       .filter((die) => !die.kept)
       .sort((a, b) => Number(a.value) - Number(b.value) || Number(a.id) - Number(b.id))
       .map((die, index) => [die.id, index]));
-    const keepSlots = new Map(diceState.filter((die) => die.kept).map((die, index) => [die.id, index]));
+    const reservedKeepSlots = new Set(this.diceArray
+      .filter((die) => die.isKept && Number.isInteger(die.keepSlot))
+      .map((die) => die.keepSlot));
 
     this.finishIngress();
     this.physicsActive = false;
@@ -1378,31 +1539,58 @@ export class DiceEngine {
     this.authoritativeAnimationPhase = 'sort';
 
     const starts = new Map();
+    const previouslyKept = new Set();
     this.diceArray.forEach((die) => {
       const serverDie = byId.get(die.serverId);
       if (!serverDie) return;
+      if (die.isKept) previouslyKept.add(die.serverId);
       starts.set(die.serverId, {
         position: die.mesh.position.clone(),
-        quaternion: die.mesh.quaternion.clone()
+        quaternion: die.mesh.quaternion.clone(),
+        scale: die.mesh.scale.x
       });
       if (die.body) {
         this.world.removeBody(die.body);
         die.body = null;
       }
       die.value = serverDie.value;
+      const wasKept = die.isKept;
       die.isKept = Boolean(serverDie.kept);
       die.preserveQuaternion = false;
-      if (die.isKept) die.keepSlot = keepSlots.get(die.serverId);
-      else die.activeSlot = activeSlots.get(die.serverId);
-      die.animationProgress = 0;
+      if (die.isKept) {
+        if (!wasKept || !Number.isInteger(die.keepSlot)) {
+          let nextSlot = 0;
+          while (reservedKeepSlots.has(nextSlot)) nextSlot += 1;
+          die.keepSlot = nextSlot;
+          reservedKeepSlots.add(nextSlot);
+        }
+      } else {
+        die.keepSlot = null;
+        die.activeSlot = activeSlots.get(die.serverId);
+      }
+      die.animationProgress = wasKept && die.isKept ? 1 : 0;
     });
     this.arrangeAll(false);
+    this.diceArray.forEach((die) => {
+      if (!previouslyKept.has(die.serverId) || !die.isKept) return;
+      const startTransform = starts.get(die.serverId);
+      if (!startTransform) return;
+      die.targetPosition.copy(startTransform.position);
+      die.arrangementTargetQuaternion.copy(startTransform.quaternion);
+      die.targetScale = startTransform.scale ?? die.baseScale ?? 1;
+      die.mesh.position.copy(startTransform.position);
+      die.mesh.quaternion.copy(startTransform.quaternion);
+      die.mesh.scale.setScalar(startTransform.scale ?? die.baseScale ?? 1);
+      die.animationProgress = 1;
+    });
     const animations = this.diceArray.map((die) => {
+      if (previouslyKept.has(die.serverId)) return null;
       const serverDie = byId.get(die.serverId);
       const startTransform = starts.get(die.serverId);
-      if (!serverDie || !startTransform || !die.targetPosition || !die.targetQuaternion) return null;
+      if (!serverDie || !startTransform || !die.targetPosition || !die.arrangementTargetQuaternion) return null;
       return {
         die,
+        startScale: startTransform.scale ?? 1,
         frames: [
           {
             t: 0,
@@ -1412,7 +1600,8 @@ export class DiceEngine {
           {
             t: totalDuration,
             position: { x: die.targetPosition.x, y: die.targetPosition.y, z: die.targetPosition.z },
-            quaternion: { x: die.targetQuaternion.x, y: die.targetQuaternion.y, z: die.targetQuaternion.z, w: die.targetQuaternion.w }
+            quaternion: { x: die.arrangementTargetQuaternion.x, y: die.arrangementTargetQuaternion.y, z: die.arrangementTargetQuaternion.z, w: die.arrangementTargetQuaternion.w },
+            scale: die.targetScale || die.baseScale || 1
           }
         ]
       };
@@ -1443,10 +1632,15 @@ export class DiceEngine {
           ? 4 * phaseProgress ** 3
           : 1 - Math.pow(-2 * phaseProgress + 2, 3) / 2;
         const sampleTime = totalDuration * easedProgress;
-        animations.forEach(({ die, frames }) => {
+      animations.forEach(({ die, frames, startScale }) => {
           const frame = interpolateKeyframes(frames, sampleTime);
           die.mesh.position.set(frame.position.x, frame.position.y, frame.position.z);
           die.mesh.quaternion.set(frame.quaternion.x, frame.quaternion.y, frame.quaternion.z, frame.quaternion.w);
+          die.mesh.scale.setScalar(THREE.MathUtils.lerp(
+            startScale,
+            die.targetScale || die.baseScale || 1,
+            easedProgress
+          ));
         });
         if (elapsed < totalDuration) {
           requestAnimationFrame(tick);
@@ -1455,7 +1649,8 @@ export class DiceEngine {
         animations.forEach(({ die }) => {
           die.animationProgress = 1;
           die.mesh.position.copy(die.targetPosition);
-          die.mesh.quaternion.copy(die.targetQuaternion);
+          die.mesh.quaternion.copy(die.arrangementTargetQuaternion);
+          die.mesh.scale.setScalar(die.targetScale || die.baseScale || 1);
         });
         this.authoritativeAnimationPhase = 'idle';
         this.isRollSettling = false;
@@ -1961,9 +2156,20 @@ export class DiceEngine {
     return getDieValueFromQuaternion(quaternion, config);
   }
 
+  getPhysicalFaceIndex(value, config = {}) {
+    if (config.type === 'heavy') return { 4: 1, 5: 3, 6: 5 }[value] || 1;
+    if (config.type === 'sevens') return Math.max(1, Number(value) - 1);
+    if (config.type === 'octahedron') return { 1: 1, 2: 2, 3: 3, 4: 4, 5: 6, 6: 8 }[value] || 1;
+    return Math.min(6, Math.max(1, Number(value) || 1));
+  }
+
   getTargetRotationForValue(value, targetPos, config) {
     const q = getQuaternionForValue(value, config);
     return new THREE.Quaternion(q.x, q.y, q.z, q.w);
+  }
+
+  getKeepDieScale(config = {}) {
+    return KEEP_DIE_LAYOUT.scale * (KEEP_DIE_LAYOUT.scaleByType[config.type] || 1);
   }
 
   // 디버그 및 재접속용: 애니메이션 없이 즉각적으로 주사위 3D 렌더링 및 킵 상태 강제 복원
@@ -2117,7 +2323,8 @@ export class DiceEngine {
   }
 
   arrangeAll(isFreshRoll = false, clickedDie = null) {
-    if (isFreshRoll) {
+    const shouldResortActive = isFreshRoll || (clickedDie && !clickedDie.isKept);
+    if (shouldResortActive) {
       this.isRollSettling = false; // 정렬이 시작되었으므로 플래그 해제
     }
     if (clickedDie?.arrangementShadow && !clickedDie.isKept) {
@@ -2125,7 +2332,7 @@ export class DiceEngine {
       clickedDie.arrangementShadow.userData.hasSettled = false;
     }
 
-    const activeSpacing = ARRANGED_DICE_SPACING;
+    const activeSpacing = ARRANGEMENT_LAYOUT.spacing;
     const vFov = this.camera.fov * Math.PI / 180;
     const viewHeight = 2 * Math.tan(vFov / 2) * this.camera.position.y;
     const trayLayout = this.trayModel?.getLayout(viewHeight);
@@ -2134,10 +2341,10 @@ export class DiceEngine {
     // --- 1. 슬롯 초기화 (새로 굴렸을 때만) ---
     if (isFreshRoll) {
       // 값 순으로 정렬하여 액티브 슬롯(activeSlot) 부여
-      const sortedDice = [...this.diceArray].sort((a, b) => {
+      const sortedDice = this.diceArray.filter((die) => !die.isKept).sort((a, b) => {
         if (a.config.type === 'weird' && b.config.type !== 'weird') return -1;
         if (a.config.type !== 'weird' && b.config.type === 'weird') return 1;
-        return a.value - b.value;
+        return a.value - b.value || Number(a.serverId ?? 0) - Number(b.serverId ?? 0);
       });
       sortedDice.forEach((die, index) => {
         die.activeSlot = index;
@@ -2148,8 +2355,10 @@ export class DiceEngine {
     // 굴린 직후에는 모든 주사위, 클릭/상태 변경 시에는 클릭된 주사위 및 플레이매트에 있는 주사위 전체 애니메이션 시작
     this.diceArray.forEach(die => {
       if (isFreshRoll || die === clickedDie || !die.isKept) {
+        die.baseScale = die.baseScale || die.mesh.scale.x || 1;
         die.startPosition = die.mesh.position.clone();
         die.startQuaternion = die.mesh.quaternion.clone();
+        die.startScale = die.mesh.scale.clone();
         die.animationProgress = 0.0;
       }
     });
@@ -2160,7 +2369,7 @@ export class DiceEngine {
 
     // (A) 플레이매트(Active Zone) 기준 동적 중앙 정렬 좌표 계산
     const activeZoneCenter = 0;
-    const activeZoneCenterZ = trayLayout?.activeCenterZ ?? 0;
+    const activeZoneCenterZ = (trayLayout?.activeCenterZ ?? 0) + ARRANGEMENT_LAYOUT.centerZOffset;
     const activeDice = this.diceArray.filter(d => !d.isKept).sort((a, b) => a.activeSlot - b.activeSlot);
     const activeCount = activeDice.length;
     const activeStartX = activeCount > 0 ? activeZoneCenter - (activeCount - 1) * activeSpacing / 2 : 0;
@@ -2168,9 +2377,10 @@ export class DiceEngine {
     // 플레이매트에 남아 있는 주사위들의 동적 중앙 정렬 위치 부여
     activeDice.forEach((die, index) => {
       const activeFloorY = trayLayout?.floorY ?? 0;
+      die.targetScale = die.baseScale || 1;
       die.targetPosition = new THREE.Vector3(
         activeStartX + index * activeSpacing,
-        activeFloorY + DIE_HALF_SIZE + ARRANGED_DICE_CAMERA_LIFT,
+        activeFloorY + DIE_HALF_SIZE + ARRANGEMENT_LAYOUT.cameraLift,
         activeZoneCenterZ
       );
     });
@@ -2195,7 +2405,9 @@ export class DiceEngine {
         const targetX = measuredPoint?.x ?? keptStartX + die.keepSlot * keepSpacing;
         const targetZ = measuredPoint?.z ?? keepZoneCenterZ;
         const supportHeight = this.getDieSupportHeight(die.config);
-        const dieY = trayLayout?.getKeepDieY(supportHeight, die.keepSlot) ?? supportHeight + 0.025;
+        die.targetScale = (die.baseScale || 1) * this.getKeepDieScale(die.config);
+        const dieY = trayLayout?.getKeepDieY(supportHeight * (die.targetScale / (die.baseScale || 1)), die.keepSlot)
+          ?? supportHeight * (die.targetScale / (die.baseScale || 1)) + 0.025;
         const keepFloorY = measuredPoint?.y ?? trayLayout?.floorY ?? 0;
         const screenAlignedPoint = this.getScreenAlignedPoint(
           new THREE.Vector3(targetX, keepFloorY, targetZ),
@@ -2214,11 +2426,23 @@ export class DiceEngine {
       die.targetQuaternion = die.preserveQuaternion
         ? die.mesh.quaternion.clone()
         : this.getTargetRotationForValue(die.value, die.targetPosition, die.config);
+      die.arrangementTargetQuaternion = die.targetQuaternion.clone();
+      if (die.isKept) {
+        const tiltMultiplier = KEEP_DIE_TILT.byType[die.config?.type] || 1;
+        die.arrangementTargetQuaternion.premultiply(
+          new THREE.Quaternion().setFromAxisAngle(KEEP_DIE_TILT.axis, KEEP_DIE_TILT.angle * tiltMultiplier)
+        );
+      } else {
+        die.arrangementTargetQuaternion.premultiply(
+          new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), ARRANGEMENT_CAMERA_TILT)
+        );
+      }
 
       // 애니메이션 대상이 아닌 주사위(상태 변화 없는 주사위)는 즉시 목표 위치에 고정
       if (die.animationProgress === undefined || die.animationProgress >= 1.0) {
         die.mesh.position.copy(die.targetPosition);
-        die.mesh.quaternion.copy(die.targetQuaternion);
+        die.mesh.quaternion.copy(die.arrangementTargetQuaternion);
+        die.mesh.scale.setScalar(die.targetScale || die.baseScale || 1);
       }
     });
   }
@@ -2263,7 +2487,13 @@ export class DiceEngine {
 
   updateArrangementShadows(dt) {
     const viewHeight = 2 * Math.tan((this.camera.fov * Math.PI / 180) / 2) * this.camera.position.y;
-    const floorY = this.trayModel?.getLayout(viewHeight)?.floorY ?? this.currentFloorY ?? 0;
+    const trayLayout = this.trayModel?.getLayout(viewHeight);
+    const floorY = trayLayout?.floorY ?? this.currentFloorY ?? 0;
+    const playBounds = trayLayout?.playBounds;
+    const clampShadowPosition = (x, z) => ({
+      x: playBounds ? THREE.MathUtils.clamp(x, playBounds.minX + 0.9, playBounds.maxX - 0.9) : x,
+      z: playBounds ? THREE.MathUtils.clamp(z, playBounds.minZ + 0.9, playBounds.maxZ - 0.9) : z
+    });
 
     this.diceArray.forEach(die => {
       const shadow = die.arrangementShadow;
@@ -2271,7 +2501,11 @@ export class DiceEngine {
       // 킵되는 주사위는 기존 그림자를 짧게 지워 자연스럽게 정리한다.
       if (die.isKept) {
         if (shadow?.visible) {
-          shadow.position.set(die.mesh.position.x + 0.34, floorY + 0.035, die.mesh.position.z - 0.28);
+          const shadowPosition = clampShadowPosition(
+            die.mesh.position.x + ARRANGEMENT_SHADOW_OFFSET.x,
+            die.mesh.position.z + ARRANGEMENT_SHADOW_OFFSET.z
+          );
+          shadow.position.set(shadowPosition.x, floorY + 0.035, shadowPosition.z);
           shadow.material.opacity = Math.max(0, shadow.material.opacity - dt * 4);
           shadow.visible = shadow.material.opacity > 0.01;
         }
@@ -2291,14 +2525,18 @@ export class DiceEngine {
       }
 
       const arrangementShadow = this.createArrangementShadow(die);
+      const shadowPosition = clampShadowPosition(
+        die.mesh.position.x + ARRANGEMENT_SHADOW_OFFSET.x,
+        die.mesh.position.z + ARRANGEMENT_SHADOW_OFFSET.z
+      );
       const progress = THREE.MathUtils.clamp(die.animationProgress ?? 1, 0, 1);
       const fadeProgress = arrangementShadow.userData.hasSettled
         ? 1
         : THREE.MathUtils.smoothstep(progress, 0.02, 0.82);
       arrangementShadow.position.set(
-        die.mesh.position.x + 0.34,
+        shadowPosition.x,
         floorY + 0.035,
-        die.mesh.position.z - 0.28
+        shadowPosition.z
       );
       arrangementShadow.scale.set(DIE_SIZE * 1.82, DIE_SIZE * 1.82, 1);
       arrangementShadow.material.opacity = arrangementShadow.userData.baseOpacity * fadeProgress;
@@ -2371,7 +2609,10 @@ export class DiceEngine {
       return;
     }
     // 굴러가는 중이거나, 정렬 대기 중(100ms 딜레이)이거나, 애니메이션 중이면 호버 숨김
-    if (this.allowKeep === false || this.physicsActive || this.isRollSettling || this.diceArray.some(d => d.animationProgress !== undefined && d.animationProgress < 1.0)) {
+    const isArrangementAnimating = this.diceArray.some(
+      die => die.animationProgress !== undefined && die.animationProgress < 1.0
+    );
+    if (this.allowKeep === false || this.physicsActive || isArrangementAnimating) {
       if (this.hoverHighlight.visible || this.octHoverHighlight.visible) {
         this.hoverHighlight.visible = false;
         this.octHoverHighlight.visible = false;
@@ -2441,7 +2682,15 @@ export class DiceEngine {
         }
         const finalQuat = die.mesh.quaternion.clone().multiply(alignQuat);
 
-        const worldUpOffset = localUp.clone().applyQuaternion(die.mesh.quaternion).multiplyScalar(1.01);
+        const dieScale = die.mesh.scale.x || 1;
+        const faceClearance = DIE_HALF_SIZE * dieScale + 0.03;
+        const worldUpOffset = localUp.clone().applyQuaternion(die.mesh.quaternion).multiplyScalar(faceClearance);
+        const projectedPosition = die.mesh.position.clone().project(this.camera);
+        const cameraRight = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0).normalize();
+        const cameraUp = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 1).normalize();
+        const yFactor = die.isKept ? HOVER_POSITION_CORRECTION.keepYFactor : HOVER_POSITION_CORRECTION.yFactor;
+        const positionCorrection = cameraRight.multiplyScalar(-projectedPosition.x * HOVER_POSITION_CORRECTION.xFactor * dieScale)
+          .add(cameraUp.multiplyScalar(-projectedPosition.y * yFactor * dieScale));
 
         const activeHighlight = isOct ? this.octHoverHighlight : this.hoverHighlight;
         const inactiveHighlight = isOct ? this.hoverHighlight : this.octHoverHighlight;
@@ -2450,7 +2699,12 @@ export class DiceEngine {
 
         // 일반 주사위와 동일한 위치/회전 로직 적용 (2D 평면 방식)
         activeHighlight.quaternion.copy(finalQuat);
-        activeHighlight.position.copy(die.mesh.position).add(worldUpOffset);
+        activeHighlight.position.copy(die.mesh.position)
+          .add(worldUpOffset)
+          .add(positionCorrection)
+          .add(HOVER_HIGHLIGHT_POSITION_OFFSET);
+        // Match the border to the die's visual scale and keep a small outer margin.
+        activeHighlight.scale.setScalar(dieScale * HOVER_HIGHLIGHT_MARGIN);
 
         if (!activeHighlight.visible) {
           activeHighlight.visible = true;
@@ -2522,14 +2776,17 @@ export class DiceEngine {
 
           const ease = 1 - Math.pow(1 - die.animationProgress, 3); // Cubic ease-out
 
-          if (die.targetPosition && die.targetQuaternion && die.startPosition && die.startQuaternion) {
+          if (die.targetPosition && die.arrangementTargetQuaternion && die.startPosition && die.startQuaternion) {
             die.mesh.position.lerpVectors(die.startPosition, die.targetPosition, ease);
-            die.mesh.quaternion.slerpQuaternions(die.startQuaternion, die.targetQuaternion, ease);
+            die.mesh.quaternion.slerpQuaternions(die.startQuaternion, die.arrangementTargetQuaternion, ease);
+            const startScale = die.startScale?.x ?? die.baseScale ?? 1;
+            const targetScale = die.targetScale ?? die.baseScale ?? 1;
+            die.mesh.scale.setScalar(THREE.MathUtils.lerp(startScale, targetScale, ease));
 
             // 애니메이션 종료 시 정확한 목표 위치로 스냅
             if (die.animationProgress >= 1.0) {
               die.mesh.position.copy(die.targetPosition);
-              die.mesh.quaternion.copy(die.targetQuaternion);
+              die.mesh.quaternion.copy(die.arrangementTargetQuaternion);
             }
           }
         }

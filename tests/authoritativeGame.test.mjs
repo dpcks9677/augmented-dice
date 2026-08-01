@@ -39,6 +39,15 @@ assert.equal(augmented.draftPlayer, 2);
 selectAugment(augmented, 2, augmented.draftOptions[0]);
 assert.equal(augmented.phase, "action");
 
+const conflict = createAuthoritativeGame({ mode: "augmented", seed: "conflict" });
+conflict.activeAugments[1].enhancement = "8-sided";
+conflict.draftPlayer = 1;
+conflict.draftOptions = ["strange-die"];
+assert.throws(
+  () => selectAugment(conflict, 1, "strange-die"),
+  (error) => error instanceof GameRuleError && error.code === "AUGMENT_CONFLICT"
+);
+
 const golden = createAuthoritativeGame({ mode: "normal", seed: "golden" });
 golden.activeAugments[1].eh4 = "golden-die";
 rollDice(golden, 1, { randomInt: sequence(0, 0, 0, 0, 0) });

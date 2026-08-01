@@ -4,6 +4,7 @@
   { "file": "dice_presets_normal_3.json", "label": "일반 3개", "diceCount": 3, "octaCount": 0 },
   { "file": "dice_presets_normal_4.json", "label": "일반 4개", "diceCount": 4, "octaCount": 0 },
   { "file": "dice_presets_normal_5.json", "label": "일반 5개", "diceCount": 5, "octaCount": 0 },
+  { "file": "dice_presets_normal_6.json", "label": "일반 6개", "diceCount": 6, "octaCount": 0 },
   { "file": "dice_presets_mixed_0normal_1octa.json", "label": "혼합 1개 (8면체 1개)", "diceCount": 1, "octaCount": 1 },
   { "file": "dice_presets_mixed_0normal_2octa.json", "label": "혼합 2개 (8면체 2개)", "diceCount": 2, "octaCount": 2 },
   { "file": "dice_presets_mixed_1normal_1octa.json", "label": "혼합 2개 (8면체 1개)", "diceCount": 2, "octaCount": 1 },

@@ -80,7 +80,11 @@ class SoundEngine {
       playPromise.then(() => {
         this.isBgmPlaying = true;
       }).catch(err => {
-        console.warn('[SoundEngine] BGM play failed or blocked by autoplay policy:', err);
+        // A pending play is expected to reject with AbortError when a turn ends
+        // or the timer pauses immediately afterward.
+        if (err?.name !== 'AbortError') {
+          console.warn('[SoundEngine] BGM play failed or blocked by autoplay policy:', err);
+        }
       });
     }
   }

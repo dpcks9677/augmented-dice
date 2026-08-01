@@ -1,19 +1,13 @@
 import { calculateScores, augmentDefinitions } from "./scoreEngine.js";
+import { canAcquireAugment, hasAugmentConflict } from "./augmentRules.js";
+import { DIE_FACES } from "./diceRules.js";
 
 export const SCORE_CATEGORIES = [
   "aces", "deuces", "threes", "fours", "fives", "sixes",
   "choice", "4oak", "fullhouse", "s-straight", "l-straight", "yacht"
 ];
 
-export const DIE_FACES = {
-  normal: [1, 2, 3, 4, 5, 6],
-  heavy: [4, 4, 5, 5, 6, 6],
-  golden: [1, 2, 3, 4, 5, 6],
-  octahedron: [1, 2, 3, 4, 4, 5, 5, 6],
-  weird: [1, 2, 3, 4, 5, 6],
-  couple: [1, 2, 3, 4, 5, 6],
-  sevens: [2, 3, 4, 5, 6, 7]
-};
+export { DIE_FACES } from "./diceRules.js";
 
 const PHASE_ROUNDS = new Set([1, 6, 9]);
 const PHASE_ONE_ONLY = new Set(["step-by-step", "fast-straight"]);
@@ -70,10 +64,8 @@ function getDraftOptions(state, player) {
   const owned = new Set(getOwnedAugments(state, player));
   const candidates = Object.keys(augmentDefinitions).filter((augmentId) => (
     !UNAVAILABLE_AUGMENTS.has(augmentId)
-    && !owned.has(augmentId)
+    && canAcquireAugment(owned, augmentId)
     && (state.currentRound < 6 || !PHASE_ONE_ONLY.has(augmentId))
-    && !(owned.has('table-flip') && augmentId === '8-sided')
-    && !(owned.has('8-sided') && augmentId === 'table-flip')
   ));
   return seededShuffle(candidates, `${state.seed}_R${state.currentRound}_P${player}`).slice(0, 3);
 }
@@ -466,6 +458,9 @@ export function selectAugment(state, player, augmentId) {
     fail("NOT_DRAFTING", "현재 증강을 선택할 수 없음.");
   }
   if (!state.draftOptions.includes(augmentId)) fail("AUGMENT_NOT_OFFERED", "제시되지 않은 증강임.");
+  if (hasAugmentConflict(getOwnedAugments(state, player), augmentId)) {
+    fail("AUGMENT_CONFLICT", "동시에 보유할 수 없는 증강임.");
+  }
   applyAugment(state, player, augmentId);
 
   const expected = expectedAugmentCount(state.currentRound);

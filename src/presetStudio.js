@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { YachtTrayModel } from './YachtTrayModel.js';
 import { getOctGeo, getSmoothBeveledOctGeo } from './geometryUtils.js';
 import { getMaterialForDie } from './diceMaterials.js';
@@ -15,6 +16,7 @@ scene.background = new THREE.Color('#111');
 
 // 본게임과 완벽히 동일한 렌더러 설정
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+RectAreaLightUniformsLib.init();
 renderer.setSize(viewerContainer.clientWidth, viewerContainer.clientHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.shadowMap.enabled = true;
@@ -25,6 +27,7 @@ viewerContainer.appendChild(renderer.domElement);
 
 // 본게임과 완벽히 동일한 카메라 (fov 10, y=120)
 const camera = new THREE.PerspectiveCamera(10, viewerContainer.clientWidth / viewerContainer.clientHeight, 0.1, 200);
+camera.layers.enable(1);
 camera.position.set(0, 120, 0);
 camera.lookAt(0, 0, 0);
 
@@ -55,6 +58,60 @@ fillLight.position.set(8, 18, 12);
 fillLight.castShadow = false;
 scene.add(fillLight);
 
+// Board surface grazing light reveals plastic normal/specular detail.
+const boardTextureLight = new THREE.DirectionalLight(0xffffff, 0.42);
+boardTextureLight.position.set(-24, 9, 20);
+boardTextureLight.target.position.set(0, 0, 0);
+boardTextureLight.castShadow = false;
+scene.add(boardTextureLight);
+scene.add(boardTextureLight.target);
+
+// Low-intensity cardinal area lights add grazing highlights without flattening the board.
+const boardAreaLights = [
+  [0, 14, 42],
+  [0, 14, -42],
+  [42, 14, 0],
+  [-42, 14, 0]
+].map(([x, y, z]) => {
+  const light = new THREE.RectAreaLight(0xffffff, 0.72, 58, 16);
+  light.layers.set(1);
+  light.position.set(x, y, z);
+  light.lookAt(0, 0, 0);
+  scene.add(light);
+  return light;
+});
+
+// Dedicated shadow key light for the stepped structure at the screen's 6 o'clock edge.
+const stairShadowLight = new THREE.DirectionalLight(0xffffff, 0.34);
+stairShadowLight.layers.set(1);
+stairShadowLight.position.set(8, 22, -34);
+stairShadowLight.target.position.set(0, 0, 8);
+stairShadowLight.castShadow = true;
+stairShadowLight.shadow.mapSize.width = 1024;
+stairShadowLight.shadow.mapSize.height = 1024;
+stairShadowLight.shadow.camera.left = -70;
+stairShadowLight.shadow.camera.right = 70;
+stairShadowLight.shadow.camera.top = 70;
+stairShadowLight.shadow.camera.bottom = -70;
+stairShadowLight.shadow.normalBias = 0.03;
+stairShadowLight.shadow.bias = -0.0002;
+scene.add(stairShadowLight);
+scene.add(stairShadowLight.target);
+
+// Localized grazing spotlight for the stepped keep structure.
+const stairSpotLight = new THREE.SpotLight(0xffffff, 0.5, 120, Math.PI / 5, 0.72, 1.2);
+stairSpotLight.layers.set(1);
+stairSpotLight.position.set(12, 18, -30);
+stairSpotLight.target.position.set(0, 0, 8);
+stairSpotLight.castShadow = true;
+stairSpotLight.shadow.mapSize.width = 512;
+stairSpotLight.shadow.mapSize.height = 512;
+stairSpotLight.shadow.camera.near = 1;
+stairSpotLight.shadow.camera.far = 120;
+stairSpotLight.shadow.bias = -0.0003;
+scene.add(stairSpotLight);
+scene.add(stairSpotLight.target);
+
 function getViewHeight() {
   const vFov = camera.fov * Math.PI / 180;
   return 2 * Math.tan(vFov / 2) * camera.position.y;
@@ -73,7 +130,7 @@ function setCameraAngle(angle) {
 }
 
 function resetCamera() {
-  const defaultAngle = boardMode ? 0 : 35;
+  const defaultAngle = boardMode ? 15 : 35;
   camera.fov = boardMode ? 10 : 35;
   setCameraAngle(defaultAngle);
   camera.updateProjectionMatrix();
@@ -85,7 +142,8 @@ function resetCamera() {
 const tray = new YachtTrayModel(scene, {
   onLoad: () => {
     tray.resize(getViewHeight());
-    setBoardMode(false);
+    tray.mesh?.layers.set(1);
+    setBoardMode(true);
     console.log('Tray loaded');
   }
 });
@@ -111,7 +169,9 @@ function setupDice(isOctMode, diceCount = 5, octaCount = 2, dieType = 'normal', 
     const mesh = new THREE.Mesh(geometry, getMaterialForDie(config));
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    mesh.position.set(i * 2 - 4, layout.playSurfaceY + (dieIsOct ? 1.125 : 0.81), 0);
+    const spacing = 2;
+    const centeredX = (i - (diceCount - 1) / 2) * spacing;
+    mesh.position.set(centeredX, layout.playSurfaceY + (dieIsOct ? 1.125 : 0.81), 0);
     scene.add(mesh);
     diceMeshes.push(mesh);
   }
@@ -225,7 +285,7 @@ function renderModelList() {
     const count = document.createElement('select');
     count.className = 'model-count';
     count.hidden = false;
-    for (let amount = 1; amount <= 5; amount++) {
+    for (let amount = 1; amount <= 6; amount++) {
       const option = document.createElement('option');
       option.value = amount;
       option.textContent = `${amount}개`;
@@ -300,6 +360,40 @@ const keptCountEl = document.getElementById('kept-count');
 const btnExport = document.getElementById('btn-export');
 const savedPresetFile = document.getElementById('saved-preset-file');
 const btnLoadSavedPreset = document.getElementById('btn-load-saved-preset');
+const materialState = { corduroy: true, plastic: true };
+const corduroyTabs = [
+  { element: document.getElementById('tab-corduroy-before'), enabled: false },
+  { element: document.getElementById('tab-corduroy-after'), enabled: true }
+];
+const plasticTabs = [
+  { element: document.getElementById('tab-plastic-before'), enabled: false },
+  { element: document.getElementById('tab-plastic-after'), enabled: true }
+];
+const materialCompareStatus = document.getElementById('material-compare-status');
+
+function updateMaterialCompareStatus() {
+  if (!materialCompareStatus) return;
+  materialCompareStatus.textContent = `코듀로이 ${materialState.corduroy ? '적용 후' : '적용 전'} · Soft Plastic ${materialState.plastic ? '적용 후' : '적용 전'}`;
+}
+
+function setCorduroyComparison(enabled) {
+  materialState.corduroy = Boolean(enabled);
+  tray.setCorduroyEnabled(materialState.corduroy);
+  if (!boardMode) setBoardMode(true);
+  corduroyTabs.forEach(tab => tab.element?.setAttribute('aria-selected', String(tab.enabled === materialState.corduroy)));
+  updateMaterialCompareStatus();
+}
+
+function setPlasticComparison(enabled) {
+  materialState.plastic = Boolean(enabled);
+  tray.setPlasticEnabled(materialState.plastic);
+  if (!boardMode) setBoardMode(true);
+  plasticTabs.forEach(tab => tab.element?.setAttribute('aria-selected', String(tab.enabled === materialState.plastic)));
+  updateMaterialCompareStatus();
+}
+
+corduroyTabs.forEach(tab => tab.element?.addEventListener('click', () => setCorduroyComparison(tab.enabled)));
+plasticTabs.forEach(tab => tab.element?.addEventListener('click', () => setPlasticComparison(tab.enabled)));
 
 function normalizePreset(preset, metadata = {}) {
   const diceCount = Number(preset.diceCount || metadata.diceCount || preset.frames?.[0]?.length || 0);

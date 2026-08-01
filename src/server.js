@@ -12,20 +12,13 @@ import {
 } from "./authoritativeGame.js";
 import MatchmakingServer from "./matchmakingServer.js";
 import { verifyFirebaseIdToken } from "./firebaseToken.js";
+import { getDicePresetFileName } from "./dicePresetRules.js";
 
 const SCORE_CATEGORIES = new Set([
   'aces', 'deuces', 'threes', 'fours', 'fives', 'sixes',
   'choice', '4oak', 'fullhouse', 's-straight', 'l-straight', 'yacht'
 ]);
 const PRESET_START_DELAY_MS = 500;
-
-function getPresetFileName(dice, isFlip) {
-  if (isFlip) return `dice_presets_flip_${dice.length}.json`;
-  const normalCount = dice.filter((die) => die.type !== 'octahedron').length;
-  const octaCount = dice.length - normalCount;
-  const key = octaCount === 0 ? `normal_${normalCount}` : `mixed_${normalCount}normal_${octaCount}octa`;
-  return `dice_presets_${key}.json`;
-}
 
 function getSortedFinalValues(dice) {
   return dice
@@ -306,7 +299,7 @@ export class DiceServer {
       return;
     }
 
-    if (this.sessionType === "matchmaking" && data.type.startsWith("game_")) {
+    if (this.authoritativeState && data.type.startsWith("game_")) {
       if (data.type === "game_ended") {
         conn.send(JSON.stringify({ type: "error", code: "SERVER_AUTHORITATIVE", message: "온라인 매치 종료는 서버가 확정함." }));
         return;
@@ -524,7 +517,7 @@ export class DiceServer {
         break;
 
       default:
-        if (this.sessionType === "matchmaking") {
+        if (this.authoritativeState) {
           conn.send(JSON.stringify({
             type: "error",
             code: "LEGACY_COMMAND_REJECTED",
@@ -682,7 +675,7 @@ export class DiceServer {
             const animatedDice = candidate.dice.filter((die) => !previousKeptIds.has(die.id));
             const presetIndex = Math.floor(Math.random() * 20); // 일반/혼합 프리셋은 총 20종 (0~19)
             const isMirrored = Math.random() < 0.5;
-            const presetFile = getPresetFileName(animatedDice, false);
+            const presetFile = getDicePresetFileName(animatedDice);
             animationPayload = {
               presetIndex,
               isMirrored,
@@ -700,7 +693,7 @@ export class DiceServer {
 
           const presetIndex = Math.floor(Math.random() * 10); // 판 뒤집기 프리셋은 총 10종 (0~9)
           const isMirrored = Math.random() < 0.5;
-          const presetFile = getPresetFileName(candidate.dice, true);
+          const presetFile = getDicePresetFileName(candidate.dice, { isFlip: true });
           animationPayload = {
             presetIndex,
             isMirrored,
@@ -806,19 +799,18 @@ export class DiceServer {
       disconnectGrace: { 1: 60, 2: 60, 3: 60, 4: 60 },
       matchLogHistory: []
     };
-    this.authoritativeState = this.sessionType === "matchmaking"
-      ? createAuthoritativeGame({
-        mode: this.gameMode,
-        playerCount: pList.length,
-        seed: this.matchId || this.room.id
-      })
-      : null;
+    this.authoritativeState = createAuthoritativeGame({
+      mode: this.gameMode,
+      playerCount: pList.length,
+      seed: this.matchId || this.room.id
+    });
     this.broadcastState();
     this.room.broadcast(JSON.stringify({
       type: 'game_started',
       matchId: this.matchId,
       sessionType: this.sessionType,
-      players: this.getPublicPlayers()
+      players: this.getPublicPlayers(),
+      authoritativeState: getPublicGameState(this.authoritativeState)
     }));
     this.broadcastAuthoritativeState({ kind: "game_started" });
   }

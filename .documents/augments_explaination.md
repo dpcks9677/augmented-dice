@@ -234,9 +234,11 @@
     *   **텍스트:** 획득 즉시 가장 점수가 낮은 족보 1개를 빈칸으로 초기화하고 1턴 추가 획득합니다. 이후 해당 족보를 다시 기입할 때 기본 점수에 +3점을 추가로 획득합니다.
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><path d="M12 2 L20 12 L12 22 L4 12 Z M4 12 H20 M12 2 L16 12 L12 22 M12 2 L8 12 L12 22" fill="none" stroke="#222" stroke-width="1.5" stroke-linejoin="round"/></svg> 41. 8면 주사위 (8-Sided Dice)**
     *   **효과:** 내 주사위 중 2개를 [1, 2, 3, 4, 4, 5, 5, 6] 눈금이 적힌 주사위로 영구 교체
+    *   **획득 제한:** 이상한 주사위 또는 판 뒤집기와 동시에 보유할 수 없음.
     *   **텍스트:** 기본 주사위를 8면 주사위로 변경합니다.<br><br>8면 주사위는 [1, 2, 3, 4, 4, 5, 5, 6] 눈을 가집니다.
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="#222" stroke-width="2"/><path d="M 9.5 8.5 C 9.5 6.5 14.5 6.5 14.5 9 C 14.5 11 12 11.5 12 14" fill="none" stroke="#222" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16.8" r="1.2" fill="#222"/></svg> 42. 이상한 주사위 (Strange Die)**
     *   **효과:** 족보에 쓸 수 없는 조커 주사위 1개 추가. 매 턴 기입 시 눈금 결과(+2, +1, +1, 0, -1, 파괴)가 최종 점수에 반영. 파괴 면이 나오면 영구 제거됨. (유지하려면 킵 슬롯 소모)
+    *   **획득 제한:** 8면 주사위와 동시에 보유할 수 없음.
     *   **텍스트:** 이상한 주사위를 한 개 추가합니다.<br><br>이상한 주사위는 [+2, +1, +1, 0, -1, 파괴] 면을 가지고 있으며, 족보에 쓸 수 없습니다. 매 턴 족보를 기입 시 눈금 결과가 족보 점수에 반영됩니다.
 *   **<svg viewBox="0 0 24 24" width="24" height="24" style="vertical-align: middle; margin-right: 8px;"><rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="#222" stroke-width="2"/><path d="M 6.5 16 H 17.5 L 18.5 9 L 14.5 12 L 12 7 L 9.5 12 L 5.5 9 Z" fill="none" stroke="#222" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><circle cx="5.5" cy="8.5" r="0.8" fill="#222"/><circle cx="12" cy="6.5" r="0.8" fill="#222"/><circle cx="18.5" cy="8.5" r="0.8" fill="#222"/></svg> 43. 프로모션 주사위 (Promotion Die)**
     *   **효과:** 기본 주사위 1개를 프로모션 주사위로 변경. 턴이 지날수록 눈금이 1씩 상승(최대 6). 6의 눈인 상태에서 족보를 기입할 시 소모되어 기본 주사위로 돌아옵니다.

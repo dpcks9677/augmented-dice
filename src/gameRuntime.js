@@ -16,9 +16,11 @@ import { getAugmentCategoryEnName, initGameMenu } from "./gameMenu.js";
 import { els, handleAppScaling, initMainSkeletons, isLocalhost, removeMainSkeletons } from "./appShell.js";
 import { escapeHtml } from "./htmlUtils.js";
 import { cacheProfileData, deleteCachedProfileData, isProfileEditing, refreshUserHistory, renderHistoryAvatar, resetProfileModal, updateCachedProfileData } from "./profileController.js";
-import { addGameLog, getPlayerLabel, initGameLog, renderGameLogHistory } from "./gameLog.js";
+import { addGameLog, getPlayerLabel, initGameLog, renderGameLogHistory, showMatchInfo } from "./gameLog.js";
 import { resumeLandingDice, silenceLandingDice } from "./landingDice.js";
 import { soundEngine } from "./SoundEngine.js";
+import { canAcquireAugment } from "./augmentRules.js";
+import { createLocalRollOutcome } from "./localDiceResultProvider.js";
 
 let augmentData = defaultAugmentsData || [];
 let augmentProgressSession = null;
@@ -131,9 +133,56 @@ let bountyHunterProgress = {
   4: { count: 0, penaltyCount: 0 }
 };
 let authoritativeGameState = null;
+let pendingAuthoritativeGameState = null;
+let nextLocalDieId = 1;
+let localRollToken = 0;
 
 function isAuthoritativeOnlineMatch() {
-  return window.isMultiplayer && (networkEngine.sessionType === 'matchmaking' || Boolean(authoritativeGameState));
+  return window.isMultiplayer && Boolean(authoritativeGameState);
+}
+
+async function rollLocalDice(configs, { action = 'roll' } = {}) {
+  const rollToken = ++localRollToken;
+  diceEngine.diceArray.forEach((die) => {
+    if (die.serverId == null) die.serverId = nextLocalDieId++;
+    else nextLocalDieId = Math.max(nextLocalDieId, Number(die.serverId) + 1);
+  });
+  const keptDiceState = diceEngine.diceArray
+    .filter((die) => die.isKept)
+    .map((die) => ({
+      id: die.serverId,
+      type: die.config?.type || 'normal',
+      promotionLevel: die.config?.promotionLevel || 0,
+      value: die.value,
+      kept: true
+    }));
+  const outcome = createLocalRollOutcome({
+    configs,
+    keptDice: action === 'tableFlip' ? [] : keptDiceState,
+    nextDieId: nextLocalDieId,
+    action
+  });
+  nextLocalDieId = outcome.nextDieId;
+  const animatedConfigs = configs.map((config, index) => ({
+    ...config,
+    serverId: outcome.rolledDice[index].id
+  }));
+  const replayed = await diceEngine.rollWithTargetValues(
+    animatedConfigs,
+    outcome.rolledDice.map((die) => die.value),
+    { presetIndex: outcome.presetIndex, mirrored: outcome.mirrored },
+    { isFlip: action === 'tableFlip' }
+  );
+  if (rollToken !== localRollToken) return { source: 'cancelled' };
+  if (!replayed) {
+    if (action === 'tableFlip') await diceEngine.flipTable();
+    else await diceEngine.roll(configs);
+    if (rollToken !== localRollToken) return { source: 'cancelled' };
+    return { source: 'local-physics' };
+  }
+  await diceEngine.completeAuthoritativeRoll(outcome.dice, 500);
+  if (rollToken !== localRollToken) return { source: 'cancelled' };
+  return outcome;
 }
 
 initGameLog(() => activeAugments);
@@ -1013,10 +1062,11 @@ networkEngine.on('game_started', (data) => {
   stopLobbyWaitingAnimation();
   clearMatchmakingTimers();
   window.gameSessionStarted = true;
+  if (Array.isArray(data.players)) window.lobbyPlayers = data.players;
   if (data?.sessionType === 'matchmaking') {
     networkEngine.notifyMatchStarted();
-    if (Array.isArray(data.players)) window.lobbyPlayers = data.players;
   }
+  pendingAuthoritativeGameState = data?.authoritativeState || null;
   // 모든 기존 상태 클래스를 제거하고 게임 화면으로 이동
   els.appContainer.className = '';
 
@@ -1561,6 +1611,8 @@ function handleGameForfeit(forfeitedPlayerIndex, forfeitUid = null) {
 function resetGameSession() {
   stopTurnTimer();
   authoritativeGameState = null;
+  nextLocalDieId = 1;
+  localRollToken++;
   [1, 2, 3, 4].forEach(pIdx => {
     if (typeof disconnectTimers !== 'undefined' && disconnectTimers[pIdx]) {
       clearInterval(disconnectTimers[pIdx]);
@@ -1809,6 +1861,8 @@ function startMultiplayerGame() {
   resetGameSession();
   window.gameSessionStarted = true;
   window.isMultiplayer = true;
+  authoritativeGameState = pendingAuthoritativeGameState;
+  pendingAuthoritativeGameState = null;
 
   if (window.lobbyPlayers && Array.isArray(window.lobbyPlayers)) {
     window.initialMatchPlayers = JSON.parse(JSON.stringify(window.lobbyPlayers));
@@ -1870,8 +1924,8 @@ function startMultiplayerGame() {
 
   updateScoreboard();
   if (isAuthoritativeOnlineMatch()) {
-    authoritativeGameState = null;
     stopTurnTimer();
+    void applyAuthoritativeState(authoritativeGameState, { kind: 'game_started' });
     els.btnRoll.disabled = true;
     return;
   }
@@ -2109,9 +2163,7 @@ function getSeededAugments(round, player) {
 
   // 해당 플레이어가 이미 획득하여 가지고 있는 증강은 다음 드래프트 생성 후보 풀에서 제거
   const ownedAugmentIds = getPlayerAugments(player);
-  if (ownedAugmentIds.length > 0) {
-    pool = pool.filter(aug => !ownedAugmentIds.includes(aug.augmentId));
-  }
+  pool = pool.filter(aug => canAcquireAugment(ownedAugmentIds, aug.augmentId));
 
   if (isHotseat) {
     // 핫시트 플레이 시 강력한 무작위(Crypto API 및 Math.random) 기반 Fisher-Yates 셔플 사용
@@ -2734,12 +2786,11 @@ els.btnRoll.addEventListener('click', async () => {
     for (let i = 0; i < 5 - keptCount; i++) specialConfigs.push({ type: 'normal' });
 
     diceEngine.cleanUpDeadDice();
-    await diceEngine.roll(specialConfigs);
+    const practiceRoll = await rollLocalDice(specialConfigs);
+    if (practiceRoll.source === 'cancelled') return;
 
     setTimeout(() => {
       // 본 게임과 동일하게 굴린 후에는 모든 주사위 킵을 풀고 중앙(버건디 매트)에 정렬
-      diceEngine.diceArray.forEach(die => die.isKept = false);
-      diceEngine.arrangeAll(true);
       if (diceBoxReady) els.btnRoll.disabled = false;
     }, 100);
     return;
@@ -2846,7 +2897,7 @@ els.btnRoll.addEventListener('click', async () => {
     addGameLog({ type: 'roll-action', player: currentPlayer, meta: { rolledCount, keptValues, isEquivalentRoll } }, 'roll-action', window.isMultiplayer, currentPlayer);
   }
 
-  const rollPromise = diceEngine.roll(specialConfigs);
+  const rollPromise = rollLocalDice(specialConfigs);
 
   if (window.isMultiplayer) {
     const spawnTransforms = diceEngine.getSpawnTransforms();
@@ -2861,7 +2912,8 @@ els.btnRoll.addEventListener('click', async () => {
     });
   }
 
-  await rollPromise;
+  const localRoll = await rollPromise;
+  if (localRoll.source === 'cancelled') return;
 
   if (window.isMultiplayer) {
     const finalValues = diceEngine.diceArray.map(d => d.value);
@@ -2872,16 +2924,14 @@ els.btnRoll.addEventListener('click', async () => {
   // Arrange them after a short delay
   setTimeout(() => {
     // 리롤 시 모든 주사위를 버건디 매트(중앙)에 함께 정렬하기 위해 킵 상태 초기화
-    diceEngine.diceArray.forEach(die => die.isKept = false);
+    // 기존 킵 주사위 상태를 유지함.
 
 
     // 로컬 상태 동기화
-    keptDice = [];
-    activeDice = diceEngine.diceArray.filter(d => d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
+    keptDice = diceEngine.diceArray.filter(d => d.isKept && d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
+    activeDice = diceEngine.diceArray.filter(d => !d.isKept && d.config.type !== 'weird').map(d => d.value).sort((a, b) => a - b);
 
     addGameLog({ type: 'roll-result', player: currentPlayer, meta: { values: activeDice } }, 'roll-result', window.isMultiplayer, currentPlayer);
-
-    diceEngine.arrangeAll(true);
 
     updateRollsUI();
     resumeTurnTimer(); // 롤링 완료 후 타이머 재개
@@ -4570,7 +4620,12 @@ window.updateAugmentSidebar = function (player) {
 
             addGameLog({ type: 'system', message: `[Table Flip] Player ${targetPlayer}가 판 뒤집기를 사용하여 주사위를 솟구쳐 올렸습니다!` }, 'system', window.isMultiplayer, targetPlayer);
 
-            await diceEngine.flipTable();
+            const flipConfigs = diceEngine.diceArray.map((die) => ({
+              ...die.config,
+              type: die.config?.type || 'normal'
+            }));
+            const flipRoll = await rollLocalDice(flipConfigs, { action: 'tableFlip' });
+            if (flipRoll.source === 'cancelled') return;
 
             diceEngine.diceArray.forEach(die => die.isKept = false);
             keptDice = [];

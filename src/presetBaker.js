@@ -162,8 +162,10 @@ export class PresetBaker {
     const { world, boardPhysics } = this.createWorld(isFlip);
     this.setVisualSeed(`bake_${Math.random()}`);
 
-    // 전체 스폰 슬롯(0~4) 중 count 개수만큼 랜덤 선택
-    const allSlots = [0, 1, 2, 3, 4];
+    // 요청된 주사위 수만큼 스폰 슬롯을 만들고 순서를 섞음.
+    // 6개 프리셋은 기존 5개 슬롯을 재사용하면 여섯 번째 주사위가
+    // 중복 위치에 겹치므로 count를 슬롯 수와 배치 기준에 함께 사용함.
+    const allSlots = Array.from({ length: count }, (_, index) => index);
     for (let i = allSlots.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [allSlots[i], allSlots[j]] = [allSlots[j], allSlots[i]];
@@ -173,12 +175,11 @@ export class PresetBaker {
     const dice = [];
     for (let i = 0; i < count; i++) {
       // 8면체 모드 시 뒤쪽 인덱스를 8면체로 할당
-      // count 5 중 octaCount가 2이면 인덱스 3,4가 8면체
       const dieIsOct = isOct ? (i >= Math.max(0, count - octaCount)) : false;
       const body = this.createDieBody(dieIsOct, false);
       
       const slotIndex = spawnSlots[i];
-      const target = this.launchDie(body, slotIndex, 5, isFlip, dieIsOct);
+      const target = this.launchDie(body, slotIndex, count, isFlip, dieIsOct);
       
       world.addBody(body);
       dice.push({ body, target, hasReachedLaunchTarget: false, isOct: dieIsOct });

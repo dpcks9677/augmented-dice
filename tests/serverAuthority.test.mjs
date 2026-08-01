@@ -114,6 +114,41 @@ assert.equal(rollMessageP2.action.animationSeed, undefined);
 assert.ok(Number.isInteger(rollMessageP2.action.animation?.presetIndex), "P2 첫 굴림 시 presetIndex가 존재해야 함");
 assert.equal(rollMessageP2.action.finalValues?.length, 5, "P2 첫 굴림 시 5개 주사위 finalValues가 존재해야 함");
 
+const lobbyServer = new DiceServer(null, {
+  MATCHMAKING_PROFILE_URL: "https://example.test/profile",
+  RATING_SETTLEMENT_SECRET: "test-secret"
+});
+lobbyServer.room.id = "LOBBY-AUTHORITY-TEST";
+const lobbyA = connection("lobby-a");
+const lobbyB = connection("lobby-b");
+lobbyServer.connections.set(lobbyA.id, lobbyA);
+lobbyServer.connections.set(lobbyB.id, lobbyB);
+
+const lobbyJoin = (uid) => JSON.stringify({
+  type: "join",
+  uid,
+  nickname: uid,
+  mode: "normal",
+  sessionType: "lobby"
+});
+await lobbyServer.onMessage(lobbyJoin("guest-a"), lobbyA);
+await lobbyServer.onMessage(lobbyJoin("guest-b"), lobbyB);
+await lobbyServer.onMessage(JSON.stringify({ type: "start_game" }), lobbyA);
+assert.equal(lobbyServer.authoritativeState.playerCount, 2);
+assert.ok(lobbyA.sent.some((message) => message.type === "game_started" && message.authoritativeState));
+
+await lobbyServer.onMessage(JSON.stringify({
+  type: "sync_score",
+  catId: "choice",
+  scoreInfo: { score: 9999 }
+}), lobbyA);
+assert.equal(lobbyA.sent.at(-1).code, "LEGACY_COMMAND_REJECTED");
+
+await lobbyServer.onMessage(JSON.stringify({ type: "game_roll" }), lobbyA);
+assert.equal(lobbyServer.authoritativeState.rollsLeft, 2);
+assert.ok(lobbyA.sent.findLast((message) => message.type === "authoritative_state" && message.action?.kind === "game_roll"));
+
 clearInterval(server.timerLoop);
+clearInterval(lobbyServer.timerLoop);
 globalThis.fetch = originalFetch;
 console.log("server authority tests passed");
