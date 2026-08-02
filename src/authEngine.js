@@ -77,6 +77,37 @@ export async function getUserFromDB(uid) {
   }
 }
 
+export async function searchUsersByNickname(keyword, { limitResults = null } = {}) {
+  const normalized = String(keyword || '').trim().slice(0, 30);
+  if (!normalized) return [];
+  try {
+    const usersRef = collection(db, "users");
+    const queryConstraints = [
+      where("nickname", ">=", normalized),
+      where("nickname", "<=", `${normalized}\uf8ff`),
+      orderBy("nickname")
+    ];
+    if (Number.isInteger(limitResults) && limitResults > 0) queryConstraints.push(limit(limitResults));
+    const usersQuery = query(usersRef, ...queryConstraints);
+    const snapshot = await getDocs(usersQuery);
+    const orderedUsers = snapshot.docs
+      .map((userDoc) => ({ uid: userDoc.id, ...userDoc.data() }))
+      .sort((a, b) => {
+        const aName = String(a.nickname || '');
+        const bName = String(b.nickname || '');
+        return (aName === normalized ? -1 : 0) - (bName === normalized ? -1 : 0)
+          || aName.length - bName.length
+          || aName.localeCompare(bName);
+      });
+    return Number.isInteger(limitResults) && limitResults > 0
+      ? orderedUsers.slice(0, limitResults)
+      : orderedUsers;
+  } catch (error) {
+    console.error("User Search Error:", error);
+    throw error;
+  }
+}
+
 export async function incrementProfileViews(uid) {
   if (!uid || !auth.currentUser || auth.currentUser.uid === uid) return false;
   try {

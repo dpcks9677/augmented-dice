@@ -1,5 +1,5 @@
 import defaultAugmentsData from './augments.json';
-import { getCurrentUser, getUserFromDB, getUserMatchesFromDB, incrementProfileViews, updateUserStatusMsg, normalizeUserUid } from './authEngine.js';
+import { getCurrentUser, getUserFromDB, getUserMatchesFromDB, incrementProfileViews, updateUserStatusMsg, normalizeUserUid, searchUsersByNickname } from './authEngine.js';
 import { getProfileModeStats, getTopAugments } from './profileStats.js';
 import { renderProfileRatingGraph } from './profileRatingGraph.js';
 import { getAugmentedDicesIconSvg, getDicesIconSvg, getVariantSvg } from './svgIcons.js';
@@ -324,6 +324,10 @@ let profilePreviewTimer = null;
 let profilePreviewUid = null;
 let profileModalTargetUid = null;
 let profileEditing = false;
+let profileSearchRequest = 0;
+let profileSearchTimer = null;
+let profileSearchReturnAvailable = false;
+let profileSearchReturnResults = [];
 
 function hideProfilePreview(delay = 0) {
   clearTimeout(profilePreviewTimer);
@@ -433,7 +437,13 @@ function renderProfileModal(userData, targetUid) {
 
   const editButton = document.getElementById('btn-profile-edit');
   editButton?.classList.toggle('hidden', !isMine);
-  document.getElementById('btn-my-profile')?.classList.toggle('hidden', isMine);
+  const myProfileButton = document.getElementById('btn-my-profile');
+  myProfileButton?.classList.toggle('hidden', isMine);
+  if (myProfileButton && !isMine) {
+    const buttonLabel = profileSearchReturnAvailable ? '뒤로가기' : '내 프로필';
+    myProfileButton.textContent = buttonLabel;
+    myProfileButton.setAttribute('aria-label', buttonLabel);
+  }
   setProfileEditing(false);
 
   const avatar = document.getElementById('profile-modal-avatar');
@@ -501,14 +511,33 @@ async function openProfileModal(targetUid) {
   await refreshUserHistory(uid, history, () => profileModalTargetUid === uid);
 }
 
-document.getElementById('btn-open-profile')?.addEventListener('click', () => {
+function openMyProfile() {
   const user = getCurrentUser();
-  if (user?.uid) void openProfileModal(user.uid);
-});
+  if (!user?.uid) return;
+  resetProfileModal();
+  void openProfileModal(user.uid);
+}
+
+document.getElementById('btn-open-profile')?.addEventListener('click', openMyProfile);
+
+function returnToProfileSearch() {
+  if (!profileSearchReturnAvailable) return;
+  profileSearchReturnAvailable = false;
+  profileSearchResultsSection?.classList.add('hidden');
+  profileSearchGrid?.classList.add('is-searching');
+  profileSearchScreen?.classList.remove('hidden');
+  renderProfileSearchResults(profileSearchReturnResults, profileSearchScreenResults);
+  if (profileSearchScreenStatus) profileSearchScreenStatus.textContent = '';
+  const button = document.getElementById('btn-my-profile');
+  if (button) {
+    button.textContent = '내 프로필';
+    button.setAttribute('aria-label', '내 프로필');
+  }
+}
 
 document.getElementById('btn-my-profile')?.addEventListener('click', () => {
-  const user = getCurrentUser();
-  if (user?.uid) void openProfileModal(user.uid);
+  if (profileSearchReturnAvailable) returnToProfileSearch();
+  else openMyProfile();
 });
 
 document.getElementById('btn-profile-edit')?.addEventListener('click', async () => {
@@ -537,6 +566,100 @@ document.getElementById('btn-profile-edit')?.addEventListener('click', async () 
   setProfileEditing(false);
 });
 
+const profileSearchInput = document.getElementById('profile-search-input');
+const profileSearchStatus = document.getElementById('profile-search-status');
+const profileSearchResults = document.getElementById('profile-search-results');
+const profileSearchResultsSection = document.getElementById('profile-search-results-section');
+const profileSearchGrid = document.querySelector('.profile-modal-grid');
+const profileSearchScreen = document.getElementById('profile-search-results-screen');
+const profileSearchScreenStatus = document.getElementById('profile-search-screen-status');
+const profileSearchScreenResults = document.getElementById('profile-search-screen-results');
+
+function renderProfileSearchResults(results, container) {
+  if (!container) return;
+  container.innerHTML = results.map((profile) => `
+    <button class="profile-search-result" type="button" data-profile-uid="${escapeHtml(profile.uid)}">
+      <span class="profile-search-result-avatar" aria-hidden="true"></span>
+      <span class="profile-search-result-info">
+        <strong>${escapeHtml(profile.nickname || 'Player')}</strong>
+        <span class="profile-search-result-status" title="${escapeHtml(profile.statusMsg || '')}">${escapeHtml(profile.statusMsg || '')}</span>
+      </span>
+    </button>
+  `).join('');
+  container.querySelectorAll('.profile-search-result').forEach((button, index) => {
+    const profile = results[index];
+    renderHistoryAvatar(button.querySelector('.profile-search-result-avatar'), profile.avatarUrl, profile.cropData);
+    button.addEventListener('click', () => {
+      profileSearchReturnAvailable = true;
+      profileSearchReturnResults = results;
+      profileSearchResultsSection?.classList.add('hidden');
+      profileSearchScreen?.classList.add('hidden');
+      profileSearchGrid?.classList.remove('is-searching');
+      void openProfileModal(button.dataset.profileUid);
+    });
+  });
+}
+
+async function runProfileSearch(fullScreen = false) {
+  const keyword = profileSearchInput?.value.trim() || '';
+  const requestId = ++profileSearchRequest;
+  if (fullScreen) {
+    clearTimeout(profileSearchTimer);
+    profileSearchReturnAvailable = false;
+    profileSearchReturnResults = [];
+    profileSearchResultsSection?.classList.add('hidden');
+    document.getElementById('btn-profile-edit')?.classList.add('hidden');
+    const button = document.getElementById('btn-my-profile');
+    button?.classList.remove('hidden');
+    if (button) {
+      button.textContent = '내 프로필';
+      button.setAttribute('aria-label', '내 프로필');
+    }
+  }
+  if (!keyword) {
+    if (profileSearchStatus) profileSearchStatus.textContent = '닉네임을 입력해주세요.';
+    if (profileSearchResults) profileSearchResults.innerHTML = '';
+    if (profileSearchScreenResults) profileSearchScreenResults.innerHTML = '';
+    profileSearchScreen?.classList.add('hidden');
+    profileSearchGrid?.classList.remove('is-searching');
+    profileSearchResultsSection?.classList.add('hidden');
+    return;
+  }
+  if (profileSearchStatus) profileSearchStatus.textContent = '검색 중...';
+  if (profileSearchResults) profileSearchResults.innerHTML = '';
+  if (profileSearchScreenResults) profileSearchScreenResults.innerHTML = '';
+  try {
+    const results = await searchUsersByNickname(keyword, { limitResults: fullScreen ? null : 20 });
+    if (requestId !== profileSearchRequest) return;
+    if (fullScreen) {
+      profileSearchGrid?.classList.add('is-searching');
+      profileSearchScreen?.classList.remove('hidden');
+      renderProfileSearchResults(results, profileSearchScreenResults);
+      if (profileSearchScreenStatus) profileSearchScreenStatus.textContent = results.length ? '' : '검색 결과가 없습니다.';
+    } else {
+      profileSearchResultsSection?.classList.remove('hidden');
+      renderProfileSearchResults(results.slice(0, 4), profileSearchResults);
+      if (profileSearchStatus) profileSearchStatus.textContent = results.length ? '' : '검색 결과가 없습니다.';
+    }
+  } catch {
+    if (requestId !== profileSearchRequest) return;
+    if (fullScreen) {
+      profileSearchGrid?.classList.add('is-searching');
+      profileSearchScreen?.classList.remove('hidden');
+      if (profileSearchScreenStatus) profileSearchScreenStatus.textContent = '검색에 실패했습니다. 잠시 후 다시 시도해주세요.';
+    } else if (profileSearchStatus) profileSearchStatus.textContent = '검색에 실패했습니다. 잠시 후 다시 시도해주세요.';
+  }
+}
+
+document.getElementById('btn-profile-search-submit')?.addEventListener('click', () => void runProfileSearch(true));
+profileSearchInput?.addEventListener('input', () => {
+  clearTimeout(profileSearchTimer);
+  profileSearchTimer = setTimeout(() => void runProfileSearch(), 180);
+});
+profileSearchInput?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') void runProfileSearch(true);
+});
+
 document.getElementById('profile-modal-status-input')?.addEventListener('keydown', (event) => {
   if (event.key === 'Enter') document.getElementById('btn-profile-edit')?.click();
 });
@@ -559,5 +682,17 @@ export function isProfileEditing() {
 
 export function resetProfileModal() {
   profileModalTargetUid = null;
+  profileSearchRequest += 1;
+  clearTimeout(profileSearchTimer);
+  if (profileSearchInput) profileSearchInput.value = '';
+  if (profileSearchStatus) profileSearchStatus.textContent = '';
+  if (profileSearchResults) profileSearchResults.innerHTML = '';
+  if (profileSearchScreenResults) profileSearchScreenResults.innerHTML = '';
+  if (profileSearchScreenStatus) profileSearchScreenStatus.textContent = '';
+  profileSearchReturnAvailable = false;
+  profileSearchReturnResults = [];
+  profileSearchScreen?.classList.add('hidden');
+  profileSearchGrid?.classList.remove('is-searching');
+  profileSearchResultsSection?.classList.add('hidden');
   setProfileEditing(false);
 }

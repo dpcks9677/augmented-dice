@@ -423,6 +423,21 @@
       <div class="profile-modal-actions">
         <button id="btn-profile-edit" class="compendium-back-btn hidden" type="button">프로필 편집</button>
         <button id="btn-my-profile" class="compendium-back-btn hidden" type="button">내 프로필</button>
+        <div class="profile-search-wrap">
+          <div class="profile-search-bar" role="search">
+            <svg aria-hidden="true" class="lucide lucide-search profile-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.3-4.3"></path>
+            </svg>
+            <input id="profile-search-input" type="search" maxlength="30" autocomplete="off" aria-label="닉네임 검색" placeholder="닉네임 검색">
+            <button id="btn-profile-search-submit" class="profile-search-submit" type="button" aria-label="검색">검색</button>
+          </div>
+          <section id="profile-search-results-section" class="profile-search-results-section hidden" aria-labelledby="profile-search-results-title">
+            <h3 id="profile-search-results-title">프로필 검색 결과</h3>
+            <div id="profile-search-status" class="profile-search-status" role="status" aria-live="polite"></div>
+            <div id="profile-search-results" class="profile-search-results"></div>
+          </section>
+        </div>
       </div>
       <div class="profile-modal-grid">
         <section class="profile-modal-card profile-modal-identity" aria-labelledby="profile-modal-name">
@@ -518,6 +533,11 @@
         </section>
 
         <section id="profile-modal-history" class="history-card profile-modal-history" aria-label="최근 매치"></section>
+        <section id="profile-search-results-screen" class="profile-modal-card profile-search-results-screen hidden" aria-labelledby="profile-search-results-screen-title">
+          <h3 id="profile-search-results-screen-title">프로필 검색 결과</h3>
+          <div id="profile-search-screen-status" class="profile-search-status" role="status" aria-live="polite"></div>
+          <div id="profile-search-screen-results" class="profile-search-results"></div>
+        </section>
       </div>
     </div>
   </div>

@@ -1,5 +1,11 @@
 # Bug Logs
 
+## 2026-08-02 Firefox ignored turn glow keyframes
+
+- Symptom: Firefox reported four invalid `!important` declarations and did not animate the turn-avatar outline and shadow values.
+- Cause: `!important` is invalid inside `@keyframes` declarations.
+- Fix: Removed only the four invalid flags from `turnGreenGlowPulse`; the base glow declarations remain unchanged.
+
 ## 2026-07-30 Turn timer and BGM used mismatched elapsed-time bases
 
 - Symptom: The visual turn seconds and BGM cue drifted after a paused action such as rolling dice.

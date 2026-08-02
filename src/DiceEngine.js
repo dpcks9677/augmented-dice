@@ -1174,6 +1174,18 @@ export class DiceEngine {
     });
 
     const startedAt = performance.now() - Math.max(0, Number(elapsedMs) || 0);
+    const renderPresetFrame = (elapsed) => {
+      animations.forEach(({ die, frames }) => {
+        const frame = interpolateKeyframes(frames, elapsed);
+        die.mesh.position.set(frame.position.x, frame.position.y, frame.position.z);
+        die.mesh.quaternion.set(frame.quaternion.x, frame.quaternion.y, frame.quaternion.z, frame.quaternion.w);
+        die.animationProgress = totalDuration > 0 ? elapsed / totalDuration : 1;
+      });
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
+    };
+    renderPresetFrame(Math.min(totalDuration, Math.max(0, Number(elapsedMs) || 0)));
     return new Promise((resolve) => {
       const tick = (now) => {
         if (animationId !== this.authoritativeAnimationId) {
@@ -1181,16 +1193,7 @@ export class DiceEngine {
           return;
         }
         const elapsed = Math.min(totalDuration, now - startedAt);
-        const progress = totalDuration > 0 ? elapsed / totalDuration : 1;
-        animations.forEach(({ die, frames }) => {
-          const frame = interpolateKeyframes(frames, elapsed);
-          die.mesh.position.set(frame.position.x, frame.position.y, frame.position.z);
-          die.mesh.quaternion.set(frame.quaternion.x, frame.quaternion.y, frame.quaternion.z, frame.quaternion.w);
-          die.animationProgress = progress;
-        });
-        if (this.renderer && this.scene && this.camera) {
-          this.renderer.render(this.scene, this.camera);
-        }
+        renderPresetFrame(elapsed);
         if (elapsed < totalDuration) {
           requestAnimationFrame(tick);
           return;
@@ -1987,6 +1990,17 @@ export class DiceEngine {
           launchTarget,
           hasReachedLaunchTarget: false
         });
+      }
+
+      // 첫 requestAnimationFrame 전에 초기 투척 위치를 화면에 그려 Firefox에서도
+      // 투척 초반 프레임이 생략되지 않도록 함.
+      this.diceArray.forEach((die) => {
+        if (!die.body || die.isKept) return;
+        die.mesh.position.copy(die.body.position);
+        die.mesh.quaternion.copy(die.body.quaternion);
+      });
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
       }
 
       // Check sleep (only if running physics locally)

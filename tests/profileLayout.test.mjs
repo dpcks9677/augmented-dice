@@ -25,7 +25,9 @@ assert.match(css, /#profile-content > \.history-card\s*\{[^}]*min-height:\s*0;[^
 assert.match(css, /\.profile-modal-actions\s*\{[^}]*align-self:\s*flex-start;/);
 assert.ok(html.includes('id="btn-my-profile"'));
 assert.ok(profile.includes("title.textContent = isMine ? '내 프로필' : '유저 프로필'"));
-assert.ok(profile.includes("document.getElementById('btn-my-profile')?.classList.toggle('hidden', isMine)"));
+assert.match(profile, /myProfileButton\?\.classList\.toggle\('hidden', isMine\)/);
+assert.ok(profile.includes("const buttonLabel = profileSearchReturnAvailable ? '뒤로가기' : '내 프로필'"));
+assert.ok(profile.includes('function returnToProfileSearch()'));
 assert.match(css, /\.profile-modal-card\s*\{[^}]*overflow:\s*hidden;/);
 assert.match(css, /\.profile-modal-history\s*\{[^}]*overflow-y:\s*scroll;[^}]*scrollbar-gutter:\s*stable;/);
 assert.match(css, /\.profile-normal-stats\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);/);
