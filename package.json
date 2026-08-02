@@ -8,6 +8,7 @@
     "preset-studio": "vite --open /preset-studio.html",
     "party": "partykit dev src/server.js --port 1999",
     "build": "vite build",
+    "graphify:code-only": "python scripts/patch_graphify_html.py",
     "test:augment-progress": "node tests/augmentProgress.test.mjs",
     "test:profile-stats": "node tests/profileStats.test.mjs",
     "test:profile-layout": "node tests/profileLayout.test.mjs",
