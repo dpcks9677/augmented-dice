@@ -1,5 +1,12 @@
 # Bug Logs
 
+## 2026-08-03 롤 그림자 회전 불일치·6시 경계 잔상
+
+- 증상: 롤 그림자가 주사위 회전과 무관하게 정방향을 유지하고, 롤 시작 시 보드 6시 경계에 보조 그림자가 잠깐 나타남.
+- 원인: 전용 롤 그림자 Plane에 주사위 quaternion을 반영하지 않았고, 보드 밖 진입 좌표를 플레이 영역 경계로 clamp했음.
+- 수정: 주사위 로컬 축을 지면에 투영해 롤 그림자 회전을 갱신하고, 주사위 중심이 플레이 영역 밖이면 그림자를 숨기도록 변경함.
+- 검증: 그림자 회전·영역 판정 단위 테스트와 프로덕션 빌드를 통과함. 실제 롤 화면 확인 필요함.
+
 ## 2026-08-02 Firefox ignored turn glow keyframes
 
 - Symptom: Firefox reported four invalid `!important` declarations and did not animate the turn-avatar outline and shadow values.

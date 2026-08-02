@@ -13,14 +13,15 @@ import { getDicePresetKey, isPresetCompatible } from './dicePresetRules.js';
 
 const DIE_SIZE = 1.62;
 const DIE_HALF_SIZE = DIE_SIZE / 2;
-const ARRANGEMENT_CAMERA_TILT = THREE.MathUtils.degToRad(12);
+const ROLLING_SHADOW_OPACITY = 0.6;
+const ARRANGEMENT_CAMERA_TILT = 0;
 // Lower the visual sort row for the 12° board camera; this only affects the
 // post-roll arrangement target, not the physics floor or die result.
 const ARRANGEMENT_LAYOUT = {
   cameraTilt: ARRANGEMENT_CAMERA_TILT,
-  cameraLift: 40,
-  spacing: 2.4,
-  centerZOffset: 8
+  cameraLift: 30,
+  spacing: 2.65,
+  centerZOffset: 0
 };
 const ARRANGEMENT_DURATION_MS = 500;
 const KEEP_DIE_LAYOUT = {
@@ -28,12 +29,7 @@ const KEEP_DIE_LAYOUT = {
   scaleByType: { octahedron: 1 },
   duration: 0.33
 };
-const KEEP_DIE_TILT = {
-  angle: THREE.MathUtils.degToRad(10),
-  axis: new THREE.Vector3(1, 0, 0),
-  byType: { octahedron: 1 }
-};
-const ARRANGEMENT_SHADOW_OFFSET = { x: 0.34, z: -8 };
+const ARRANGEMENT_SHADOW_OFFSET = { x: 0.34, z: 0 };
 const HOVER_HIGHLIGHT_MARGIN = 1.21;
 const HOVER_HIGHLIGHT_LINE_WIDTH_SCALE = 0.8;
 const HOVER_HIGHLIGHT_POSITION_OFFSET = new THREE.Vector3(0, 0, 0);
@@ -81,6 +77,25 @@ const SETTLE_NUDGE_SPEED = 0.9;
 const SETTLE_SEPARATION_DISTANCE = DIE_SIZE * 1.15;
 const SETTLE_SEPARATION_SPEED = 0.45;
 const SETTLE_SEPARATION_MAX_ATTEMPTS = 2;
+
+export function getGroundShadowRotation(quaternion) {
+  const axis = [
+    new THREE.Vector3(1, 0, 0),
+    new THREE.Vector3(0, 1, 0),
+    new THREE.Vector3(0, 0, 1)
+  ].map(candidate => candidate.applyQuaternion(quaternion))
+    .sort((a, b) => (b.x ** 2 + b.z ** 2) - (a.x ** 2 + a.z ** 2))[0];
+  return Math.atan2(-axis.z, axis.x);
+}
+
+export function isInsidePlayBounds(position, playBounds) {
+  return !playBounds || (
+    position.x >= playBounds.minX
+    && position.x <= playBounds.maxX
+    && position.z >= playBounds.minZ
+    && position.z <= playBounds.maxZ
+  );
+}
 
 export class DiceEngine {
   constructor(containerSelector) {
@@ -322,7 +337,7 @@ export class DiceEngine {
     this.scene.add(hemisphereLight);
 
     // 접지 그림자만 담당하는 메인광. 짧은 사선으로 입체감은 남긴다.
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.78);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
     // 화면 기준 2시 방향으로 짧은 그림자 방향을 만든다.
     // Aim the key light at the board center so the 12° camera tilt does not
     // push die shadows outside the playable surface.
@@ -413,8 +428,8 @@ export class DiceEngine {
     shadowCanvas.height = 256;
     const shadowContext = shadowCanvas.getContext('2d');
     // 바닥에 닿아 있는 주사위 형태를 연상시키는 둥근 정사각형 그림자.
-    shadowContext.fillStyle = 'rgba(0, 0, 0, 0.9)';
-    shadowContext.shadowColor = 'rgba(0, 0, 0, 0.55)';
+    shadowContext.fillStyle = 'rgba(0, 0, 0, 0.95)';
+    shadowContext.shadowColor = 'rgba(0, 0, 0, 0.7)';
     shadowContext.shadowBlur = 18;
     shadowContext.beginPath();
     shadowContext.roundRect(38, 38, 180, 180, 30);
@@ -1111,7 +1126,7 @@ export class DiceEngine {
       const isOcta = config.type === 'octahedron';
       const geometry = isOcta ? this.octGeoCache : this.diceGeometry;
       const mesh = new THREE.Mesh(geometry, getMaterialForDie(config));
-      mesh.castShadow = true;
+      mesh.castShadow = false;
       mesh.receiveShadow = true;
       this.scene.add(mesh);
 
@@ -1181,6 +1196,7 @@ export class DiceEngine {
         die.mesh.quaternion.set(frame.quaternion.x, frame.quaternion.y, frame.quaternion.z, frame.quaternion.w);
         die.animationProgress = totalDuration > 0 ? elapsed / totalDuration : 1;
       });
+      this.updateArrangementShadows(0);
       if (this.renderer && this.scene && this.camera) {
         this.renderer.render(this.scene, this.camera);
       }
@@ -1301,7 +1317,7 @@ export class DiceEngine {
         const isHeavy = config.type === 'heavy';
         const geometry = isOct ? this.octGeoCache : this.diceGeometry;
         const mesh = new THREE.Mesh(geometry, getMaterialForDie(config));
-        mesh.castShadow = true;
+        mesh.castShadow = false;
         mesh.receiveShadow = true;
         this.scene.add(mesh);
 
@@ -1637,6 +1653,7 @@ export class DiceEngine {
         const sampleTime = totalDuration * easedProgress;
       animations.forEach(({ die, frames, startScale }) => {
           const frame = interpolateKeyframes(frames, sampleTime);
+          die.animationProgress = easedProgress;
           die.mesh.position.set(frame.position.x, frame.position.y, frame.position.z);
           die.mesh.quaternion.set(frame.quaternion.x, frame.quaternion.y, frame.quaternion.z, frame.quaternion.w);
           die.mesh.scale.setScalar(THREE.MathUtils.lerp(
@@ -1654,9 +1671,12 @@ export class DiceEngine {
           die.mesh.position.copy(die.targetPosition);
           die.mesh.quaternion.copy(die.arrangementTargetQuaternion);
           die.mesh.scale.setScalar(die.targetScale || die.baseScale || 1);
+          die.mesh.castShadow = false;
         });
         this.authoritativeAnimationPhase = 'idle';
         this.isRollSettling = false;
+        this.updateArrangementShadows(0);
+        this.renderer.render(this.scene, this.camera);
         resolve(true);
       };
       requestAnimationFrame(tick);
@@ -1910,7 +1930,7 @@ export class DiceEngine {
         const materials = getMaterialForDie(config);
 
         const mesh = new THREE.Mesh(geometry, materials);
-        mesh.castShadow = true;
+        mesh.castShadow = false;
         mesh.receiveShadow = true;
         this.scene.add(mesh);
 
@@ -2198,7 +2218,7 @@ export class DiceEngine {
       const val = valuesArray[i];
       const config = { type: 'normal' };
       const mesh = new THREE.Mesh(geometry, getMaterialForDie(config));
-      mesh.castShadow = true;
+      mesh.castShadow = false;
       mesh.receiveShadow = true;
 
       const rot = this.getTargetRotationForValue(val, new THREE.Vector3(0, 0, 0), config);
@@ -2228,7 +2248,7 @@ export class DiceEngine {
       };
       const geometry = config.type === 'octahedron' ? this.octGeoCache : this.diceGeometry;
       const mesh = new THREE.Mesh(geometry, getMaterialForDie(config));
-      mesh.castShadow = true;
+      mesh.castShadow = false;
       mesh.receiveShadow = true;
       const rotation = this.getTargetRotationForValue(serverDie.value, new THREE.Vector3(0, 0, 0), config);
       if (rotation) mesh.quaternion.copy(rotation);
@@ -2441,17 +2461,6 @@ export class DiceEngine {
         ? die.mesh.quaternion.clone()
         : this.getTargetRotationForValue(die.value, die.targetPosition, die.config);
       die.arrangementTargetQuaternion = die.targetQuaternion.clone();
-      if (die.isKept) {
-        const tiltMultiplier = KEEP_DIE_TILT.byType[die.config?.type] || 1;
-        die.arrangementTargetQuaternion.premultiply(
-          new THREE.Quaternion().setFromAxisAngle(KEEP_DIE_TILT.axis, KEEP_DIE_TILT.angle * tiltMultiplier)
-        );
-      } else {
-        die.arrangementTargetQuaternion.premultiply(
-          new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), ARRANGEMENT_CAMERA_TILT)
-        );
-      }
-
       // 애니메이션 대상이 아닌 주사위(상태 변화 없는 주사위)는 즉시 목표 위치에 고정
       if (die.animationProgress === undefined || die.animationProgress >= 1.0) {
         die.mesh.position.copy(die.targetPosition);
@@ -2459,6 +2468,14 @@ export class DiceEngine {
         die.mesh.scale.setScalar(die.targetScale || die.baseScale || 1);
       }
     });
+
+    this.diceArray.forEach(die => {
+      if (die.isKept) return;
+      const shadow = this.createArrangementShadow(die);
+      shadow.userData.hasSettled = false;
+    });
+    this.updateArrangementShadows(0);
+    this.startRenderLoop();
   }
 
   getScreenAlignedPoint(surfacePoint, targetY) {
@@ -2476,7 +2493,7 @@ export class DiceEngine {
     const material = new THREE.MeshBasicMaterial({
       map: this.arrangementShadowTexture,
       transparent: true,
-      opacity: 0.62,
+      opacity: 0.82,
       depthWrite: false,
       toneMapped: false
     });
@@ -2484,19 +2501,42 @@ export class DiceEngine {
     shadow.rotation.x = -Math.PI / 2;
     shadow.renderOrder = 2;
     shadow.visible = false;
-    shadow.userData.baseOpacity = 0.62;
+    shadow.raycast = () => {};
+    shadow.userData.baseOpacity = 0.82;
     shadow.userData.hasSettled = false;
     this.scene.add(shadow);
     die.arrangementShadow = shadow;
     return shadow;
   }
 
+  createRollingShadow(die) {
+    if (die.rollingShadow) return die.rollingShadow;
+
+    const material = new THREE.MeshBasicMaterial({
+      map: this.arrangementShadowTexture,
+      transparent: true,
+      opacity: ROLLING_SHADOW_OPACITY,
+      depthWrite: false,
+      toneMapped: false
+    });
+    const shadow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.renderOrder = 1;
+    shadow.visible = false;
+    shadow.raycast = () => {};
+    this.scene.add(shadow);
+    die.rollingShadow = shadow;
+    return shadow;
+  }
+
   removeArrangementShadow(die) {
-    if (!die.arrangementShadow) return;
-    this.scene.remove(die.arrangementShadow);
-    die.arrangementShadow.geometry.dispose();
-    die.arrangementShadow.material.dispose();
+    [die.arrangementShadow, die.rollingShadow].filter(Boolean).forEach(shadow => {
+      this.scene.remove(shadow);
+      shadow.geometry.dispose();
+      shadow.material.dispose();
+    });
     die.arrangementShadow = null;
+    die.rollingShadow = null;
   }
 
   updateArrangementShadows(dt) {
@@ -2511,23 +2551,44 @@ export class DiceEngine {
 
     this.diceArray.forEach(die => {
       const shadow = die.arrangementShadow;
+      const rollingShadow = die.rollingShadow;
 
       // 킵되는 주사위는 기존 그림자를 짧게 지워 자연스럽게 정리한다.
       if (die.isKept) {
-        if (shadow?.visible) {
+        [shadow, rollingShadow].filter(item => item?.visible).forEach(item => {
           const shadowPosition = clampShadowPosition(
             die.mesh.position.x + ARRANGEMENT_SHADOW_OFFSET.x,
             die.mesh.position.z + ARRANGEMENT_SHADOW_OFFSET.z
           );
-          shadow.position.set(shadowPosition.x, floorY + 0.035, shadowPosition.z);
-          shadow.material.opacity = Math.max(0, shadow.material.opacity - dt * 4);
-          shadow.visible = shadow.material.opacity > 0.01;
+          item.position.set(shadowPosition.x, floorY + 0.035, shadowPosition.z);
+          item.material.opacity = Math.max(0, item.material.opacity - dt * 4);
+          item.visible = item.material.opacity > 0.01;
+        });
+        return;
+      }
+
+      const isRolling = this.physicsActive || this.authoritativeAnimationPhase === 'throw';
+      if (isRolling) {
+        if (!isInsidePlayBounds(die.mesh.position, playBounds)) {
+          if (shadow) shadow.visible = false;
+          if (rollingShadow) rollingShadow.visible = false;
+          return;
         }
+        const liveRollingShadow = this.createRollingShadow(die);
+        const shadowPosition = clampShadowPosition(
+          die.mesh.position.x + ARRANGEMENT_SHADOW_OFFSET.x,
+          die.mesh.position.z + ARRANGEMENT_SHADOW_OFFSET.z
+        );
+        liveRollingShadow.position.set(shadowPosition.x, floorY + 0.035, shadowPosition.z);
+        liveRollingShadow.rotation.z = getGroundShadowRotation(die.mesh.quaternion);
+        liveRollingShadow.scale.set(DIE_SIZE * 1.5, DIE_SIZE * 1.5, 1);
+        liveRollingShadow.material.opacity = ROLLING_SHADOW_OPACITY;
+        liveRollingShadow.visible = true;
+        if (shadow) shadow.visible = false;
         return;
       }
 
       const isArrangedActiveDie = !this.physicsActive
-        && !this.isRollSettling
         && !die.isDead
         && !die.isClearing
         && !die.isSpecialClearing
@@ -2535,6 +2596,7 @@ export class DiceEngine {
 
       if (!isArrangedActiveDie) {
         if (shadow) shadow.visible = false;
+        if (rollingShadow) rollingShadow.visible = false;
         return;
       }
 
@@ -2555,6 +2617,11 @@ export class DiceEngine {
       arrangementShadow.scale.set(DIE_SIZE * 1.82, DIE_SIZE * 1.82, 1);
       arrangementShadow.material.opacity = arrangementShadow.userData.baseOpacity * fadeProgress;
       arrangementShadow.visible = fadeProgress > 0.01;
+      if (rollingShadow) {
+        rollingShadow.position.copy(arrangementShadow.position);
+        rollingShadow.material.opacity = ROLLING_SHADOW_OPACITY * (1 - fadeProgress);
+        rollingShadow.visible = rollingShadow.material.opacity > 0.01;
+      }
       if (progress >= 1) {
         arrangementShadow.userData.hasSettled = true;
       }
@@ -2756,6 +2823,9 @@ export class DiceEngine {
     this.trayModel?.update(dt);
 
     if (this.physicsActive) {
+      this.diceArray.forEach(die => {
+        if (!die.isKept) die.mesh.castShadow = false;
+      });
       const physicsDt = Math.min(dt, 0.1);
       this.physicsElapsed = (this.physicsElapsed ?? 0) + physicsDt;
       if (this.boundaryMode === BOUNDARY_MODES.INGRESS) {
