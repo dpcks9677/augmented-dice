@@ -19,7 +19,7 @@ const modificationAugmentIds = new Set([
 ]);
 const questAugmentIds = new Set([
   'yacht-bank', 'fast-straight', 'no-time-to-waste', 'step-by-step', 'two-households',
-  'holdout', 'cautious-straight', 'every-little', 'copycat', 'doubling', 'nozdormu', 'bounty-hunter'
+  'holdout', 'cautious-straight', 'every-little', 'copycat', 'doubling', 'nozdormu', 'bounty-hunter', 'prophet'
 ]);
 const diceAugmentIds = new Set([
   'weighted-dice', 'golden-die', '8-sided', 'strange-die', 'promotion-die', 'couple-dice', 'sevens-dice'

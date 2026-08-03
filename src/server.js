@@ -8,7 +8,8 @@ import {
   rollDice,
   scoreCategory,
   selectAugment,
-  setDieKept
+  setDieKept,
+  useAugmentAction
 } from "./authoritativeGame.js";
 import MatchmakingServer from "./matchmakingServer.js";
 import { verifyFirebaseIdToken } from "./firebaseToken.js";
@@ -713,6 +714,9 @@ export class DiceServer {
           break;
         case "game_select_augment":
           selectAugment(this.authoritativeState, playerIndex, data.augmentId);
+          break;
+        case "game_augment_action":
+          useAugmentAction(this.authoritativeState, playerIndex, data.augmentId);
           break;
         default:
           conn.send(JSON.stringify({ type: "error", code: "UNKNOWN_GAME_COMMAND", message: "알 수 없는 게임 명령임." }));

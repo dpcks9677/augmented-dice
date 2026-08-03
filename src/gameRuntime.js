@@ -115,6 +115,16 @@ let equivalentExchangeUses = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let equivalentExchangePenalty = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let equivalentExchangeTurnUses = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let questProgress = { 1: {}, 2: {}, 3: {}, 4: {} };
+let globalBonus = { 1: 0, 2: 0, 3: 0, 4: 0 };
+let draftSelections = { 1: 0, 2: 0, 3: 0, 4: 0 };
+let duelState = { 1: null, 2: null, 3: null, 4: null };
+let coinTossState = { 1: { used: false }, 2: { used: false }, 3: { used: false }, 4: { used: false } };
+let randomBoxAward = { 1: null, 2: null, 3: null, 4: null };
+let prophetState = { 1: null, 2: null, 3: null, 4: null };
+let gambitState = { 1: 'ready', 2: 'ready', 3: 'ready', 4: 'ready' };
+let doubleDownState = { 1: 'ready', 2: 'ready', 3: 'ready', 4: 'ready' };
+let piggyBankState = { 1: { balance: 0, payouts: 0 }, 2: { balance: 0, payouts: 0 }, 3: { balance: 0, payouts: 0 }, 4: { balance: 0, payouts: 0 } };
+let diceAlchemyUsed = { 1: false, 2: false, 3: false, 4: false };
 
 function getPlayerAugments(player) {
   return Object.values(activeAugments[player] || {});
@@ -124,6 +134,34 @@ function hasAugment(player, augmentId) {
   return getPlayerAugments(player).includes(augmentId);
 }
 
+function generateLocalProphetNumbers(player) {
+  const emptyCategories = categories.filter((category) => !category.isDivider && scores[player]?.[category.id] === undefined);
+  const candidates = new Set();
+  const dice = Array(5).fill(1);
+  const visit = (index) => {
+    if (index === dice.length) {
+      const possible = calculateScores(dice, activeAugments[player] || {}, { bank: yachtBankState[player]?.accumulatedScore || 0 });
+      emptyCategories.forEach((category) => {
+        const result = possible[category.id];
+        const value = typeof result === 'object' ? (Number(result.score) || 0) + (Number(result.bonus) || 0) : Number(result) || 0;
+        if (value >= 1 && value <= 30) candidates.add(value);
+      });
+      return;
+    }
+    for (let value = 1; value <= 6; value++) {
+      dice[index] = value;
+      visit(index + 1);
+    }
+  };
+  visit(0);
+  for (let value = 1; candidates.size < 3 && value <= 30; value++) candidates.add(value);
+  const list = [...candidates];
+  for (let index = list.length - 1; index > 0; index--) {
+    const target = Math.floor(Math.random() * (index + 1));
+    [list[index], list[target]] = [list[target], list[index]];
+  }
+  return list.slice(0, 3);
+}
 let momentumState = { 1: 'ready', 2: 'ready', 3: 'ready', 4: 'ready' };
 let momentumGainedScore = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let bountyHunterTarget = { 1: null, 2: null, 3: null, 4: null };
@@ -1658,6 +1696,16 @@ function resetGameSession() {
       p4: { questBonus: 0 }
     };
   }
+  globalBonus = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  draftSelections = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  duelState = { 1: null, 2: null, 3: null, 4: null };
+  coinTossState = { 1: { used: false }, 2: { used: false }, 3: { used: false }, 4: { used: false } };
+  randomBoxAward = { 1: null, 2: null, 3: null, 4: null };
+  prophetState = { 1: null, 2: null, 3: null, 4: null };
+  gambitState = { 1: 'ready', 2: 'ready', 3: 'ready', 4: 'ready' };
+  doubleDownState = { 1: 'ready', 2: 'ready', 3: 'ready', 4: 'ready' };
+  piggyBankState = { 1: { balance: 0, payouts: 0 }, 2: { balance: 0, payouts: 0 }, 3: { balance: 0, payouts: 0 }, 4: { balance: 0, payouts: 0 } };
+  diceAlchemyUsed = { 1: false, 2: false, 3: false, 4: false };
   if (typeof disconnectGrace !== 'undefined') {
     disconnectGrace[1] = 60; disconnectGrace[2] = 60; disconnectGrace[3] = 60; disconnectGrace[4] = 60;
   }
@@ -1892,6 +1940,8 @@ function startMultiplayerGame() {
   scores = { 1: {}, 2: {} };
   activeAugments = { 1: {}, 2: {} };
   upperBonusThreshold = { 1: 63, 2: 63 };
+  globalBonus = { 1: 0, 2: 0 };
+  draftSelections = { 1: 0, 2: 0 };
   destroyedStrangeDice = { 1: false, 2: false };
   promotionConsumed = { 1: false, 2: false };
   playerTableFlipUsed = { 1: false, 2: false };
@@ -2073,6 +2123,7 @@ async function applyAuthoritativeState(state, action = null) {
   equivalentExchangePenalty = state.equivalentExchangePenalty || equivalentExchangePenalty;
   equivalentExchangeTurnUses = state.equivalentExchangeTurnUses || equivalentExchangeTurnUses;
   questProgress = state.questProgress || questProgress;
+  globalBonus = state.globalBonus || globalBonus;
   momentumState = state.momentumState || momentumState;
   bountyHunterTarget = state.bountyHunterTarget || bountyHunterTarget;
   bountyHunterAcquiredRound = state.bountyHunterAcquiredRound || bountyHunterAcquiredRound;
@@ -2202,6 +2253,8 @@ async function applyAuthoritativeState(state, action = null) {
       }
     } else if (action.kind === 'game_select_augment') {
       addGameLog({ type: 'augment-action', player: action.player, meta: { augmentId: action.augmentId } }, 'augment-action', false, action.player);
+    } else if (action.kind === 'game_augment_action') {
+      addGameLog({ type: 'augment-action', player: action.player, meta: { augmentId: action.augmentId } }, 'augment-action', false, action.player);
     } else if (action.kind === 'timeout') {
       addGameLog({ type: 'timeout', player: action.player, meta: { catId: action.catId, score: action.score ?? 0 } }, 'timeout', false, action.player);
     }
@@ -2212,7 +2265,8 @@ async function applyAuthoritativeState(state, action = null) {
     if (isLocalAugmentProgressPlayer(state.currentPlayer) && Number(state.currentRound) === 9 && getPlayerAugments(Number(state.currentPlayer)).includes('table-flip')) {
       const totalOf = (player) => Object.values(state.scores?.[player] || {}).reduce((total, entry) =>
         total + (typeof entry === 'object' ? (Number(entry?.score) || 0) + (Number(entry?.bonus) || 0) : Number(entry) || 0), 0
-      ) + (Number(state.questProgress?.[player]?.questBonus) || 0);
+      ) + (Number(state.questProgress?.[player]?.questBonus) || 0)
+        + (Number(state.globalBonus?.[player]) || 0);
       const myTotal = totalOf(Number(state.currentPlayer));
       augmentProgressSession.achievementState.flags.tableFlipBehindAtRound9 = Object.keys(state.scores || {})
         .some((player) => Number(player) !== Number(state.currentPlayer) && totalOf(player) > myTotal);
@@ -2363,6 +2417,7 @@ function showAugmentSelectionModal(player, onSelect) {
       recordAugmentSelection(augmentProgressSession, aug.augmentId);
     }
     if (window.applyAugment) window.applyAugment(player, aug.augmentId);
+    draftSelections[player] = (draftSelections[player] || 0) + 1;
     if (onSelect) {
       onSelect();
     }
@@ -2668,7 +2723,7 @@ function startTurn() {
     if (currentRound === 9 && getPlayerAugments(currentPlayer).includes('table-flip')) {
       const totalOf = (player) => Object.values(scores[player] || {}).reduce((total, value) =>
         total + (typeof value === 'object' ? value.score + (value.bonus || 0) : value), 0
-      ) + (questProgress[player]?.questBonus || 0);
+      ) + (questProgress[player]?.questBonus || 0) + (globalBonus[player] || 0);
       const myTotal = totalOf(currentPlayer);
       augmentProgressSession.achievementState.flags.tableFlipBehindAtRound9 = Array.from({ length: getActivePlayerCount() }, (_, index) => index + 1)
         .some((player) => player !== currentPlayer && !forfeitedPlayers[player] && totalOf(player) > myTotal);
@@ -2698,6 +2753,11 @@ function startTurn() {
     isViewingOpponentAugments = false;
   }
   updateQuestProgress(currentPlayer, null, null);
+  if (gambitState[currentPlayer] === 'pending-reward') gambitState[currentPlayer] = 'reward';
+  const prophet = prophetState[currentPlayer];
+  if (prophet?.remaining > 0) {
+    prophet.numbers = generateLocalProphetNumbers(currentPlayer);
+  }
 
   // 게임 최선두 1라운드 P1 시작 시 '게임 시작!' 로그 기록
   if (currentRound === 1 && currentPlayer === 1 && (!window.matchLogHistory || window.matchLogHistory.length === 0)) {
@@ -2790,7 +2850,7 @@ function startTurn() {
 
   if (gameMode === 'augmented' || gameMode === 'augmented-hotseat') {
     const isDraftRound = (currentRound === 1 || currentRound === 6 || currentRound === 9);
-    const currentAugCount = Object.keys(activeAugments[currentPlayer] || {}).length;
+    const currentAugCount = draftSelections[currentPlayer] || 0;
     let expectedCount = 0;
     if (currentRound >= 1) expectedCount = 1;
     if (currentRound >= 6) expectedCount = 2;
@@ -2806,7 +2866,7 @@ function startTurn() {
 
       showAugmentSelectionModal(currentPlayer, () => {
         if (currentPlayer === 1) {
-          const p2Count = Object.keys(activeAugments[2] || {}).length;
+          const p2Count = draftSelections[2] || 0;
           if (p2Count < expectedCount) {
             if (typeof updateAugmentSidebar === 'function') updateAugmentSidebar(2);
             showAugmentSelectionModal(2, () => {
@@ -2858,7 +2918,7 @@ function updateRollsUI(isRolling = false) {
 
   if (typeof diceEngine !== 'undefined' && diceEngine) {
     const activeAugmentsList = getPlayerAugments(currentPlayer);
-    let baseDiceCount = 5;
+    let baseDiceCount = gambitState[currentPlayer] === 'penalty' ? 4 : gambitState[currentPlayer] === 'reward' ? 6 : 5;
     const totalDiceAllowed = baseDiceCount + (activeAugmentsList.includes('strange-die') && !destroyedStrangeDice[currentPlayer] ? 1 : 0);
 
     // 요트 뱅크 활성화 기간 조건: 증강 보유 중이고 퀘스트 미완료이며 turnsLeft가 남아있거나 방금 선택된 턴인 경우
@@ -2941,23 +3001,24 @@ els.btnRoll.addEventListener('click', async () => {
 
   // 구성(config) 생성
   const activeAugmentsList = getPlayerAugments(currentPlayer);
-  let baseDiceCount = 5;
+  const gambitActive = gambitState[currentPlayer] === 'penalty' || gambitState[currentPlayer] === 'reward';
+  let baseDiceCount = gambitState[currentPlayer] === 'penalty' ? 4 : gambitState[currentPlayer] === 'reward' ? 6 : 5;
   const specialConfigs = [];
 
-  if (activeAugmentsList.includes('strange-die') && !destroyedStrangeDice[currentPlayer]) {
+  if (!gambitActive && activeAugmentsList.includes('strange-die') && !destroyedStrangeDice[currentPlayer]) {
     specialConfigs.push({ type: 'weird' });
   }
-  if (activeAugmentsList.includes('promotion-die') && !promotionConsumed[currentPlayer]) {
+  if (!gambitActive && activeAugmentsList.includes('promotion-die') && !promotionConsumed[currentPlayer]) {
     const acqRound = promotionAcquiredRound[currentPlayer] || currentRound;
     const pLevel = Math.max(0, currentRound - acqRound);
     specialConfigs.push({ type: 'promotion', promotionLevel: pLevel });
   }
 
-  let heavyCount = activeAugmentsList.includes('weighted-dice') ? 1 : 0;
-  let goldenCount = activeAugmentsList.includes('golden-die') ? 1 : 0;
-  let octCount = activeAugmentsList.includes('8-sided') ? 2 : 0;
-  let coupleCount = activeAugmentsList.includes('couple-dice') ? 2 : 0;
-  let sevensCount = activeAugmentsList.includes('sevens-dice') ? 2 : 0;
+  let heavyCount = !gambitActive && activeAugmentsList.includes('weighted-dice') ? 1 : 0;
+  let goldenCount = !gambitActive && activeAugmentsList.includes('golden-die') ? 1 : 0;
+  let octCount = !gambitActive && activeAugmentsList.includes('8-sided') ? 2 : 0;
+  let coupleCount = !gambitActive && activeAugmentsList.includes('couple-dice') ? 2 : 0;
+  let sevensCount = !gambitActive && activeAugmentsList.includes('sevens-dice') ? 2 : 0;
 
   // 킵된 주사위에서 소모된 수량 차감
   const keptConfigs = diceEngine.diceArray.filter(d => d.isKept).map(d => d.config.type);
@@ -2983,7 +3044,7 @@ els.btnRoll.addEventListener('click', async () => {
   for (let i = 0; i < coupleCount; i++) specialConfigs.push({ type: 'couple' });
   for (let i = 0; i < sevensCount; i++) specialConfigs.push({ type: 'sevens' });
 
-  const totalDiceAllowed = baseDiceCount + (activeAugmentsList.includes('strange-die') && !destroyedStrangeDice[currentPlayer] ? 1 : 0);
+  const totalDiceAllowed = baseDiceCount + (!gambitActive && activeAugmentsList.includes('strange-die') && !destroyedStrangeDice[currentPlayer] ? 1 : 0);
   const normalCountToRoll = totalDiceAllowed - keptConfigs.length - specialConfigs.length;
 
   for (let i = 0; i < normalCountToRoll; i++) specialConfigs.push({ type: 'normal' });
@@ -3115,11 +3176,13 @@ function previewScores(diceArray) {
 
     const scoreObj = typeof potentialScores[cat.id] === 'object' ? { ...potentialScores[cat.id] } : { score: potentialScores[cat.id], bonus: 0 };
 
-    // 추진력 발동 준비(active) 상태 시 예상 점수에 1.5배 가산분 미리보기 추가
+    // 추진력과 더블 다운은 각각 +0.5배를 합산한다.
     const playerAugments = getPlayerAugments(currentPlayer);
-    if (playerAugments.includes('momentum') && momentumState[currentPlayer] === 'active' && scoreObj.score > 0) {
+    const multiplierBoost = (playerAugments.includes('momentum') && momentumState[currentPlayer] === 'active' ? 0.5 : 0)
+      + (doubleDownState[currentPlayer] === 'active' ? 0.5 : 0);
+    if (multiplierBoost > 0 && scoreObj.score > 0) {
       const origTotal = scoreObj.score + (scoreObj.bonus || 0);
-      const newTotal = Math.floor(origTotal * 1.5);
+      const newTotal = Math.floor(origTotal * (1 + multiplierBoost));
       const mBonus = newTotal - origTotal;
       scoreObj.bonus = (scoreObj.bonus || 0) + mBonus;
     }
@@ -3234,18 +3297,21 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
   // scoreInfo might be an object { score, bonus } or a number
   let scoreObj = typeof scoreInfo === 'object' ? scoreInfo : { score: scoreInfo, bonus: 0, bonusDetails: [] };
 
-  // 추진력 (momentum) 증강 처리 로직
+  // 추진력과 더블 다운 배율 처리
   const playerAugments = getPlayerAugments(currentPlayer);
+  const momentumActive = playerAugments.includes('momentum') && momentumState[currentPlayer] === 'active';
+  const doubleDownActive = doubleDownState[currentPlayer] === 'active';
+  const multiplierBoost = (momentumActive ? 0.5 : 0) + (doubleDownActive ? 0.5 : 0);
   if (playerAugments.includes('momentum')) {
     if (!momentumState[currentPlayer]) momentumState[currentPlayer] = 'ready';
 
     if (momentumState[currentPlayer] === 'ready' && scoreObj.score === 0) {
       momentumState[currentPlayer] = 'active';
       addGameLog({ type: 'system', message: `${getPlayerLabel(currentPlayer)}의 [추진력] 증강이 발동 준비되었습니다! (다음 턴 점수 획득 시 1.5배)` }, 'system', window.isMultiplayer, currentPlayer);
-    } else if (momentumState[currentPlayer] === 'active' && scoreObj.score > 0) {
+    } else if (momentumActive && scoreObj.score > 0) {
       const originalScore = scoreObj.score;
       const totalOriginal = originalScore + (scoreObj.bonus || 0);
-      const newTotal = Math.floor(totalOriginal * 1.5);
+      const newTotal = Math.floor(totalOriginal * (1 + multiplierBoost));
       const momentumBonus = newTotal - totalOriginal;
 
       scoreObj.bonus = (scoreObj.bonus || 0) + momentumBonus;
@@ -3260,8 +3326,18 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
         augmentProgressSession.achievementState.flags.momentumTriggered = true;
       }
 
-      addGameLog({ type: 'system', message: `${getPlayerLabel(currentPlayer)}의 [추진력] 증강이 발동하여 획득 점수가 1.5배로 증가했습니다! (${newTotal}점 획득)` }, 'system', window.isMultiplayer, currentPlayer);
+      addGameLog({ type: 'system', message: `${getPlayerLabel(currentPlayer)}의 [추진력] 증강이 발동하여 획득 점수가 ${multiplierBoost === 1 ? 2 : 1.5}배로 증가했습니다! (${newTotal}점 획득)` }, 'system', window.isMultiplayer, currentPlayer);
     }
+  }
+  if (doubleDownActive) {
+    if (!momentumActive && scoreObj.score > 0) {
+      const totalOriginal = scoreObj.score + (scoreObj.bonus || 0);
+      const bonus = Math.floor(totalOriginal * 1.5) - totalOriginal;
+      scoreObj.bonus = (scoreObj.bonus || 0) + bonus;
+      scoreObj.bonusDetails ||= [];
+      scoreObj.bonusDetails.push({ value: bonus, color: '#c084fc' });
+    }
+    doubleDownState[currentPlayer] = 'used';
   }
 
   // 현상금 사냥꾼 타겟 기입 검증 및 진행도 누적
@@ -3310,6 +3386,40 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
   }
 
   scores[currentPlayer][catId] = scoreObj;
+
+  const recordedScore = (Number(scoreObj.score) || 0) + (Number(scoreObj.bonus) || 0);
+  const prophet = prophetState[currentPlayer];
+  if (prophet?.remaining > 0) {
+    if (prophet.numbers.includes(recordedScore)) {
+      globalBonus[currentPlayer] = (globalBonus[currentPlayer] || 0) + 7;
+      prophet.successes = (prophet.successes || 0) + 1;
+    }
+    prophet.remaining--;
+  }
+
+  for (let owner = 1; owner <= 2; owner++) {
+    const duel = duelState[owner];
+    if (!duel || duel.resolved || duel.round !== currentRound) continue;
+    const opponent = owner === 1 ? 2 : 1;
+    if (currentPlayer === owner) duel.ownerScore = recordedScore;
+    if (currentPlayer === opponent) duel.opponentScore = recordedScore;
+    if (duel.ownerScore == null || duel.opponentScore == null) continue;
+    if (duel.ownerScore > duel.opponentScore) globalBonus[owner] = (globalBonus[owner] || 0) + 10;
+    else if (duel.ownerScore === duel.opponentScore) globalBonus[owner] = (globalBonus[owner] || 0) + 5;
+    duel.resolved = true;
+  }
+
+  if (activeAugmentsList.includes('piggy-bank')) {
+    const piggy = piggyBankState[currentPlayer] || (piggyBankState[currentPlayer] = { balance: 0, payouts: 0 });
+    piggy.balance += rollsLeft * 3;
+    if (piggy.balance >= 12) {
+      globalBonus[currentPlayer] = (globalBonus[currentPlayer] || 0) + 12;
+      piggy.balance = 0;
+      piggy.payouts++;
+    }
+  }
+  if (gambitState[currentPlayer] === 'penalty') gambitState[currentPlayer] = 'pending-reward';
+  else if (gambitState[currentPlayer] === 'reward') gambitState[currentPlayer] = 'used';
 
   if (isLocalAugmentProgressPlayer()) {
     const achievementFlags = augmentProgressSession.achievementState.flags;
@@ -3563,7 +3673,7 @@ function didLocalPlayerWin(player) {
   const scoreOf = (target) => Object.entries(scores[target] || {}).reduce((total, [key, value]) => {
     if (key === 'bonus') return total + (typeof value === 'object' ? value.score + (value.bonus || 0) : value);
     return total + (typeof value === 'object' ? value.score + (value.bonus || 0) : value);
-  }, 0) + (questProgress[target]?.questBonus || 0) +
+  }, 0) + (questProgress[target]?.questBonus || 0) + (globalBonus[target] || 0) +
     ((activeAugments[target]?.yacht === 'yacht-bank' && scores[target]?.yacht === undefined)
       ? Math.min(yachtBankState[target]?.accumulatedScore || 0, 15) : 0);
   const myScore = scoreOf(player);
@@ -3683,7 +3793,7 @@ function endGame(serverConfirmed = false) {
     if (activeAugments[p] && activeAugments[p]['yacht'] === 'yacht-bank' && (scores[p] && scores[p]['yacht'] === undefined)) {
       tot += Math.min(yachtBankState[p]?.accumulatedScore || 0, 15);
     }
-    tot += (questProgress[p]?.questBonus || 0);
+    tot += (questProgress[p]?.questBonus || 0) + (globalBonus[p] || 0);
     tot -= (equivalentExchangePenalty[p] || 0);
 
     const pData = (window.initialMatchPlayers && window.initialMatchPlayers[p - 1])
@@ -3844,11 +3954,12 @@ async function saveMatchData() {
     const nickname = pInfo?.nickname || `Player ${p}`;
     const avatarUrl = pInfo?.avatarUrl || null;
     const qBonus = (questProgress[p]?.questBonus || 0);
+    const augmentBonus = globalBonus[p] || 0;
     let totScore = Object.values(scores[p] || {}).reduce(sumObj, 0);
     if (activeAugments[p] && activeAugments[p]['yacht'] === 'yacht-bank' && (scores[p] && scores[p]['yacht'] === undefined)) {
       totScore += Math.min(yachtBankState[p]?.accumulatedScore || 0, 15);
     }
-    totScore += qBonus;
+    totScore += qBonus + augmentBonus;
     const isForfeited = Boolean(forfeitedPlayers[p]);
 
     addUidToPlayerUids(rawUid);
@@ -3869,6 +3980,7 @@ async function saveMatchData() {
     if (qBonus > 0) {
       playerScores['questBonus'] = qBonus;
     }
+    if (augmentBonus !== 0) playerScores['augmentBonus'] = augmentBonus;
     const upperScore = ['aces', 'deuces', 'threes', 'fours', 'fives', 'sixes']
       .reduce((total, category) => total + (Number(playerScores[category]) || 0), 0);
     const upperBonusAchieved = gameMode === 'normal' && upperScore >= 63;
@@ -4219,6 +4331,7 @@ function updateScoreboard() {
     }
 
     const qBonus = questProgress[p]?.questBonus || 0;
+    const augmentBonus = globalBonus[p] || 0;
     const eePenalty = equivalentExchangePenalty[p] || 0;
 
     const pTotalEl = document.getElementById(`p${p}-total`);
@@ -4226,6 +4339,9 @@ function updateScoreboard() {
       let html = `${baseTotal}`;
       if (qBonus > 0) {
         html += ` <span style="color: #D4AF37; font-weight: bold;">+${qBonus}</span>`;
+      }
+      if (augmentBonus !== 0) {
+        html += ` <span style="color: #c084fc; font-weight: bold;">${augmentBonus > 0 ? '+' : ''}${augmentBonus}</span>`;
       }
       if (eePenalty > 0) {
         html += ` <span style="color: #ef4444; font-weight: bold;">-${eePenalty}</span>`;
@@ -4479,6 +4595,49 @@ function updateQuestProgress(player, catId, scoreObj) {
 // -----------------------------------------------------
 // 5. 디버그 도구
 // -----------------------------------------------------
+function applyLocalAugmentAction(player, augmentId) {
+  if (player !== currentPlayer || diceEngine?.physicsActive) return false;
+
+  if (augmentId === 'coin-toss') {
+    if (rollsLeft === 3 || coinTossState[player]?.used) return false;
+    const heads = Array.from({ length: 3 }, () => Math.random() < 0.5 ? 0 : 1).reduce((sum, value) => sum + value, 0);
+    coinTossState[player] = { used: true, heads };
+    if (heads === 0) globalBonus[player] = (globalBonus[player] || 0) - 5;
+    else if (heads === 1) {
+      const lowest = diceEngine.diceArray.reduce((found, die) => !found || die.value < found.value ? die : found, null);
+      if (lowest) lowest.value = 6;
+    } else if (heads === 2) rollsLeft++;
+    else upperBonusThreshold[player] = Math.min(upperBonusThreshold[player] || 63, 57);
+  } else if (augmentId === 'gambit') {
+    if (gambitState[player] !== 'ready' || rollsLeft !== 3) return false;
+    gambitState[player] = 'penalty';
+  } else if (augmentId === 'double-down') {
+    if (doubleDownState[player] !== 'ready' || currentRound < 9 || rollsLeft !== 3) return false;
+    doubleDownState[player] = 'active';
+  } else if (augmentId === 'dice-alchemy') {
+    if (rollsLeft === 3 || diceAlchemyUsed[player]) return false;
+    diceAlchemyUsed[player] = true;
+    diceEngine.diceArray.forEach((die) => {
+      if (!die.isKept) die.value = Math.max(1, die.value - 1);
+    });
+  } else return false;
+
+  const diceState = diceEngine.diceArray.map((die, index) => ({
+    id: die.serverId ?? index + 1,
+    type: die.config?.type || 'normal',
+    promotionLevel: die.config?.promotionLevel || 0,
+    value: die.value,
+    kept: die.isKept
+  }));
+  diceEngine.forceDiceState(diceState);
+  keptDice = diceEngine.diceArray.filter((die) => die.isKept && die.config.type !== 'weird').map((die) => die.value).sort((a, b) => a - b);
+  activeDice = diceEngine.diceArray.filter((die) => !die.isKept && die.config.type !== 'weird').map((die) => die.value).sort((a, b) => a - b);
+  updateRollsUI();
+  updateScorePreviews();
+  updateAugmentSidebar(player);
+  return true;
+}
+
 // 좌측 증강 섹션(UI) 업데이트 함수
 function getQuestProgressText(player, augmentId) {
   const p = (typeof player === 'string' && player.startsWith('p')) ? parseInt(player.slice(1), 10) : Number(player || 1);
@@ -4583,6 +4742,13 @@ function getQuestProgressText(player, augmentId) {
       }
       break;
 
+    case 'prophet': {
+      const prophet = authoritativeGameState?.prophetState?.[p] || prophetState[p] || { remaining: 0, numbers: [], successes: 0 };
+      if (prophet.remaining <= 0) status = 'completed';
+      const numbers = prophet.numbers.length ? prophet.numbers.join(', ') : '대기 중';
+      questLines.push(line(`제시 숫자 [${numbers}]와 같은 점수 기입 (${prophet.remaining}턴 남음)`, prophet.remaining <= 0));
+      break;
+    }
   }
 
   let resultHTML = '';
@@ -4695,6 +4861,28 @@ window.updateAugmentSidebar = function (player) {
       } else if (augmentId === 'equivalent-exchange') {
         const usesLeft = equivalentExchangeUses[targetPlayer] !== undefined ? equivalentExchangeUses[targetPlayer] : 3;
         extraHTML = `<div class="ee-uses-container" style="margin-top: auto; width: 100%; padding-top: 6px; font-size: 0.9em; text-align: left; font-weight: bold; color: #c084fc;">${usesLeft}번 남음!</div>`;
+      } else if (['coin-toss', 'gambit', 'double-down', 'dice-alchemy'].includes(augmentId)) {
+        const labels = {
+          'coin-toss': '코인 토스!',
+          gambit: '갬빗 시도!',
+          'double-down': '더블 다운!',
+          'dice-alchemy': '연금술 사용!'
+        };
+        const used = augmentId === 'coin-toss' ? (authoritativeGameState?.coinTossState?.[targetPlayer]?.used ?? coinTossState[targetPlayer]?.used)
+          : augmentId === 'gambit' ? (authoritativeGameState?.gambitState?.[targetPlayer] ?? gambitState[targetPlayer]) !== 'ready'
+            : augmentId === 'double-down' ? (authoritativeGameState?.doubleDownState?.[targetPlayer] ?? doubleDownState[targetPlayer]) !== 'ready'
+              : (authoritativeGameState?.diceAlchemyUsed?.[targetPlayer] ?? diceAlchemyUsed[targetPlayer]);
+        extraHTML = `<button class="btn-new-augment-action" data-augment-action="${augmentId}" ${used ? 'disabled' : ''}>${used ? '사용 완료' : labels[augmentId]}</button>`;
+      } else if (augmentId === 'piggy-bank') {
+        const piggy = authoritativeGameState?.piggyBankState?.[targetPlayer] || piggyBankState[targetPlayer] || { balance: 0, payouts: 0 };
+        extraHTML = `<div style="margin-top:auto;font-weight:bold;">저금 ${piggy.balance}/12 · 인출 ${piggy.payouts}회</div>`;
+      } else if (augmentId === 'duel') {
+        const duel = authoritativeGameState?.duelState?.[targetPlayer] || duelState[targetPlayer];
+        extraHTML = `<div style="margin-top:auto;font-weight:bold;">${duel?.resolved ? '결투 판정 완료' : '결투 판정 대기 중'}</div>`;
+      } else if (augmentId === 'random-box') {
+        const awarded = authoritativeGameState?.randomBoxAward?.[targetPlayer] || randomBoxAward[targetPlayer];
+        const awardedName = augmentDefinitions[awarded]?.name || '추첨 대기';
+        extraHTML = `<div style="margin-top:auto;font-weight:bold;">획득: ${awardedName}</div>`;
       }
 
       slot.classList.add('filled');
@@ -4800,6 +4988,20 @@ window.updateAugmentSidebar = function (player) {
           });
         }
       }
+      const actionButton = slot.querySelector('.btn-new-augment-action');
+      if (actionButton) {
+        actionButton.addEventListener('click', (event) => {
+          event.stopPropagation();
+          if (targetPlayer !== currentPlayer) return;
+          if (isAuthoritativeOnlineMatch()) {
+            if (targetPlayer !== Number(window.myPlayerIndex)) return;
+            actionButton.disabled = true;
+            networkEngine.sendMessage({ type: 'game_augment_action', augmentId: actionButton.dataset.augmentAction });
+          } else if (applyLocalAugmentAction(targetPlayer, actionButton.dataset.augmentAction)) {
+            actionButton.disabled = true;
+          }
+        });
+      }
     } else {
       slot.classList.remove('filled');
       let roundText = i === 0 ? "1턴" : (i === 1 ? "6턴" : "9턴");
@@ -4882,6 +5084,30 @@ window.applyAugment = function (player, augmentId, isRemote = false) {
     bountyHunterProgress[player] = { count: 0, penaltyCount: 0 };
     bountyHunterTarget[player] = null;
     bountyHunterAcquiredRound[player] = currentRound;
+  }
+
+  if (augmentId === 'duel') {
+    duelState[player] = { round: currentRound, ownerScore: null, opponentScore: null, resolved: false };
+  }
+
+  if (augmentId === 'random-box') {
+    upperBonusThreshold[player] = Math.min(upperBonusThreshold[player] || 63, 58);
+    const owned = getPlayerAugments(player);
+    const candidates = augmentData.filter((candidate) => candidate.isAvailable !== false
+      && candidate.type !== 'Quest'
+      && candidate.augmentId !== 'random-box'
+      && canAcquireAugment(owned, candidate.augmentId));
+    const awarded = candidates[Math.floor(Math.random() * candidates.length)]?.augmentId || null;
+    randomBoxAward[player] = awarded;
+    if (awarded) window.applyAugment(player, awarded, true);
+  }
+
+  if (augmentId === 'prophet') {
+    prophetState[player] = { remaining: 3, numbers: [], successes: 0 };
+  }
+
+  if (augmentId === 'piggy-bank') {
+    piggyBankState[player] = { balance: 0, payouts: 0 };
   }
 
   if (augmentId === 'doubling') {

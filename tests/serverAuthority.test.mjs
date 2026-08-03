@@ -114,6 +114,14 @@ assert.equal(rollMessageP2.action.animationSeed, undefined);
 assert.ok(Number.isInteger(rollMessageP2.action.animation?.presetIndex), "P2 첫 굴림 시 presetIndex가 존재해야 함");
 assert.equal(rollMessageP2.action.finalValues?.length, 5, "P2 첫 굴림 시 5개 주사위 finalValues가 존재해야 함");
 
+server.authoritativeState.activeAugments[2].eh14 = "coin-toss";
+await server.onMessage(JSON.stringify({ type: "game_augment_action", augmentId: "coin-toss" }), b);
+assert.equal(server.authoritativeState.coinTossState[2].used, true);
+assert.equal(
+  b.sent.findLast((message) => message.type === "authoritative_state")?.action?.kind,
+  "game_augment_action"
+);
+
 const lobbyServer = new DiceServer(null, {
   MATCHMAKING_PROFILE_URL: "https://example.test/profile",
   RATING_SETTLEMENT_SECRET: "test-secret"

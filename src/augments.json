@@ -414,5 +414,71 @@
     "reward": "보너스 +15점 획득",
     "description": "<strong><u>퀘스트</strong></u>: 매 턴마다 점수가 기입되지 않은 족보 중 무작위 하나가 타겟으로 지정됩니다. 타겟이 된 족보를 3회 기입합니다. <br><br>단, 스크래치(0점)로 기입 시 최종 보너스가 -3점씩 감소합니다.",
     "augmentId": "bounty-hunter"
+  },
+  {
+    "id": 49,
+    "name": "결투",
+    "en-name": "Duel",
+    "type": "Enhancement",
+    "description": "증강을 획득한 라운드에 상대와 결투합니다.<br><br>해당 라운드에 기입한 최종 점수가 더 높으면 보너스 10점을 획득하고, 동점이면 결투 보유자만 보너스 5점을 획득합니다.",
+    "augmentId": "duel"
+  },
+  {
+    "id": 50,
+    "name": "코인 토스",
+    "en-name": "Coin Toss",
+    "type": "Enhancement",
+    "description": "게임당 한 번, 첫 굴림 후 동전 3개를 던집니다.<br><br>앞면 0개는 -5점, 1개는 가장 낮은 주사위를 6으로 변경, 2개는 리롤 +1회, 3개는 상단 보너스 조건을 57점으로 낮춥니다.",
+    "augmentId": "coin-toss"
+  },
+  {
+    "id": 51,
+    "name": "랜덤 박스",
+    "en-name": "Random Box",
+    "type": "Enhancement",
+    "description": "획득 즉시 퀘스트를 제외한 무작위 증강 하나를 추가로 획득합니다.<br><br>동시에 상단 보너스 획득 조건을 58점으로 낮춥니다.",
+    "augmentId": "random-box"
+  },
+  {
+    "id": 52,
+    "name": "예지자",
+    "en-name": "Prophet",
+    "target": "q12",
+    "type": "Quest",
+    "reward": "일치할 때마다 보너스 +7점 획득",
+    "description": "<strong><u>퀘스트</strong></u>: 3턴 동안 매 턴 제시되는 1~30 사이 숫자 3개 중 하나와 동일한 점수로 족보에 기입합니다.<br><br>일치할 때마다 보너스 7점을 획득합니다.",
+    "augmentId": "prophet"
+  },
+  {
+    "id": 53,
+    "name": "갬빗",
+    "en-name": "Gambit",
+    "type": "Enhancement",
+    "description": "게임당 한 번, 굴리기 전에 갬빗을 선언합니다.<br><br>이번 턴에는 일반 주사위 4개, 다음 내 턴에는 일반 주사위 6개만 사용합니다.",
+    "augmentId": "gambit"
+  },
+  {
+    "id": 54,
+    "name": "더블 다운",
+    "en-name": "Double Down",
+    "type": "Enhancement",
+    "description": "9턴부터 게임당 한 번, 굴리기 전에 선언할 수 있습니다.<br><br>이번 턴 유효 점수를 1.5배로 만들며, 추진력과 함께 발동하면 2배로 적용합니다.",
+    "augmentId": "double-down"
+  },
+  {
+    "id": 55,
+    "name": "저금통",
+    "en-name": "Piggy Bank",
+    "type": "Enhancement",
+    "description": "턴 종료 시 남은 리롤 1회당 3점을 저금합니다.<br><br>저금액이 12점에 도달하면 즉시 보너스 12점을 획득하고 저금통을 비웁니다.",
+    "augmentId": "piggy-bank"
+  },
+  {
+    "id": 56,
+    "name": "주사위 연금술",
+    "en-name": "Dice Alchemy",
+    "type": "Enhancement",
+    "description": "게임당 한 번, 현재 굴림 존의 모든 주사위 눈을 1씩 낮춥니다.<br><br>주사위 눈은 1보다 낮아지지 않으며 킵한 주사위는 변경하지 않습니다.",
+    "augmentId": "dice-alchemy"
   }
 ]

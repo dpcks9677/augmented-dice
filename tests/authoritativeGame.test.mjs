@@ -10,7 +10,8 @@ import {
   rollDice,
   scoreCategory,
   selectAugment,
-  setDieKept
+  setDieKept,
+  useAugmentAction
 } from "../src/authoritativeGame.js";
 
 const sequence = (...values) => {
@@ -130,6 +131,82 @@ rollDice(penalty, 1, { randomInt: sequence(0) });
 rollDice(penalty, 1, { randomInt: sequence(0) });
 assert.equal(penalty.equivalentExchangePenalty[1], 5);
 assert.equal(getPlayerTotal(penalty, 1), -5);
+
+const coin = createAuthoritativeGame({ mode: "normal", seed: "coin" });
+coin.activeAugments[1].eh14 = "coin-toss";
+rollDice(coin, 1, { randomInt: sequence(0) });
+useAugmentAction(coin, 1, "coin-toss", { randomInt: sequence(1, 1, 1) });
+assert.equal(coin.coinTossState[1].heads, 3);
+assert.equal(coin.upperBonusThreshold[1], 57);
+assert.throws(() => useAugmentAction(coin, 1, "coin-toss"), (error) => error.code === "AUGMENT_USED");
+
+const randomBox = createAuthoritativeGame({ mode: "augmented", seed: "random-box" });
+randomBox.phase = "draft";
+randomBox.draftPlayer = 1;
+randomBox.draftOptions = ["random-box"];
+selectAugment(randomBox, 1, "random-box");
+assert.equal(randomBox.upperBonusThreshold[1], 58);
+assert.ok(randomBox.randomBoxAward[1]);
+assert.notEqual(randomBox.randomBoxAward[1], "random-box");
+assert.equal(randomBox.draftSelections[1], 1);
+
+const alchemy = createAuthoritativeGame({ mode: "normal", seed: "alchemy" });
+alchemy.activeAugments[1].eh19 = "dice-alchemy";
+rollDice(alchemy, 1, { randomInt: sequence(0, 1, 2, 3, 4) });
+alchemy.dice[0].kept = true;
+useAugmentAction(alchemy, 1, "dice-alchemy");
+assert.deepEqual(alchemy.dice.map((die) => die.value), [1, 1, 2, 3, 4]);
+
+const gambit = createAuthoritativeGame({ mode: "normal", seed: "gambit" });
+gambit.activeAugments[1].eh16 = "gambit";
+useAugmentAction(gambit, 1, "gambit");
+rollDice(gambit, 1, { randomInt: sequence(0) });
+assert.equal(gambit.dice.length, 4);
+assert.equal(gambit.dice.every((die) => die.type === "normal"), true);
+scoreCategory(gambit, 1, "aces");
+rollDice(gambit, 2, { randomInt: sequence(0) });
+scoreCategory(gambit, 2, "aces");
+rollDice(gambit, 1, { randomInt: sequence(0) });
+assert.equal(gambit.dice.length, 6);
+
+const multiplier = createAuthoritativeGame({ mode: "normal", seed: "multiplier" });
+multiplier.currentRound = 9;
+multiplier.activeAugments[1].eh3 = "momentum";
+multiplier.activeAugments[1].eh17 = "double-down";
+multiplier.momentumState[1] = "active";
+useAugmentAction(multiplier, 1, "double-down");
+rollDice(multiplier, 1, { randomInt: sequence(5) });
+scoreCategory(multiplier, 1, "choice");
+assert.equal(multiplier.scores[1].choice.score + multiplier.scores[1].choice.bonus, 60);
+
+const piggy = createAuthoritativeGame({ mode: "normal", seed: "piggy" });
+piggy.activeAugments[1].eh18 = "piggy-bank";
+rollDice(piggy, 1, { randomInt: sequence(0) });
+scoreCategory(piggy, 1, "aces");
+assert.equal(piggy.piggyBankState[1].balance, 6);
+piggy.currentPlayer = 1;
+beginTurn(piggy);
+rollDice(piggy, 1, { randomInt: sequence(0) });
+scoreCategory(piggy, 1, "deuces");
+assert.equal(piggy.piggyBankState[1].balance, 0);
+assert.equal(piggy.globalBonus[1], 12);
+
+const duel = createAuthoritativeGame({ mode: "normal", seed: "duel" });
+duel.activeAugments[1].eh13 = "duel";
+duel.duelState[1] = { round: 1, ownerScore: null, opponentScore: null, resolved: false };
+rollDice(duel, 1, { randomInt: sequence(5) });
+scoreCategory(duel, 1, "choice");
+rollDice(duel, 2, { randomInt: sequence(0) });
+scoreCategory(duel, 2, "choice");
+assert.equal(duel.globalBonus[1], 10);
+
+const prophet = createAuthoritativeGame({ mode: "normal", seed: "prophet" });
+prophet.activeAugments[1].q12 = "prophet";
+prophet.prophetState[1] = { remaining: 3, numbers: [5, 10, 15], successes: 0, turnKey: "manual" };
+rollDice(prophet, 1, { randomInt: sequence(0) });
+scoreCategory(prophet, 1, "aces");
+assert.equal(prophet.questProgress[1].questBonus, 7);
+assert.equal(prophet.prophetState[1].remaining, 2);
 
 for (const mode of ["normal", "augmented"]) {
   const fullGame = createAuthoritativeGame({ mode, seed: `full-${mode}` });

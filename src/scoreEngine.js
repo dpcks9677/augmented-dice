@@ -190,7 +190,15 @@ export const augmentDefinitions = {
   'couple-dice': { id: 'couple-dice', name: '커플 주사위', target: 'eh9', enName: 'Couple', isEnhancement: true },
   'sevens-dice': { id: 'sevens-dice', name: '세븐스 다이스', target: 'eh10', enName: 'Sevens', isEnhancement: true },
   'table-flip': { id: 'table-flip', name: '판 뒤집기', target: 'eh11', enName: 'Table Flip', isEnhancement: true },
-  'equivalent-exchange': { id: 'equivalent-exchange', name: '등가교환', target: 'eh12', enName: 'Equivalent Exchange', isEnhancement: true }
+  'equivalent-exchange': { id: 'equivalent-exchange', name: '등가교환', target: 'eh12', enName: 'Equivalent Exchange', isEnhancement: true },
+  'duel': { id: 'duel', name: '결투', target: 'eh13', enName: 'Duel', isEnhancement: true },
+  'coin-toss': { id: 'coin-toss', name: '코인 토스', target: 'eh14', enName: 'Coin Toss', isEnhancement: true },
+  'random-box': { id: 'random-box', name: '랜덤 박스', target: 'eh15', enName: 'Random Box', isEnhancement: true },
+  'prophet': { id: 'prophet', name: '예지자', target: 'q12', enName: 'Prophet', isQuest: true },
+  'gambit': { id: 'gambit', name: '갬빗', target: 'eh16', enName: 'Gambit', isEnhancement: true },
+  'double-down': { id: 'double-down', name: '더블 다운', target: 'eh17', enName: 'Double Down', isEnhancement: true },
+  'piggy-bank': { id: 'piggy-bank', name: '저금통', target: 'eh18', enName: 'Piggy Bank', isEnhancement: true },
+  'dice-alchemy': { id: 'dice-alchemy', name: '주사위 연금술', target: 'eh19', enName: 'Dice Alchemy', isEnhancement: true }
 };
 
 // 기존 모듈 import 호환용 별칭. 신규 코드는 augmentDefinitions를 사용함.

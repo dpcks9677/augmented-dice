@@ -60,6 +60,10 @@ function getOwnedAugments(state, player) {
   return Object.values(state.activeAugments[player] || {});
 }
 
+function hasAugment(state, player, augmentId) {
+  return getOwnedAugments(state, player).includes(augmentId);
+}
+
 function getDraftOptions(state, player) {
   const owned = new Set(getOwnedAugments(state, player));
   const candidates = Object.keys(augmentDefinitions).filter((augmentId) => (
@@ -267,6 +271,52 @@ function applyQuestProgress(state, player, category, score, scoringDice) {
       progress.questBonus = (progress.questBonus || 0) + Math.max(0, 15 - bounty.penaltyCount * 3);
     }
   }
+
+  const prophet = state.prophetState[player];
+  if (augments.includes("prophet") && prophet.remaining > 0) {
+    if (prophet.numbers.includes(getScoreValue(score))) {
+      progress.questBonus = (progress.questBonus || 0) + 7;
+      prophet.successes += 1;
+    }
+    prophet.remaining -= 1;
+    prophet.numbers = [];
+  }
+}
+
+function getProphetCandidates(state, player) {
+  const empty = SCORE_CATEGORIES.filter((category) => state.scores[player][category] === undefined);
+  const candidates = new Set();
+  const dice = Array(5).fill(1);
+  const visit = (index) => {
+    if (index === dice.length) {
+      const scores = calculateScores(dice, state.activeAugments[player], getScoreContext(state, player, []));
+      for (const category of empty) {
+        const value = getScoreValue(scores[category]);
+        if (value >= 1 && value <= 30) candidates.add(value);
+      }
+      return;
+    }
+    for (let value = 1; value <= 6; value += 1) {
+      dice[index] = value;
+      visit(index + 1);
+    }
+  };
+  visit(0);
+  return [...candidates];
+}
+
+function prepareProphetTurn(state) {
+  const player = state.currentPlayer;
+  const prophet = state.prophetState[player];
+  if (!hasAugment(state, player, "prophet") || prophet.remaining <= 0) return;
+  const turnKey = `${state.currentRound}:${player}:${state.isExtraTurnPhase ? "extra" : "normal"}`;
+  if (prophet.turnKey === turnKey && prophet.numbers.length === 3) return;
+  const candidates = getProphetCandidates(state, player);
+  for (let value = 1; candidates.length < 3 && value <= 30; value += 1) {
+    if (!candidates.includes(value)) candidates.push(value);
+  }
+  prophet.numbers = seededShuffle(candidates, `${state.seed}_PROPHET_${turnKey}`).slice(0, 3);
+  prophet.turnKey = turnKey;
 }
 
 function applyAugment(state, player, augmentId) {
@@ -300,13 +350,33 @@ function applyAugment(state, player, augmentId) {
     state.bountyHunterProgress[player] = { count: 0, penaltyCount: 0 };
     state.bountyHunterAcquiredRound[player] = state.currentRound;
   }
+  if (augmentId === "duel") {
+    state.duelState[player] = { round: state.currentRound, ownerScore: null, opponentScore: null, resolved: false };
+  }
+  if (augmentId === "random-box") {
+    state.upperBonusThreshold[player] = Math.min(state.upperBonusThreshold[player], 58);
+    const owned = new Set(getOwnedAugments(state, player));
+    const candidates = Object.keys(augmentDefinitions).filter((candidateId) => {
+      const candidate = augmentDefinitions[candidateId];
+      return candidateId !== "random-box"
+        && !candidate.isQuest
+        && !UNAVAILABLE_AUGMENTS.has(candidateId)
+        && canAcquireAugment(owned, candidateId);
+    });
+    const awarded = seededShuffle(candidates, `${state.seed}_RANDOM_BOX_R${state.currentRound}_P${player}`)[0] || null;
+    state.randomBoxAward[player] = awarded;
+    if (awarded) applyAugment(state, player, awarded);
+  }
+  if (augmentId === "prophet") {
+    state.prophetState[player] = { remaining: 3, numbers: [], successes: 0, turnKey: null };
+  }
 }
 
 function setDraftOrActionPhase(state) {
   if (state.mode === "augmented" && state.currentPlayer === 1 && PHASE_ROUNDS.has(state.currentRound)) {
     const expected = expectedAugmentCount(state.currentRound);
     const draftPlayer = Array.from({ length: state.playerCount }, (_, index) => index + 1)
-      .find((player) => getOwnedAugments(state, player).length < expected);
+      .find((player) => state.draftSelections[player] < expected);
     if (draftPlayer) {
       state.phase = "draft";
       state.draftPlayer = draftPlayer;
@@ -325,6 +395,7 @@ function setDraftOrActionPhase(state) {
   state.equivalentExchangeTurnUses[state.currentPlayer] = 0;
   state.turnTimeRemaining = getTurnDuration(state);
   assignBountyTarget(state);
+  prepareProphetTurn(state);
 }
 
 function rewardNozdormuIfDue(state, player) {
@@ -355,6 +426,10 @@ function hasCompleteScorecard(state, player) {
 }
 
 function advanceTurn(state) {
+  const finishedPlayer = state.currentPlayer;
+  if (state.gambitState[finishedPlayer] === "penalty") state.gambitState[finishedPlayer] = "pending-reward";
+  else if (state.gambitState[finishedPlayer] === "reward") state.gambitState[finishedPlayer] = "used";
+
   if (state.isExtraTurnPhase && state.extraTurns[state.currentPlayer] > 0) {
     state.extraTurns[state.currentPlayer] -= 1;
   }
@@ -389,6 +464,7 @@ function advanceTurn(state) {
 export function beginTurn(state) {
   if (state.ended) return state;
   const player = state.currentPlayer;
+  if (state.gambitState[player] === "pending-reward") state.gambitState[player] = "reward";
   rewardNozdormuIfDue(state, player);
 
   const bank = state.yachtBankState[player];
@@ -430,9 +506,11 @@ export function createAuthoritativeGame({ mode = "normal", playerCount = 2, seed
     nextDieId: 1,
     scores: playerMap(playerCount, () => ({})),
     activeAugments: playerMap(playerCount, () => ({})),
+    draftSelections: playerMap(playerCount, () => 0),
     extraTurns: playerMap(playerCount, () => 0),
     isExtraTurnPhase: false,
     questProgress: playerMap(playerCount, () => ({ questBonus: 0 })),
+    globalBonus: playerMap(playerCount, () => 0),
     momentumState: playerMap(playerCount, () => "ready"),
     upperBonusThreshold: playerMap(playerCount, () => 63),
     yachtBankState: playerMap(playerCount, () => ({ turnsLeft: 0, accumulatedScore: 0, completed: false })),
@@ -446,6 +524,14 @@ export function createAuthoritativeGame({ mode = "normal", playerCount = 2, seed
     bountyHunterTarget: playerMap(playerCount, () => null),
     bountyHunterAcquiredRound: playerMap(playerCount, () => null),
     bountyHunterProgress: playerMap(playerCount, () => ({ count: 0, penaltyCount: 0 })),
+    duelState: playerMap(playerCount, () => ({ round: null, ownerScore: null, opponentScore: null, resolved: false })),
+    coinTossState: playerMap(playerCount, () => ({ used: false, heads: null })),
+    randomBoxAward: playerMap(playerCount, () => null),
+    prophetState: playerMap(playerCount, () => ({ remaining: 0, numbers: [], successes: 0, turnKey: null })),
+    gambitState: playerMap(playerCount, () => "ready"),
+    doubleDownState: playerMap(playerCount, () => "ready"),
+    piggyBankState: playerMap(playerCount, () => ({ balance: 0, payouts: 0 })),
+    diceAlchemyUsed: playerMap(playerCount, () => false),
     ended: false
   };
   return beginTurn(state);
@@ -462,10 +548,11 @@ export function selectAugment(state, player, augmentId) {
     fail("AUGMENT_CONFLICT", "동시에 보유할 수 없는 증강임.");
   }
   applyAugment(state, player, augmentId);
+  state.draftSelections[player] += 1;
 
   const expected = expectedAugmentCount(state.currentRound);
   const nextDraftPlayer = Array.from({ length: state.playerCount }, (_, index) => index + 1)
-    .find((candidate) => getOwnedAugments(state, candidate).length < expected);
+    .find((candidate) => state.draftSelections[candidate] < expected);
   if (nextDraftPlayer) {
     state.draftPlayer = nextDraftPlayer;
     state.draftOptions = getDraftOptions(state, nextDraftPlayer);
@@ -498,12 +585,15 @@ function rollValue(type, promotionLevel, randomInt) {
 
 function rollUnkeptDice(state, player, randomInt) {
   const kept = state.turnRollCount === 1 ? [] : state.dice.filter((die) => die.kept);
-  const desired = getDesiredDiceTypes(state, player);
+  const gambitActive = ["penalty", "reward"].includes(state.gambitState[player]);
+  const desired = gambitActive ? [] : getDesiredDiceTypes(state, player);
   for (const die of kept) {
     const index = desired.indexOf(die.type);
     if (index >= 0) desired.splice(index, 1);
   }
-  const totalAllowed = 5 + (getOwnedAugments(state, player).includes("strange-die") && !state.destroyedStrangeDice[player] ? 1 : 0);
+  const totalAllowed = gambitActive
+    ? (state.gambitState[player] === "penalty" ? 4 : 6)
+    : 5 + (getOwnedAugments(state, player).includes("strange-die") && !state.destroyedStrangeDice[player] ? 1 : 0);
   while (kept.length + desired.length < totalAllowed) desired.push("normal");
 
   const promotionLevel = Math.max(0, state.currentRound - (state.promotionAcquiredRound[player] || state.currentRound));
@@ -557,27 +647,53 @@ export function setDieKept(state, player, dieId, isKept) {
   return state;
 }
 
-function applyMomentum(state, player, score) {
+function applyScoreMultipliers(state, player, score) {
   const hasMomentum = getOwnedAugments(state, player).includes("momentum");
-  if (!hasMomentum) return score;
   const result = { ...score, bonusDetails: [...(score.bonusDetails || [])] };
-  if (state.momentumState[player] === "ready" && result.score === 0) {
+  if (hasMomentum && state.momentumState[player] === "ready" && result.score === 0) {
     state.momentumState[player] = "active";
-  } else if (state.momentumState[player] === "active" && result.score > 0) {
+  }
+  const momentumActive = hasMomentum && state.momentumState[player] === "active" && result.score > 0;
+  const doubleDownActive = state.doubleDownState[player] === "active" && result.score > 0;
+  if (momentumActive || doubleDownActive) {
     const original = result.score + (result.bonus || 0);
-    const increased = Math.floor(original * 1.5);
+    const multiplier = 1 + (momentumActive ? 0.5 : 0) + (doubleDownActive ? 0.5 : 0);
+    const increased = Math.floor(original * multiplier);
     const bonus = increased - original;
     result.bonus = (result.bonus || 0) + bonus;
     result.bonusDetails.push({ value: bonus, color: "#D4AF37" });
-    state.momentumState[player] = "used";
+    if (momentumActive) state.momentumState[player] = "used";
   }
+  if (state.doubleDownState[player] === "active") state.doubleDownState[player] = "used";
   return result;
 }
 
 function storeScore(state, player, category, score, scoringDice) {
-  const finalScore = applyMomentum(state, player, score);
+  const finalScore = applyScoreMultipliers(state, player, score);
   state.scores[player][category] = finalScore;
   applyQuestProgress(state, player, category, finalScore, scoringDice);
+
+  for (let owner = 1; owner <= state.playerCount; owner += 1) {
+    const duel = state.duelState[owner];
+    if (duel.resolved || duel.round !== state.currentRound) continue;
+    const opponent = owner === 1 ? 2 : 1;
+    if (player === owner) duel.ownerScore = getScoreValue(finalScore);
+    if (player === opponent) duel.opponentScore = getScoreValue(finalScore);
+    if (duel.ownerScore === null || duel.opponentScore === null) continue;
+    if (duel.ownerScore > duel.opponentScore) state.globalBonus[owner] += 10;
+    else if (duel.ownerScore === duel.opponentScore) state.globalBonus[owner] += 5;
+    duel.resolved = true;
+  }
+
+  if (hasAugment(state, player, "piggy-bank")) {
+    const piggy = state.piggyBankState[player];
+    piggy.balance += state.rollsLeft * 3;
+    if (piggy.balance >= 12) {
+      state.globalBonus[player] += 12;
+      piggy.balance = 0;
+      piggy.payouts += 1;
+    }
+  }
 
   if (state.dice.some((die) => die.type === "weird" && die.value === 6)) {
     state.destroyedStrangeDice[player] = true;
@@ -623,6 +739,47 @@ export function scoreCategory(state, player, category) {
   storeScore(state, player, category, scores[category], scoringDice);
   state.revision += 1;
   advanceTurn(state);
+  return state;
+}
+
+export function useAugmentAction(state, player, augmentId, { randomInt = secureRandomInt } = {}) {
+  assertPlayerTurn(state, player);
+  if (state.phase !== "action") fail("INVALID_PHASE", "현재 증강을 사용할 수 없음.");
+  if (!hasAugment(state, player, augmentId)) fail("AUGMENT_REQUIRED", "해당 증강이 없음.");
+
+  if (augmentId === "coin-toss") {
+    const coin = state.coinTossState[player];
+    if (coin.used) fail("AUGMENT_USED", "이미 코인 토스를 사용함.");
+    if (state.turnRollCount < 1) fail("ROLL_REQUIRED", "첫 굴림 후 사용할 수 있음.");
+    coin.used = true;
+    coin.heads = Array.from({ length: 3 }, () => randomInt(2)).filter(Boolean).length;
+    if (coin.heads === 0) state.globalBonus[player] -= 5;
+    if (coin.heads === 1) {
+      const target = [...state.dice].sort((a, b) => a.value - b.value || a.id - b.id)[0];
+      if (target) target.value = 6;
+    }
+    if (coin.heads === 2) state.rollsLeft += 1;
+    if (coin.heads === 3) state.upperBonusThreshold[player] = Math.min(state.upperBonusThreshold[player], 57);
+  } else if (augmentId === "gambit") {
+    if (state.gambitState[player] !== "ready") fail("AUGMENT_USED", "이미 갬빗을 사용함.");
+    if (state.turnRollCount > 0) fail("ROLL_NOT_ALLOWED", "굴리기 전에 사용해야 함.");
+    state.gambitState[player] = "penalty";
+  } else if (augmentId === "double-down") {
+    if (state.currentRound < 9) fail("ROUND_REQUIRED", "9턴부터 사용할 수 있음.");
+    if (state.doubleDownState[player] !== "ready") fail("AUGMENT_USED", "이미 더블 다운을 사용함.");
+    if (state.turnRollCount > 0) fail("ROLL_NOT_ALLOWED", "굴리기 전에 사용해야 함.");
+    state.doubleDownState[player] = "active";
+  } else if (augmentId === "dice-alchemy") {
+    if (state.diceAlchemyUsed[player]) fail("AUGMENT_USED", "이미 주사위 연금술을 사용함.");
+    if (state.turnRollCount < 1) fail("ROLL_REQUIRED", "첫 굴림 후 사용할 수 있음.");
+    state.diceAlchemyUsed[player] = true;
+    for (const die of state.dice) {
+      if (!die.kept) die.value = Math.max(1, die.value - 1);
+    }
+  } else {
+    fail("INVALID_AUGMENT_ACTION", "액션형 증강이 아님.");
+  }
+  state.revision += 1;
   return state;
 }
 
@@ -675,6 +832,7 @@ export function getPlayerTotal(state, player) {
     total += Math.min(bank?.accumulatedScore || 0, 15);
   }
   total += state.questProgress[player]?.questBonus || 0;
+  total += state.globalBonus[player] || 0;
   total -= state.equivalentExchangePenalty[player] || 0;
   return total;
 }
