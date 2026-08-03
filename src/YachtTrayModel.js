@@ -18,9 +18,9 @@ const FLOOR_NORMAL_THRESHOLD = 0.7;
 const CORDUROY_UV_SCALE = 1 / 100;
 const MATERIAL_INDEX = { rim: 0, floor: 1, plastic: 2, stair: 3 };
 const CORDUROY_TEXTURES = {
-  color: 'corduroy-color.png',
-  normal: 'corduroy-normal-gl.png',
-  roughness: 'corduroy-roughness.png'
+  color: 'corduroy-color.webp',
+  normal: 'corduroy-normal-gl.webp',
+  roughness: 'corduroy-roughness.webp'
 };
 const PLASTIC_TEXTURES = {
   color: 'soft-plastic-albedo.jpg',
