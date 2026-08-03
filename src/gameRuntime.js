@@ -11,6 +11,7 @@ import { subscribeAuthState, signInWithGoogle, setNickname, getCurrentUser, norm
 import Cropper from "cropperjs";
 import defaultAugmentsData from "./augments.json";
 import { createAugmentProgressSession, getAugmentTelemetryDefinitions, recordAchievementProgress, recordAugmentMetric, recordAugmentOffer, recordAugmentSelection } from "./augmentProgress.js";
+import { isAchievementEligibleMode, isNormalAchievementCompletion, recordGameEndAchievementEvent, recordScoreAchievementEvent } from "./augmentAchievements.js";
 import { updateProfileStats } from "./profileStats.js";
 import { getAugmentCategoryEnName, initGameMenu } from "./gameMenu.js";
 import { els, handleAppScaling, initMainSkeletons, isLocalhost, removeMainSkeletons } from "./appShell.js";
@@ -122,6 +123,7 @@ function getPlayerAugments(player) {
 function hasAugment(player, augmentId) {
   return getPlayerAugments(player).includes(augmentId);
 }
+
 let momentumState = { 1: 'ready', 2: 'ready', 3: 'ready', 4: 'ready' };
 let momentumGainedScore = { 1: 0, 2: 0, 3: 0, 4: 0 };
 let bountyHunterTarget = { 1: null, 2: null, 3: null, 4: null };
@@ -2105,10 +2107,99 @@ async function applyAuthoritativeState(state, action = null) {
     lastAuthoritativeActionRevision = revision;
     if (action.kind === 'game_roll' || action.kind === 'game_table_flip') {
       addGameLog({ type: 'roll-result', player: action.player, meta: { values: state.dice.filter((die) => !die.kept).map((die) => die.value) } }, 'roll-result', false, action.player);
+      if (action.kind === 'game_table_flip' && isLocalAugmentProgressPlayer(action.player)) {
+        const achievementState = augmentProgressSession.achievementState;
+        achievementState.tableFlipDiceCount = (previousState?.dice || []).filter((die) => !die.kept).length;
+        achievementState.flags.tableFlipLateBehind = Number(previousState?.currentRound) >= 9 && Boolean(achievementState.flags.tableFlipBehindAtRound9);
+      }
     } else if (action.kind === 'game_score') {
       const score = state.scores?.[action.player]?.[action.catId];
       const value = typeof score === 'object' ? score.score : score;
       addGameLog({ type: 'score-record', player: action.player, meta: { catId: action.catId, score: value } }, 'score-record', false, action.player);
+      if (isLocalAugmentProgressPlayer(action.player)) {
+        const player = Number(action.player);
+        const scoreObj = typeof score === 'object' ? score : { score: Number(score) || 0, bonus: 0, bonusDetails: [] };
+        const dice = (previousState?.dice || []).filter((die) => die.type !== 'weird');
+        const augments = Object.values(previousState?.activeAugments?.[player] || state.activeAugments?.[player] || {}).filter(Boolean);
+        recordScoreAchievementEvent(augmentProgressSession, {
+          augmentIds: augments,
+          categoryAugmentId: previousState?.activeAugments?.[player]?.[action.catId] || state.activeAugments?.[player]?.[action.catId] || null,
+          categoryId: action.catId,
+          diceValues: dice.map((die) => Number(die.value)),
+          round: Number(previousState?.currentRound) || Number(state.currentRound),
+          rollsLeft: Number(previousState?.rollsLeft),
+          score: Number(scoreObj.score) || 0,
+          goldenBonus: dice.some((die) => die.type === 'golden' && [1, 2, 3].includes(Number(die.value))),
+          tableFlipDiceCount: augmentProgressSession.achievementState.tableFlipDiceCount || 0,
+          equivalentExchangeUses: Number(previousState?.equivalentExchangeTurnUses?.[player]) || 0
+        });
+
+        const flags = augmentProgressSession.achievementState.flags;
+        const previousQuest = previousState?.questProgress?.[player] || {};
+        const nextQuest = state.questProgress?.[player] || {};
+        const playerScores = state.scores?.[player] || {};
+        const upperSum = ['aces', 'deuces', 'threes', 'fours', 'fives', 'sixes'].reduce((total, category) => {
+          const entry = playerScores[category];
+          return total + (typeof entry === 'object' ? Number(entry?.score) || 0 : Number(entry) || 0);
+        }, 0);
+
+        if (augments.includes('fast-straight') && !previousQuest.fastStraightRewarded && nextQuest.fastStraightRewarded && Number(previousState?.currentRound) <= 6) {
+          recordAchievementProgress(augmentProgressSession, 'fast-straight-speed');
+        }
+        if (augments.includes('no-time-to-waste') && !nextQuest.noTimeRewarded) {
+          if (Number(previousState?.rollsLeft) === 2 && Number(scoreObj.score) >= 15) flags.noTimeHighScoreCount = (flags.noTimeHighScoreCount || 0) + 1;
+          else flags.noTimeHighScoreFailed = true;
+        }
+        if (augments.includes('no-time-to-waste') && !previousQuest.noTimeRewarded && nextQuest.noTimeRewarded && !flags.noTimeHighScoreFailed && flags.noTimeHighScoreCount >= 3) {
+          recordAchievementProgress(augmentProgressSession, 'no-time-to-waste-careful');
+        }
+        if (augments.includes('step-by-step') && nextQuest.stepRewarded && upperSum >= Number(state.upperBonusThreshold?.[player] || 63) && !flags.stepUpperBonus) {
+          flags.stepUpperBonus = true;
+          recordAchievementProgress(augmentProgressSession, 'step-by-step-perfect-plan');
+        }
+        if (augments.includes('two-households') && action.catId === 'choice' && Number(scoreObj.score) >= 20) flags.twoHouseholdsChoiceAtLeast20 = true;
+        if (augments.includes('two-households') && !previousQuest.twoHouseholdsRewarded && nextQuest.twoHouseholdsRewarded && flags.twoHouseholdsChoiceAtLeast20) {
+          recordAchievementProgress(augmentProgressSession, 'two-households-clone');
+        }
+        if (augments.includes('holdout') && !previousQuest.holdoutRewarded && nextQuest.holdoutRewarded && Number(previousState?.currentRound) === 12) flags.holdoutTurn12 = true;
+        if (augments.includes('copycat') && !previousQuest.copycatRewarded && nextQuest.copycatRewarded) {
+          const opponents = Object.keys(state.scores || {}).filter((key) => Number(key) !== player);
+          const copied = opponents.some((key) => {
+            const opponent = state.scores?.[key]?.[action.catId];
+            const opponentScore = typeof opponent === 'object' ? Number(opponent?.score) : Number(opponent);
+            return Number(scoreObj.score) > 0 && opponentScore === Number(scoreObj.score);
+          });
+          if (copied) recordAchievementProgress(augmentProgressSession, 'copycat-perfect');
+        }
+        if (augments.includes('doubling') && !previousQuest.doublingRewarded && nextQuest.doublingRewarded) {
+          const highCounts = Object.values(playerScores).reduce((counts, entry) => {
+            const points = typeof entry === 'object' ? Number(entry?.score) : Number(entry);
+            if (points >= 20) counts[points] = (counts[points] || 0) + 1;
+            return counts;
+          }, {});
+          if (Object.values(highCounts).some((count) => count >= 2)) recordAchievementProgress(augmentProgressSession, 'doubling-echo');
+        }
+        if (augments.includes('nozdormu') && !previousQuest.nozdormuRewarded && nextQuest.nozdormuRewarded && !flags.nozdormuScratched) {
+          recordAchievementProgress(augmentProgressSession, 'nozdormu-no-scratch');
+        }
+        if (augments.includes('double-large-straight') && upperSum >= 60 && !flags.doubleLargeUpperBonus) {
+          flags.doubleLargeUpperBonus = true;
+          recordAchievementProgress(augmentProgressSession, 'double-large-straight-upper-bonus');
+        }
+        if (augments.includes('bounty-hunter') && Number(scoreObj.score) >= 20 && previousState?.bountyHunterTarget?.[player] === action.catId && Number(previousState?.currentRound) - Number(previousState?.bountyHunterAcquiredRound?.[player] || previousState?.currentRound) < 3) {
+          recordAchievementProgress(augmentProgressSession, 'bounty-hunter-legendary-killer');
+        }
+        if ((Number(previousState?.bountyHunterProgress?.[player]?.count) || 0) < 3 && (Number(state.bountyHunterProgress?.[player]?.count) || 0) >= 3) flags.bountyCompleted = true;
+        if (!previousState?.promotionConsumed?.[player] && state.promotionConsumed?.[player]) recordAchievementProgress(augmentProgressSession, 'promotion-die-rank-seven');
+        if (!previousState?.yachtBankState?.[player]?.completed && state.yachtBankState?.[player]?.completed && Math.min(Number(state.yachtBankState?.[player]?.accumulatedScore) || 0, 15) === 15) {
+          recordAchievementProgress(augmentProgressSession, 'yacht-bank-thrifty');
+        }
+        if (previousState?.momentumState?.[player] !== 'used' && state.momentumState?.[player] === 'used') {
+          flags.momentumTriggered = true;
+          const totalScore = (Number(scoreObj.score) || 0) + (Number(scoreObj.bonus) || 0);
+          if (totalScore >= 30) recordAchievementProgress(augmentProgressSession, 'momentum-comeback');
+        }
+      }
     } else if (action.kind === 'game_select_augment') {
       addGameLog({ type: 'augment-action', player: action.player, meta: { augmentId: action.augmentId } }, 'augment-action', false, action.player);
     } else if (action.kind === 'timeout') {
@@ -2118,6 +2209,14 @@ async function applyAuthoritativeState(state, action = null) {
   if (turnChanged && !scoreGrace && state.phase === 'action' && state.currentPlayer) {
     addGameLog({ type: 'turn-start', player: state.currentPlayer, round: state.currentRound }, 'turn-start', false, state.currentPlayer);
     if (Number(state.currentPlayer) === Number(window.myPlayerIndex)) soundEngine.playSFX('turn_change');
+    if (isLocalAugmentProgressPlayer(state.currentPlayer) && Number(state.currentRound) === 9 && getPlayerAugments(Number(state.currentPlayer)).includes('table-flip')) {
+      const totalOf = (player) => Object.values(state.scores?.[player] || {}).reduce((total, entry) =>
+        total + (typeof entry === 'object' ? (Number(entry?.score) || 0) + (Number(entry?.bonus) || 0) : Number(entry) || 0), 0
+      ) + (Number(state.questProgress?.[player]?.questBonus) || 0);
+      const myTotal = totalOf(Number(state.currentPlayer));
+      augmentProgressSession.achievementState.flags.tableFlipBehindAtRound9 = Object.keys(state.scores || {})
+        .some((player) => Number(player) !== Number(state.currentPlayer) && totalOf(player) > myTotal);
+    }
   }
   if (scoreGrace) {
     setTimeout(() => {
@@ -2564,6 +2663,17 @@ function startTurn() {
   pauseTurnTimer();
 
   equivalentExchangeTurnUses[currentPlayer] = 0;
+  if (isLocalAugmentProgressPlayer(currentPlayer)) {
+    augmentProgressSession.achievementState.tableFlipDiceCount = 0;
+    if (currentRound === 9 && getPlayerAugments(currentPlayer).includes('table-flip')) {
+      const totalOf = (player) => Object.values(scores[player] || {}).reduce((total, value) =>
+        total + (typeof value === 'object' ? value.score + (value.bonus || 0) : value), 0
+      ) + (questProgress[player]?.questBonus || 0);
+      const myTotal = totalOf(currentPlayer);
+      augmentProgressSession.achievementState.flags.tableFlipBehindAtRound9 = Array.from({ length: getActivePlayerCount() }, (_, index) => index + 1)
+        .some((player) => player !== currentPlayer && !forfeitedPlayers[player] && totalOf(player) > myTotal);
+    }
+  }
   rollsLeft = 3;
   keptDice = [];
   activeDice = [];
@@ -3103,10 +3213,6 @@ function recordDiceScoreUsage(catId, scoreObj) {
     }
   });
 
-  const sevensDice = dice.filter((die) => die.config?.type === 'sevens');
-  if (sevensDice.some((die) => die.value === 7) && ['s-straight', 'l-straight'].includes(catId)) {
-    recordAchievementProgress(augmentProgressSession, 'sevens-dice-skill-showcase');
-  }
   if (Object.values(augments).includes('couple-dice') && scoreObj.bonusDetails?.some((detail) => detail.value === 3)) {
     recordAchievementProgress(augmentProgressSession, 'couple-dice-perfect-match');
   }
@@ -3150,6 +3256,8 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
       momentumGainedScore[currentPlayer] = newTotal;
       if (isLocalAugmentProgressPlayer()) {
         recordAchievementProgress(augmentProgressSession, 'momentum-kneel', momentumBonus, 'max');
+        if (newTotal >= 30) recordAchievementProgress(augmentProgressSession, 'momentum-comeback');
+        augmentProgressSession.achievementState.flags.momentumTriggered = true;
       }
 
       addGameLog({ type: 'system', message: `${getPlayerLabel(currentPlayer)}의 [추진력] 증강이 발동하여 획득 점수가 1.5배로 증가했습니다! (${newTotal}점 획득)` }, 'system', window.isMultiplayer, currentPlayer);
@@ -3180,20 +3288,36 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
       if (!questProgress[currentPlayer]) questProgress[currentPlayer] = {};
       questProgress[currentPlayer].questBonus = (questProgress[currentPlayer].questBonus || 0) + finalReward;
       addGameLog({ type: 'system', message: `[현상금 사냥꾼] 현상금 획득 성공! 보너스 +${finalReward}점을 얻었습니다.` }, 'system', window.isMultiplayer, currentPlayer);
+      if (isLocalAugmentProgressPlayer()) augmentProgressSession.achievementState.flags.bountyCompleted = true;
     }
   }
 
   if (isLocalAugmentProgressPlayer()) {
     recordDiceScoreUsage(catId, scoreObj);
-    if (activeAugmentsList.includes('reverse-choice') && catId === 'yacht' && scoreObj.score === 25) {
-      recordAchievementProgress(augmentProgressSession, 'reverse-choice-unlucky-man');
-    }
-    if (equivalentExchangeTurnUses[currentPlayer] >= 3 && scoreObj.score > 0) {
-      recordAchievementProgress(augmentProgressSession, 'equivalent-exchange-soul-trade');
-    }
+    const scoreDice = (diceEngine?.diceArray || []).filter((die) => die.config?.type !== 'weird');
+    recordScoreAchievementEvent(augmentProgressSession, {
+      augmentIds: activeAugmentsList,
+      categoryAugmentId: activeAugments[currentPlayer]?.[catId] || null,
+      categoryId: catId,
+      diceValues: scoreDice.map((die) => Number(die.value)),
+      round: currentRound,
+      rollsLeft,
+      score: Number(scoreObj.score) || 0,
+      goldenBonus: scoreDice.some((die) => die.config?.type === 'golden' && [1, 2, 3].includes(Number(die.value))),
+      tableFlipDiceCount: augmentProgressSession.achievementState.tableFlipDiceCount || 0,
+      equivalentExchangeUses: equivalentExchangeTurnUses[currentPlayer] || 0
+    });
   }
 
   scores[currentPlayer][catId] = scoreObj;
+
+  if (isLocalAugmentProgressPlayer()) {
+    const achievementFlags = augmentProgressSession.achievementState.flags;
+    if (activeAugmentsList.includes('double-large-straight') && getUpperSum(currentPlayer) >= 60 && !achievementFlags.doubleLargeUpperBonus) {
+      achievementFlags.doubleLargeUpperBonus = true;
+      recordAchievementProgress(augmentProgressSession, 'double-large-straight-upper-bonus');
+    }
+  }
 
   // 타임아웃에 의한 자동 기입인 경우 일반 족보 기입 로그 작성을 생략 (중복 방지)
   if (!force) {
@@ -3214,6 +3338,7 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
   usedDice.forEach(d => {
     if (d.config.type === 'promotion' && d.value === 6) {
       promotionConsumed[currentPlayer] = true;
+      if (isLocalAugmentProgressPlayer()) recordAchievementProgress(augmentProgressSession, 'promotion-die-rank-seven');
       addGameLog({ type: 'system', message: `${getPlayerLabel(currentPlayer)}의 프로모션 주사위가 소모되어 일반 주사위로 복구되었습니다.` }, 'system', window.isMultiplayer, currentPlayer);
     }
   });
@@ -3283,6 +3408,13 @@ function lockScore(catId, scoreInfo, isSync = false, force = false) {
   const totalCount = getActivePlayerCount();
 
   updateQuestProgress(currentPlayer, catId, scoreObj);
+  if (isLocalAugmentProgressPlayer() && activeAugmentsList.includes('step-by-step') && questProgress[currentPlayer]?.stepRewarded) {
+    const flags = augmentProgressSession.achievementState.flags;
+    if (getUpperSum(currentPlayer) >= upperBonusThreshold[currentPlayer] && !flags.stepUpperBonus) {
+      flags.stepUpperBonus = true;
+      recordAchievementProgress(augmentProgressSession, 'step-by-step-perfect-plan');
+    }
+  }
 
   // 요트 뱅크: 턴 종료 시 킵 존 주사위 눈금 누적 (최대 15점) 및 남은 턴 차감
   if (activeAugments[currentPlayer] && activeAugments[currentPlayer]['yacht'] === 'yacht-bank') {
@@ -3404,7 +3536,9 @@ function checkExtraTurnsOrEndGame() {
 let isGameEnded = false;
 
 function isLocalAugmentProgressPlayer(player = currentPlayer) {
-  return gameMode === 'augmented' && window.isMultiplayer && player === (window.myPlayerIndex || 1) && Boolean(augmentProgressSession);
+  return isAchievementEligibleMode(gameMode, window.isMultiplayer)
+    && player === (window.myPlayerIndex || 1)
+    && Boolean(augmentProgressSession);
 }
 
 function getQuestCompleted(augmentId, progress = {}) {
@@ -3449,17 +3583,16 @@ function setAugmentProgressSaveStatus(message = '', state = '') {
 async function savePersonalAugmentProgress() {
   const user = getCurrentUser();
   const myPlayer = window.myPlayerIndex || 1;
-  if (gameMode !== 'augmented') return false;
-  if (!window.isMultiplayer) {
-    setAugmentProgressSaveStatus('도전과제 저장 제외: 멀티플레이 게임이 아님.', 'skipped');
+  if (!isAchievementEligibleMode(gameMode, window.isMultiplayer)) {
+    setAugmentProgressSaveStatus('도전과제 저장 제외: 온라인 증강 모드가 아님.', 'skipped');
     return false;
   }
   if (!user?.uid) {
     setAugmentProgressSaveStatus('도전과제 저장 실패: 로그인 정보가 없음.', 'error');
     return false;
   }
-  if (forfeitedPlayers[myPlayer]) {
-    setAugmentProgressSaveStatus('도전과제 저장 제외: 기권한 게임임.', 'skipped');
+  if (!isNormalAchievementCompletion(forfeitedPlayers)) {
+    setAugmentProgressSaveStatus('도전과제 저장 제외: 정상 완주 경기가 아님.', 'skipped');
     return false;
   }
   if (!augmentProgressSession) {
@@ -3497,24 +3630,22 @@ async function savePersonalAugmentProgress() {
     recordAugmentMetric(augmentProgressSession, 'table-flip', 'uses');
   }
   if (getPlayerAugments(myPlayer).includes('yacht-bank')) {
-    if (yachtBankState[myPlayer]?.completed) {
-      recordAugmentMetric(augmentProgressSession, 'yacht-bank', 'completed');
-    }
     recordAugmentMetric(
       augmentProgressSession,
       'yacht-bank',
       'bankedScore',
       Math.min(yachtBankState[myPlayer]?.accumulatedScore || 0, 15)
     );
-  }
-  if (didLocalPlayerWin(myPlayer)) {
-    if (augmentProgressSession.flags.tableFlipWhileBehind) {
-      recordAchievementProgress(augmentProgressSession, 'table-flip-skilled-player');
-    }
-    if (augmentProgressSession.flags.holdoutTurn12) {
-      recordAchievementProgress(augmentProgressSession, 'holdout-patience-wins');
+    if (yachtBankState[myPlayer]?.completed && Math.min(yachtBankState[myPlayer]?.accumulatedScore || 0, 15) === 15) {
+      recordAchievementProgress(augmentProgressSession, 'yacht-bank-thrifty');
     }
   }
+  recordGameEndAchievementEvent(augmentProgressSession, {
+    normalCompletion: true,
+    won: didLocalPlayerWin(myPlayer),
+    promotionOwned: selectedAugments.includes('promotion-die'),
+    promotionConsumed: Boolean(promotionConsumed[myPlayer])
+  });
 
   try {
     const saved = await saveAugmentProgress(user.uid, augmentProgressSession);
@@ -4189,7 +4320,7 @@ function updateQuestProgress(player, catId, scoreObj) {
       if (s['s-straight']?.score > 0 && s['l-straight']?.score > 0) {
         prog.fastStraightRewarded = true;
         addReward('재빠른 스트레이트', 15);
-        if (isLocalAugmentProgressPlayer(p) && currentRound <= 5) {
+        if (isLocalAugmentProgressPlayer(p) && currentRound <= 6) {
           recordAchievementProgress(augmentProgressSession, 'fast-straight-speed');
         }
       }
@@ -4198,11 +4329,24 @@ function updateQuestProgress(player, catId, scoreObj) {
 
   // 3. 낭비할 시간 없다 (no-time-to-waste): 리롤 없이(첫 굴림 후 바로 기입, rollsLeft === 2) 족보 기입 (+15점)
   if (myAugments.includes('no-time-to-waste') && !prog.noTimeRewarded) {
+    if (isLocalAugmentProgressPlayer(p) && catId) {
+      const actualScore = typeof scoreObj === 'object' ? Number(scoreObj?.score) || 0 : Number(scoreObj) || 0;
+      const flags = augmentProgressSession.achievementState.flags;
+      if (rollsLeft === 2 && actualScore >= 15) {
+        flags.noTimeHighScoreCount = (flags.noTimeHighScoreCount || 0) + 1;
+      } else {
+        flags.noTimeHighScoreFailed = true;
+      }
+    }
     if (rollsLeft === 2) {
       prog.noTimeCount = (prog.noTimeCount || 0) + 1;
       if (prog.noTimeCount >= 3) {
         prog.noTimeRewarded = true;
         addReward('낭비할 시간 없다', 15);
+        const flags = augmentProgressSession?.achievementState?.flags;
+        if (isLocalAugmentProgressPlayer(p) && !flags.noTimeHighScoreFailed && flags.noTimeHighScoreCount >= 3) {
+          recordAchievementProgress(augmentProgressSession, 'no-time-to-waste-careful');
+        }
       }
     }
   }
@@ -4235,11 +4379,16 @@ function updateQuestProgress(player, catId, scoreObj) {
       const cVals = Object.values(counts).sort((a, b) => b - a);
       if ((cVals[0] >= 3 && cVals[1] >= 2) || cVals[0] >= 5) {
         prog.twoHouseholdsChoiceDone = true;
+        const actualScore = typeof scoreObj === 'object' ? Number(scoreObj?.score) || 0 : Number(scoreObj) || 0;
+        prog.twoHouseholdsChoiceAtLeast20 = actualScore >= 20;
       }
     }
     if (prog.twoHouseholdsChoiceDone && s['fullhouse']?.score > 0) {
       prog.twoHouseholdsRewarded = true;
       addReward('두 집 살림', 10);
+      if (isLocalAugmentProgressPlayer(p) && prog.twoHouseholdsChoiceAtLeast20) {
+        recordAchievementProgress(augmentProgressSession, 'two-households-clone');
+      }
     }
   }
 
@@ -4250,7 +4399,7 @@ function updateQuestProgress(player, catId, scoreObj) {
         prog.holdoutRewarded = true;
         addReward('알박기', 7);
         if (isLocalAugmentProgressPlayer(p) && currentRound === 12) {
-          augmentProgressSession.flags.holdoutTurn12 = true;
+          augmentProgressSession.achievementState.flags.holdoutTurn12 = true;
         }
       }
     }
@@ -4281,6 +4430,7 @@ function updateQuestProgress(player, catId, scoreObj) {
         prog.copycatSpecialCleared = true;
         prog.copycatRewarded = true;
         addReward('카피캣', 10);
+        if (isLocalAugmentProgressPlayer(p)) recordAchievementProgress(augmentProgressSession, 'copycat-perfect');
       } else if (prog.copycatCount >= 3) {
         prog.copycatRewarded = true;
         addReward('카피캣', 10);
@@ -4301,6 +4451,13 @@ function updateQuestProgress(player, catId, scoreObj) {
     if (hasSameScore) {
       prog.doublingRewarded = true;
       addReward('더블링', 10);
+      const highScoreCounts = validScores.filter((score) => score >= 20).reduce((counts, score) => {
+        counts[score] = (counts[score] || 0) + 1;
+        return counts;
+      }, {});
+      if (isLocalAugmentProgressPlayer(p) && Object.values(highScoreCounts).some((count) => count >= 2)) {
+        recordAchievementProgress(augmentProgressSession, 'doubling-echo');
+      }
     }
   }
 
@@ -4312,6 +4469,9 @@ function updateQuestProgress(player, catId, scoreObj) {
     if (currentRound >= prog.nozdormuTargetRound) {
       prog.nozdormuRewarded = true;
       addReward('노즈도르무', 9);
+      if (isLocalAugmentProgressPlayer(p) && !augmentProgressSession.achievementState.flags.nozdormuScratched) {
+        recordAchievementProgress(augmentProgressSession, 'nozdormu-no-scratch');
+      }
     }
   }
 }
@@ -4422,6 +4582,7 @@ function getQuestProgressText(player, augmentId) {
         questLines.push(line(`타겟으로 지정된 족보를 3회 기입하기 (${bhProg.count}/3)<br>└ 현재 타겟: <strong style="color: #d4af37;">${targetName}</strong>`, false));
       }
       break;
+
   }
 
   let resultHTML = '';
@@ -4586,12 +4747,9 @@ window.updateAugmentSidebar = function (player) {
             }
 
             if (isLocalAugmentProgressPlayer(targetPlayer)) {
-              const totalOf = (player) => Object.values(scores[player] || {}).reduce((total, value) =>
-                total + (typeof value === 'object' ? value.score + (value.bonus || 0) : value), 0
-              ) + (questProgress[player]?.questBonus || 0);
-              const myTotal = totalOf(targetPlayer);
-              augmentProgressSession.flags.tableFlipWhileBehind = Array.from({ length: getActivePlayerCount() }, (_, index) => index + 1)
-                .some((player) => player !== targetPlayer && !forfeitedPlayers[player] && totalOf(player) > myTotal);
+              const achievementState = augmentProgressSession.achievementState;
+              achievementState.tableFlipDiceCount = diceEngine.diceArray.filter((die) => !die.isKept).length;
+              achievementState.flags.tableFlipLateBehind = currentRound >= 9 && Boolean(achievementState.flags.tableFlipBehindAtRound9);
             }
             playerTableFlipUsed[targetPlayer] = true;
             btnFlip.classList.add('used');

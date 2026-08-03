@@ -242,7 +242,6 @@ recordAugmentMetric(playerIndex, augmentId, metricKey, amount);
     { key: "uses", label: "판 뒤집기 사용 횟수", aggregate: "sum" }
   ],
   "yacht-bank": [
-    { key: "completed", label: "저금 완료 횟수", aggregate: "sum" },
     { key: "bankedScore", label: "누적 저금 점수", aggregate: "sum" }
   ]
 }

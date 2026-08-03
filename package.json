@@ -10,6 +10,7 @@
     "build": "vite build",
     "graphify:code-only": "python scripts/patch_graphify_html.py",
     "test:augment-progress": "node tests/augmentProgress.test.mjs",
+    "test:augment-achievements": "node tests/augmentAchievements.test.mjs",
     "test:profile-stats": "node tests/profileStats.test.mjs",
     "test:profile-layout": "node tests/profileLayout.test.mjs",
     "test:main-structure": "node tests/mainStructure.test.mjs",

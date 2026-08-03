@@ -27,6 +27,10 @@ assert.equal(createMasteryDefinition({ augmentId: 'lucky-sevens', name: '럭키 
 assert.equal(createMasteryDefinition({ augmentId: 'lucky-sevens', name: '럭키 세븐' }).description, '럭키 세븐을(를) 선택하고 게임을 10번 완료하세요.');
 assert.deepEqual(getAugmentTelemetryDefinitions('reverse-choice').map((metric) => metric.key), ['scoreRecords', 'scratches']);
 assert.deepEqual(getAugmentTelemetryDefinitions('sevens-dice').map((metric) => metric.key), ['diceRolls', 'diceScoreRecords']);
+assert.deepEqual(
+  getAugmentTelemetryDefinitions('yacht-bank').map((metric) => metric.key),
+  ['scoreRecords', 'scratches', 'questSuccesses', 'questFailures', 'bankedScore']
+);
 assert.equal(getAugmentAchievementDefinitions({ augmentId: 'couple-dice', name: '커플 주사위' }).length, 2);
 assert.equal(
   formatAchievementCompletedAt(new Date(2026, 6, 30, 13, 5)),
