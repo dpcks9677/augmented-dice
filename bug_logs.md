@@ -390,3 +390,10 @@
 - 수정: `gameLog.js`에서 `showAugment`를 export하고 `gameRuntime.js`에서 import하도록 연결함.
 - 회귀 방지: `mainStructure.test.mjs`에서 해당 export/import 연결을 검사함.
 - 검증: 메인 구조·게임 권위·서버 권위 테스트와 Vite 프로덕션 빌드를 통과함.
+
+## 2026-08-04 기존 탭에서 배포 수정 미반영
+
+- 증상: 로컬에서 해결된 문제가 배포 후 기존 탭에서 계속 재현됨.
+- 원인: 새 Service Worker가 설치돼도 `skipWaiting()` 없이 대기하고, 기존 탭이 이전 워커를 계속 사용함.
+- 수정: 설치 완료 후 즉시 활성화하고, 이미 제어 중인 탭에서만 `controllerchange` 후 한 번 재로드하도록 변경함.
+- 검증: Service Worker 구조 테스트와 프로덕션 빌드 통과함.

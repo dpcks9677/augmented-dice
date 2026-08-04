@@ -44,6 +44,7 @@ self.addEventListener('install', event => {
     const manifest = await loadManifest();
     const cache = await caches.open(CORE_CACHE);
     await cache.addAll(manifest.files);
+    await self.skipWaiting();
   })());
 });
 
