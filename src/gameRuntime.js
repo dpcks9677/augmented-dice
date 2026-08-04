@@ -5144,8 +5144,7 @@ window.applyAugment = function (player, augmentId, isRemote = false) {
   if (targetTh) {
     const svgIcon = getVariantSvg(augmentId);
     targetTh.innerHTML = `${svgIcon} ${augment.enName}`;
-    targetTh.style.backgroundColor = '#87CEEB'; // Sky Blue
-    targetTh.style.color = '#222';
+    targetTh.classList.add('modification-target-highlight');
   }
 
   // 좌측 증강 섹션(UI) 업데이트

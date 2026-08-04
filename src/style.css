@@ -4403,6 +4403,30 @@ svg.lucide-icon {
   }
 }
 
+/* 변형 증강이 교체한 족보 제목 */
+.modification-target-highlight {
+  position: relative;
+  z-index: 10;
+}
+
+.modification-target-highlight::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: 0 0 22px rgba(128, 0, 32, 0.95), inset 0 0 12px rgba(128, 0, 32, 0.6);
+  animation: burgundyNeonPulse 5s infinite ease-in-out;
+}
+
+@keyframes burgundyNeonPulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 
 
 
