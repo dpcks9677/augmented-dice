@@ -11,7 +11,7 @@ async function loadManifest() {
 }
 
 function canCache(pathname, response) {
-  if (!response.ok || response.type === 'opaque') return false;
+  if (response.status !== 200 || response.type === 'opaque') return false;
   const contentType = response.headers.get('content-type') || '';
   if (contentType.includes('text/html')) return false;
   if (pathname.endsWith('.json')) return contentType.includes('application/json');
@@ -65,6 +65,7 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  if (request.headers.has('range')) return;
 
   if (request.mode === 'navigate') {
     event.respondWith(navigate(request));

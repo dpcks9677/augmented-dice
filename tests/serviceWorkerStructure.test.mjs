@@ -9,7 +9,9 @@ const firebase = JSON.parse(fs.readFileSync(new URL('../firebase.json', import.m
 assert.match(serviceWorker, /request\.method !== 'GET'/);
 assert.match(serviceWorker, /url\.origin !== self\.location\.origin/);
 assert.match(serviceWorker, /contentType\.includes\('text\/html'\)/);
+assert.match(serviceWorker, /response\.status !== 200/);
 assert.match(serviceWorker, /request\.mode === 'navigate'/);
+assert.match(serviceWorker, /request\.headers\.has\('range'\)/);
 assert.match(serviceWorker, /CACHE_PREFIX/);
 assert.match(serviceWorker, /self\.skipWaiting\(\)/);
 assert.match(registration, /import\.meta\.env\.PROD/);

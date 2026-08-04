@@ -397,3 +397,9 @@
 - 원인: 새 Service Worker가 설치돼도 `skipWaiting()` 없이 대기하고, 기존 탭이 이전 워커를 계속 사용함.
 - 수정: 설치 완료 후 즉시 활성화하고, 이미 제어 중인 탭에서만 `controllerchange` 후 한 번 재로드하도록 변경함.
 - 검증: Service Worker 구조 테스트와 프로덕션 빌드 통과함.
+
+## 2026-08-04 오디오 Range 응답 캐시 실패
+
+- 증상: MP3·OGG·WAV 로드 시 `Cache.put ... bad status 206` 오류가 발생함.
+- 원인: 브라우저 오디오 Range 요청의 206 응답을 Service Worker가 캐시하려고 시도함.
+- 수정: Range 요청은 Service Worker 캐시를 우회하고, 캐시 가능 응답도 HTTP 200만 허용함.

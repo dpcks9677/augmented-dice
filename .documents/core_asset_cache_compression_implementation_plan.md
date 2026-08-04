@@ -273,3 +273,8 @@ Firefox를 포함한 재방문 브라우저에서 게임 진입 시간을 줄이
 - 설치 완료 후 `skipWaiting()`으로 새 워커를 즉시 활성화함.
 - 이미 기존 워커가 제어하던 탭은 `controllerchange`에서 한 번 재로드해 배포 수정이 즉시 반영되게 함.
 - 첫 방문 탭은 불필요한 재로드를 하지 않도록 기존 controller 존재 여부를 기준으로 분기함.
+
+## 2026-08-04 오디오 Range 요청 예외
+
+- 오디오의 HTTP Range(206 Partial Content) 요청은 Service Worker 캐시에서 제외함.
+- 캐시 저장은 상태 코드 200인 전체 응답만 허용해 `Cache.put` 실패를 방지함.
