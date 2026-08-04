@@ -2331,6 +2331,7 @@ function getSeededAugments(round, player) {
 
   // 해당 플레이어가 이미 획득하여 가지고 있는 증강은 다음 드래프트 생성 후보 풀에서 제거
   const ownedAugmentIds = getPlayerAugments(player);
+  pool = pool.filter(aug => aug.augmentId !== 'holdout' || scores[player]?.fullhouse === undefined);
   pool = pool.filter(aug => canAcquireAugment(ownedAugmentIds, aug.augmentId));
 
   if (isHotseat) {

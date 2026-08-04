@@ -68,6 +68,7 @@ function getDraftOptions(state, player) {
   const owned = new Set(getOwnedAugments(state, player));
   const candidates = Object.keys(augmentDefinitions).filter((augmentId) => (
     !UNAVAILABLE_AUGMENTS.has(augmentId)
+    && (augmentId !== "holdout" || state.scores?.[player]?.fullhouse === undefined)
     && canAcquireAugment(owned, augmentId)
     && (state.currentRound < 6 || !PHASE_ONE_ONLY.has(augmentId))
   ));

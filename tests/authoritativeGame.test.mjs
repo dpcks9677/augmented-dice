@@ -155,6 +155,14 @@ assert.equal(Object.values(randomBox.activeAugments[1]).includes("random-box"), 
 assert.equal(Object.values(randomBox.activeAugments[1]).includes(randomBox.randomBoxAward[1]), true);
 assert.equal(randomBox.draftSelections[1], 1);
 
+for (let seedIndex = 0; seedIndex < 64; seedIndex += 1) {
+  const holdoutBlocked = createAuthoritativeGame({ mode: "augmented", seed: `holdout-blocked-${seedIndex}` });
+  holdoutBlocked.currentRound = 9;
+  holdoutBlocked.scores[1].fullhouse = { score: 25, bonus: 0, bonusDetails: [] };
+  beginTurn(holdoutBlocked);
+  assert.equal(holdoutBlocked.draftOptions.includes("holdout"), false);
+}
+
 const alchemy = createAuthoritativeGame({ mode: "normal", seed: "alchemy" });
 alchemy.activeAugments[1].eh19 = "dice-alchemy";
 rollDice(alchemy, 1, { randomInt: sequence(0, 1, 2, 3, 4) });
