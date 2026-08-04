@@ -17,7 +17,7 @@ import { getAugmentCategoryEnName, initGameMenu } from "./gameMenu.js";
 import { els, handleAppScaling, initMainSkeletons, isLocalhost, removeMainSkeletons } from "./appShell.js";
 import { escapeHtml } from "./htmlUtils.js";
 import { cacheProfileData, deleteCachedProfileData, isProfileEditing, refreshUserHistory, renderHistoryAvatar, resetProfileModal, updateCachedProfileData } from "./profileController.js";
-import { addGameLog, getPlayerLabel, initGameLog, renderGameLogHistory, showMatchInfo } from "./gameLog.js";
+import { addGameLog, getCategoryDisplayName, getPlayerLabel, initGameLog, renderGameLogHistory, showAugment, showMatchInfo } from "./gameLog.js";
 import { resumeLandingDice, silenceLandingDice } from "./landingDice.js";
 import { soundEngine } from "./SoundEngine.js";
 import { canAcquireAugment } from "./augmentRules.js";
@@ -161,6 +161,21 @@ function generateLocalProphetNumbers(player) {
     [list[index], list[target]] = [list[target], list[index]];
   }
   return list.slice(0, 3);
+}
+
+function resolveLocalRandomBoxes() {
+  for (let player = 1; player <= getActivePlayerCount(); player++) {
+    if (activeAugments[player]?.eh15 !== 'random-box' || randomBoxAward[player]) continue;
+    delete activeAugments[player].eh15;
+    const owned = getPlayerAugments(player);
+    const candidates = augmentData.filter((candidate) => candidate.isAvailable !== false
+      && candidate.type !== 'Quest'
+      && candidate.augmentId !== 'random-box'
+      && canAcquireAugment(owned, candidate.augmentId));
+    const awarded = candidates[Math.floor(Math.random() * candidates.length)]?.augmentId || null;
+    randomBoxAward[player] = awarded;
+    if (awarded) window.applyAugment(player, awarded, true);
+  }
 }
 let momentumState = { 1: 'ready', 2: 'ready', 3: 'ready', 4: 'ready' };
 let momentumGainedScore = { 1: 0, 2: 0, 3: 0, 4: 0 };
@@ -2786,6 +2801,7 @@ function startTurn() {
   }
 
   window.proceedTurnStart = function () {
+    resolveLocalRandomBoxes();
     startTurnTimer();
 
     // 이전 턴의 fade-out 효과 클래스 잔재 정리
@@ -4872,13 +4888,19 @@ window.updateAugmentSidebar = function (player) {
           : augmentId === 'gambit' ? (authoritativeGameState?.gambitState?.[targetPlayer] ?? gambitState[targetPlayer]) !== 'ready'
             : augmentId === 'double-down' ? (authoritativeGameState?.doubleDownState?.[targetPlayer] ?? doubleDownState[targetPlayer]) !== 'ready'
               : (authoritativeGameState?.diceAlchemyUsed?.[targetPlayer] ?? diceAlchemyUsed[targetPlayer]);
-        extraHTML = `<button class="btn-new-augment-action" data-augment-action="${augmentId}" ${used ? 'disabled' : ''}>${used ? '사용 완료' : labels[augmentId]}</button>`;
+        const buttonClasses = `btn-table-flip btn-new-augment-action ${used ? 'used' : ''}`;
+        extraHTML = `<button class="${buttonClasses}" data-augment-action="${augmentId}" ${used ? 'disabled' : ''}>${used ? '사용 완료' : labels[augmentId]}</button>`;
       } else if (augmentId === 'piggy-bank') {
         const piggy = authoritativeGameState?.piggyBankState?.[targetPlayer] || piggyBankState[targetPlayer] || { balance: 0, payouts: 0 };
         extraHTML = `<div style="margin-top:auto;font-weight:bold;">저금 ${piggy.balance}/12 · 인출 ${piggy.payouts}회</div>`;
       } else if (augmentId === 'duel') {
         const duel = authoritativeGameState?.duelState?.[targetPlayer] || duelState[targetPlayer];
-        extraHTML = `<div style="margin-top:auto;font-weight:bold;">${duel?.resolved ? '결투 판정 완료' : '결투 판정 대기 중'}</div>`;
+        const duelStatus = !duel?.resolved
+          ? '결투 중!'
+          : duel.ownerScore > duel.opponentScore
+            ? '결투 승리!'
+            : duel.ownerScore < duel.opponentScore ? '결투 패배' : '결투 무승부';
+        extraHTML = `<div style="margin-top:auto;font-weight:bold;">${duelStatus}</div>`;
       } else if (augmentId === 'random-box') {
         const awarded = authoritativeGameState?.randomBoxAward?.[targetPlayer] || randomBoxAward[targetPlayer];
         const awardedName = augmentDefinitions[awarded]?.name || '추첨 대기';
@@ -5092,14 +5114,7 @@ window.applyAugment = function (player, augmentId, isRemote = false) {
 
   if (augmentId === 'random-box') {
     upperBonusThreshold[player] = Math.min(upperBonusThreshold[player] || 63, 58);
-    const owned = getPlayerAugments(player);
-    const candidates = augmentData.filter((candidate) => candidate.isAvailable !== false
-      && candidate.type !== 'Quest'
-      && candidate.augmentId !== 'random-box'
-      && canAcquireAugment(owned, candidate.augmentId));
-    const awarded = candidates[Math.floor(Math.random() * candidates.length)]?.augmentId || null;
-    randomBoxAward[player] = awarded;
-    if (awarded) window.applyAugment(player, awarded, true);
+    randomBoxAward[player] = null;
   }
 
   if (augmentId === 'prophet') {

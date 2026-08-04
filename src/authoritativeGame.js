@@ -355,6 +355,17 @@ function applyAugment(state, player, augmentId) {
   }
   if (augmentId === "random-box") {
     state.upperBonusThreshold[player] = Math.min(state.upperBonusThreshold[player], 58);
+    state.randomBoxAward[player] = null;
+  }
+  if (augmentId === "prophet") {
+    state.prophetState[player] = { remaining: 3, numbers: [], successes: 0, turnKey: null };
+  }
+}
+
+function resolveRandomBoxes(state) {
+  for (let player = 1; player <= state.playerCount; player += 1) {
+    if (state.activeAugments[player]?.eh15 !== "random-box" || state.randomBoxAward[player]) continue;
+    delete state.activeAugments[player].eh15;
     const owned = new Set(getOwnedAugments(state, player));
     const candidates = Object.keys(augmentDefinitions).filter((candidateId) => {
       const candidate = augmentDefinitions[candidateId];
@@ -366,9 +377,6 @@ function applyAugment(state, player, augmentId) {
     const awarded = seededShuffle(candidates, `${state.seed}_RANDOM_BOX_R${state.currentRound}_P${player}`)[0] || null;
     state.randomBoxAward[player] = awarded;
     if (awarded) applyAugment(state, player, awarded);
-  }
-  if (augmentId === "prophet") {
-    state.prophetState[player] = { remaining: 3, numbers: [], successes: 0, turnKey: null };
   }
 }
 
@@ -558,6 +566,7 @@ export function selectAugment(state, player, augmentId) {
     state.draftOptions = getDraftOptions(state, nextDraftPlayer);
     state.turnTimeRemaining = 30;
   } else {
+    resolveRandomBoxes(state);
     setDraftOrActionPhase(state);
   }
   state.revision += 1;

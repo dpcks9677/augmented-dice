@@ -34,7 +34,7 @@ const DEFAULT_CATEGORY_NAMES = {
   choice: 'Choice', '4oak': '4 of a Kind', fullhouse: 'Full House', 's-straight': 'S. Straight', 'l-straight': 'L. Straight', yacht: 'Yacht'
 };
 
-function getCategoryDisplayName(catId, player = 1) {
+export function getCategoryDisplayName(catId, player = 1) {
   const pMuts = augmentsProvider()[player] || {};
   const augmentId = pMuts[catId];
   if (augmentId && augmentDefinitions[augmentId]) {
@@ -170,7 +170,7 @@ export function renderGameLogHistory(history) {
   }
 }
 
-function showAugment() {
+export function showAugment() {
   if (els.augmentSection) {
     els.augmentSection.classList.remove('hidden');
     els.augmentSection.style.display = 'flex';

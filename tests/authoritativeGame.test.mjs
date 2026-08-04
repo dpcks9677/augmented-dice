@@ -146,8 +146,13 @@ randomBox.draftPlayer = 1;
 randomBox.draftOptions = ["random-box"];
 selectAugment(randomBox, 1, "random-box");
 assert.equal(randomBox.upperBonusThreshold[1], 58);
+assert.equal(randomBox.activeAugments[1].eh15, "random-box");
+assert.equal(randomBox.randomBoxAward[1], null);
+selectAugment(randomBox, 2, randomBox.draftOptions[0]);
 assert.ok(randomBox.randomBoxAward[1]);
 assert.notEqual(randomBox.randomBoxAward[1], "random-box");
+assert.equal(Object.values(randomBox.activeAugments[1]).includes("random-box"), false);
+assert.equal(Object.values(randomBox.activeAugments[1]).includes(randomBox.randomBoxAward[1]), true);
 assert.equal(randomBox.draftSelections[1], 1);
 
 const alchemy = createAuthoritativeGame({ mode: "normal", seed: "alchemy" });

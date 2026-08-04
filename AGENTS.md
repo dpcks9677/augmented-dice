@@ -30,7 +30,6 @@ ObsidianMind replaces `handoff.md` as the current-session handoff source.
 - Before implementing a feature, write or update the implementation plan and explain the mechanism.
 - Before broad or structural changes, pause and ask for approval.
 - Follow the applicable specialized agent skill under `.agents/skills/`.
-- Check `.agents/ROADMAP.md` before milestone or feature work and update its status after completion.
 - Do not commit, push, or deploy unless explicitly requested.
 - Before any requested commit, inspect the complete diff and status, then write a concise Korean commit message.
 

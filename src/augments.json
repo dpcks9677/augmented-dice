@@ -436,7 +436,7 @@
     "name": "랜덤 박스",
     "en-name": "Random Box",
     "type": "Enhancement",
-    "description": "획득 즉시 퀘스트를 제외한 무작위 증강 하나를 추가로 획득합니다.<br><br>동시에 상단 보너스 획득 조건을 58점으로 낮춥니다.",
+    "description": "두 플레이어의 증강 선택이 끝나면 이 카드를 퀘스트를 제외한 무작위 증강 하나로 교체합니다.<br><br>동시에 상단 보너스 획득 조건을 58점으로 낮춥니다.",
     "augmentId": "random-box"
   },
   {

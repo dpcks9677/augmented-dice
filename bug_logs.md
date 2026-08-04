@@ -382,3 +382,11 @@
 - 원인: `YachtTrayModel.createMesh()`가 텍스처 로딩 완료 전에 `onLoad`를 호출해 게임 초기화가 먼저 완료됨.
 - 수정: 텍스처·재질 그룹 적용을 `onLoad`와 `isReady` 설정 전에 완료하도록 로딩 순서를 변경함.
 - 검증: `npm run build`와 실제 초기 진입 화면 확인 필요함.
+
+## 2026-08-04 배포본 증강 핫시트 `showAugment` 참조 오류
+
+- 증상: 배포 서버에서 증강 핫시트 진입 시 `Uncaught ReferenceError: showAugment is not defined`가 발생함.
+- 원인: `showAugment()`가 `gameLog.js`로 분리됐지만 `gameRuntime.js`가 이를 명시적으로 import하지 않은 배포 번들을 사용함.
+- 수정: `gameLog.js`에서 `showAugment`를 export하고 `gameRuntime.js`에서 import하도록 연결함.
+- 회귀 방지: `mainStructure.test.mjs`에서 해당 export/import 연결을 검사함.
+- 검증: 메인 구조·게임 권위·서버 권위 테스트와 Vite 프로덕션 빌드를 통과함.
