@@ -343,6 +343,73 @@ export function getVariantSvg(id) {
         <circle cx="2.5" cy="2.5" r="0.6" fill="#fff"/>
       </g>
     `;
+  } else if (mappedId === 'duel') {
+    inner = `
+      <g fill="none" stroke="#222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4.5 3.5 19 18 M4.5 3.5 3 2 M4.5 3.5 3 5 M9.5 8.5 6 12 M19 18 21 20 M16 15 19 15"/>
+        <path d="M19.5 3.5 5 18 M19.5 3.5 21 2 M19.5 3.5 21 5 M14.5 8.5 18 12 M5 18 3 20 M8 15 5 15"/>
+      </g>
+    `;
+  } else if (mappedId === 'coin-toss') {
+    inner = `
+      <g fill="none" stroke="#222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="6.5" cy="6.5" r="3.5"/>
+        <circle cx="12" cy="12" r="3.5"/>
+        <circle cx="17.5" cy="17.5" r="3.5"/>
+        <path d="M5 6.5h3 M10.5 12h3 M16 17.5h3"/>
+      </g>
+    `;
+  } else if (mappedId === 'random-box') {
+    inner = `
+      <g fill="none" stroke="#222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 9 12 4l8 5v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/>
+        <path d="M4 9h16 M9 10a3 3 0 1 1 4.8 2.4c-1.4 1-1.8 1.4-1.8 2.6"/>
+      </g>
+      <circle cx="12" cy="18" r="0.8" fill="#222"/>
+    `;
+  } else if (mappedId === 'prophet') {
+    inner = `
+      <g fill="none" stroke="#222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12s3.4-5 9-5 9 5 9 5-3.4 5-9 5-9-5-9-5Z"/>
+        <circle cx="12" cy="12" r="2.5"/>
+        <path d="M12 3v2 M5.5 5.5 7 7 M18.5 5.5 17 7"/>
+      </g>
+      <circle cx="12" cy="12" r="1" fill="#222"/>
+    `;
+  } else if (mappedId === 'gambit') {
+    inner = `
+      <g fill="none" stroke="#222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="5.5" r="2.5"/>
+        <path d="M10 8.5h4l-.7 6h2.2v2H8.5v-2h2.2Z M7 19h10 M5 21h14"/>
+      </g>
+    `;
+  } else if (mappedId === 'double-down') {
+    inner = `
+      <g fill="none" stroke="#222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 3v11m0 0-3-3m3 3 3-3 M16 7v11m0 0-3-3m3 3 3-3"/>
+      </g>
+    `;
+  } else if (mappedId === 'piggy-bank') {
+    inner = `
+      <g fill="none" stroke="#222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 14a6 5 0 0 1 6-5h4a5 5 0 0 1 5 5v2a3 3 0 0 1-3 3H8a4 4 0 0 1-2-5Z"/>
+        <circle cx="6" cy="14" r="2"/>
+        <path d="M8 19v2 M16 19v2 M18 9l2-2 1 1 M4 12l-2-2"/>
+      </g>
+      <circle cx="9" cy="11" r="0.8" fill="#222"/>
+      <circle cx="18" cy="5" r="2.5" fill="none" stroke="#222" stroke-width="1.8"/>
+      <path d="M17 5h2" fill="none" stroke="#222" stroke-width="1.5" stroke-linecap="round"/>
+    `;
+  } else if (mappedId === 'dice-alchemy') {
+    inner = `
+      <g fill="none" stroke="#222" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 3h6 M10 3v5l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/>
+        <path d="M7 15h10"/>
+      </g>
+      <circle cx="9" cy="17" r="0.9" fill="#222"/>
+      <circle cx="12" cy="15.5" r="0.9" fill="#222"/>
+      <circle cx="15" cy="17" r="0.9" fill="#222"/>
+    `;
   } else if (mappedId === 'nozdormu') {
     return `<svg viewBox="0 0 260 225" width="1.2em" height="1.2em" style="vertical-align: text-bottom; margin-right: 6px;">
       <defs>
