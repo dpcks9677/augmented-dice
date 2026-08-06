@@ -326,6 +326,7 @@ const btnFlipCoinTails = document.getElementById('btn-flip-coin-tails');
 const coinSimulationActions = document.getElementById('coin-simulation-actions');
 const modelDefinitions = [
   { id: 'normal', name: '일반 6면체', type: 'normal' },
+  { id: 'metal', name: '메탈 주사위', type: 'metal' },
   { id: 'golden', name: '황금 주사위', type: 'golden' },
   { id: 'sevens', name: '세븐스 다이스', type: 'sevens' },
   { id: 'couple', name: '커플 주사위', type: 'couple' },

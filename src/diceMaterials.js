@@ -8,6 +8,7 @@ export function getMaterialForDie(config) {
   let dotColor = '#1a1a1a';
   
   if (type === 'golden') { bgColor = '#D4AF37'; }
+  else if (type === 'metal') { bgColor = '#b0b5bc'; dotColor = '#1a202c'; }
   else if (type === 'sevens') { bgColor = '#40E0D0'; }
   else if (type === 'couple') { bgColor = '#ff2c97'; }
   else if (type === 'promotion') { bgColor = '#666A73'; dotColor = '#ffffff'; }
@@ -91,8 +92,8 @@ export function getMaterialForDie(config) {
     materials.push(new THREE.MeshStandardMaterial({ 
       map: tex,
       // 일반 흰 주사위는 무광으로 처리해 강한 하이라이트가 눈을 덮지 않게 한다.
-      roughness: type === 'golden' ? 0.05 : type === 'normal' ? 0.42 : 0.15,
-      metalness: type === 'golden' ? 0.8 : type === 'normal' ? 0 : 0.1
+      roughness: type === 'golden' ? 0.05 : type === 'metal' ? 0.18 : type === 'normal' ? 0.42 : 0.15,
+      metalness: type === 'golden' ? 0.8 : type === 'metal' ? 0.95 : type === 'normal' ? 0 : 0.1
     }));
   }
   
